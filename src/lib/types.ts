@@ -110,6 +110,8 @@ export type Inspo = {
   format: string | null;
   likes: number | null;
   comments: number | null;
+  /** When it was posted on Instagram (ISO). */
+  postedAt?: string | null;
   images: { url: string; w?: number; h?: number }[];
   status: InspoStatus;
   tags: string[];

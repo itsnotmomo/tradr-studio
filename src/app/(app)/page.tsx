@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { DndContext, DragOverlay, MouseSensor, TouchSensor, useDroppable, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
-import { PostCard, firstSlide } from "@/components/post-card";
+import { DndContext, DragOverlay, MouseSensor, TouchSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
+import { PostCard, PostCardView, canMove, firstSlide } from "@/components/post-card";
 import { PublishControls } from "@/components/publish";
 import { Icon } from "@/components/icons";
 import { LangDots, Spinner, StatusPill } from "@/components/ui";
@@ -22,6 +23,19 @@ type Filter = Lang | "all";
 const DOW = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const byTime = (a: Post, b: Post) => (a.slot === b.slot ? 0 : a.slot === "morning" ? -1 : 1) || a.createdAt - b.createdAt;
 
+
+/** md breakpoint, so each post is rendered (and registered as draggable) exactly once. */
+function useDesktop() {
+  return useSyncExternalStore(
+    (cb) => {
+      const m = matchMedia("(min-width: 768px)");
+      m.addEventListener("change", cb);
+      return () => m.removeEventListener("change", cb);
+    },
+    () => matchMedia("(min-width: 768px)").matches,
+    () => true,
+  );
+}
 
 function usePersisted<T>(key: string, initial: T) {
   const [v, setV] = useState<T>(initial);
@@ -140,7 +154,13 @@ export default function PlannerPage() {
           {view !== "day" && <IdeasPanel ideas={ideas} filter={filter} onNew={() => newPost(null)} />}
         </div>
       </div>
-      <DragOverlay dropAnimation={null}>{dragged && <div className="w-[150px] rotate-2 shadow-xl"><PostCard post={dragged} lang={filter} dragged /></div>}</DragOverlay>
+      {/* Portalled to <body> so no ancestor can offset the preview; it follows the pointer. */}
+      {typeof document !== "undefined" && createPortal(
+        <DragOverlay dropAnimation={null} zIndex={60}>
+          {dragged && <div className="w-[150px] rotate-2 shadow-xl pointer-events-none"><PostCardView post={dragged} lang={filter} /></div>}
+        </DragOverlay>,
+        document.body,
+      )}
     </DndContext>
   );
 }
@@ -219,6 +239,7 @@ const inSlot = (list: Post[], slot: Slot) => list.filter((p) => p.slot === slot)
 function Week({ cursor, byDay, filter, onNew, settings }: { cursor: Date; byDay: Map<string, Post[]>; filter: Filter; onNew: (d: string, s?: Slot) => void; settings: Settings }) {
   const s = weekStart(cursor), t = ymd(new Date());
   const only = filter === "all" ? undefined : [filter];
+  const desktop = useDesktop();
   return (
     <div className="mt-3">
       <div className="grid grid-cols-1 md:grid-cols-7 gap-2">
@@ -242,10 +263,9 @@ function Week({ cursor, byDay, filter, onNew, settings }: { cursor: Date; byDay:
                         {!here.length && <button className="btn small ghost !min-h-[22px] !px-1 md:opacity-0 group-hover:opacity-100 focus:opacity-100" onClick={() => onNew(k, slot)} aria-label={`New post, ${name} ${k}`}><Icon name="plus" size={14} /></button>}
                       </div>
                       <div className="text-[10px] muted -mt-1 truncate">{slotTimes(settings, slot, only)}</div>
-                      <div className="hidden md:flex flex-col gap-1.5">{here.map((p) => <PostCard key={p.id} post={p} lang={filter} />)}</div>
-                      <div className="md:hidden flex flex-col gap-1.5">
-                        {here.map((p) => <PostCard key={p.id} post={p} lang={filter} variant="row" />)}
-                        {!here.length && <span className="text-[11.5px] muted px-0.5 pb-0.5">Free</span>}
+                      <div className="flex flex-col gap-1.5">
+                        {here.map((p) => <PostCard key={p.id} post={p} lang={filter} variant={desktop ? "card" : "row"} />)}
+                        {!here.length && <span className="md:hidden text-[11.5px] muted px-0.5 pb-0.5">Free</span>}
                       </div>
                     </SlotDrop>
                   );
@@ -268,6 +288,7 @@ function Month({ cursor, byDay, filter, onNew, onPick }: { cursor: Date; byDay: 
   const cells: Date[] = [];
   for (let d = start; d <= end; d = addDays(d, 1)) cells.push(d);
   const ks = filter === "all" ? LK : [filter];
+  const desktop = useDesktop();
   return (
     <div className="mt-3">
       <div className="grid grid-cols-7 gap-1 md:gap-1.5 mb-1.5 text-[11px] md:text-[12px] font-semibold muted px-1">{DOW.map((x) => <span key={x}>{x}</span>)}</div>
@@ -278,7 +299,7 @@ function Month({ cursor, byDay, filter, onNew, onPick }: { cursor: Date; byDay: 
             <div key={k} className="rounded-lg border p-1 md:p-1.5 min-h-[64px] md:min-h-[118px] flex flex-col gap-1 min-w-0"
               style={{ background: out ? "transparent" : "var(--panel)", borderColor: k === t ? "var(--ink)" : "var(--line)", borderStyle: out ? "dashed" : "solid" }}>
               <button className="text-[12px] font-semibold px-1 rounded self-start" style={k === t ? { background: "var(--accent)", color: "var(--accent-ink)" } : { color: "var(--muted)" }} onClick={() => onPick(k)}>{d.getDate()}</button>
-              <div className="hidden md:flex flex-col gap-1">
+              {desktop && <div className="flex flex-col gap-1">
                 {SLOTS.map(({ k: slot }) => {
                   const here = inSlot(list, slot);
                   return (
@@ -292,8 +313,8 @@ function Month({ cursor, byDay, filter, onNew, onPick }: { cursor: Date; byDay: 
                     </SlotDrop>
                   );
                 })}
-              </div>
-              <SlotDrop date={k} className="md:hidden flex-1">
+              </div>}
+              {!desktop && <SlotDrop date={k} className="flex-1">
                 <button className="w-full h-full flex flex-col gap-[3px] px-0.5 text-left" onClick={() => onPick(k)} aria-label={`${list.length} posts`}>
                   {SLOTS.map(({ k: slot }) => (
                     <span key={slot} className="flex gap-[3px] items-center h-[7px]">
@@ -301,7 +322,7 @@ function Month({ cursor, byDay, filter, onNew, onPick }: { cursor: Date; byDay: 
                     </span>
                   ))}
                 </button>
-              </SlotDrop>
+              </SlotDrop>}
             </div>
           );
         })}
@@ -330,11 +351,7 @@ function Day({ date, posts, filter, data, onNew }: { date: string; posts: Post[]
             {here.map((p) => (
               <section key={p.id} className="card p-3 md:p-4">
                 <header className="flex items-center gap-3 mb-3">
-                  <PostCardHandle post={p} />
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-[15px] truncate">{p.title || "Untitled"}</h3>
-                    <LangDots post={p} />
-                  </div>
+                  <DayHandle post={p} />
                   <Link href={`/posts/${p.id}`} className="btn">Edit</Link>
                 </header>
                 <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
@@ -349,10 +366,22 @@ function Day({ date, posts, filter, data, onNew }: { date: string; posts: Post[]
   );
 }
 
-/** First-slide thumbnail for the day view header. */
-function PostCardHandle({ post }: { post: Post }) {
+/** Day view header: thumbnail + title. Drag it to another slot, day or Ideas. */
+function DayHandle({ post }: { post: Post }) {
+  const movable = canMove(post);
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: post.id, disabled: !movable });
   const s = firstSlide(post);
-  return <div className="thumb w-10 aspect-[4/5] rounded-md flex-none" style={s ? { backgroundImage: `url("${s.url}")` } : undefined} />;
+  return (
+    <div ref={setNodeRef} {...listeners} {...attributes} className={`flex items-center gap-3 flex-1 min-w-0 ${movable ? "cursor-grab" : ""}`}
+      style={{ opacity: isDragging ? 0.35 : 1, WebkitTouchCallout: "none", userSelect: "none", touchAction: "manipulation" }}
+      title={movable ? "Drag to another slot or day" : undefined}>
+      <div className="thumb w-10 aspect-[4/5] rounded-md flex-none" style={s ? { backgroundImage: `url("${s.url}")` } : undefined} />
+      <div className="flex-1 min-w-0">
+        <h3 className="font-bold text-[15px] truncate">{post.title || "Untitled"}</h3>
+        <LangDots post={post} />
+      </div>
+    </div>
+  );
 }
 
 function DayLang({ post, k, data }: { post: Post; k: Lang; data: AppState }) {

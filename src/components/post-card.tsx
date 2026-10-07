@@ -15,14 +15,24 @@ export function firstSlide(p: Post, prefer?: Lang) {
 
 export const canMove = (p: Post) => !LK.some((k) => ["posted", "publishing"].includes(p.variants[k].state));
 
+type Variant = "card" | "chip" | "row";
+type DragProps = { ref?: (el: HTMLElement | null) => void; dragging?: boolean; movable?: boolean } & Record<string, unknown>;
+
 /** Planner card. Drag to move (long-press on touch), tap to open. */
-export function PostCard({ post, lang, variant = "card", dragged }: { post: Post; lang: Lang | "all"; variant?: "card" | "chip" | "row"; dragged?: boolean }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: post.id, disabled: !canMove(post) });
+export function PostCard({ post, lang, variant = "card" }: { post: Post; lang: Lang | "all"; variant?: Variant }) {
+  const movable = canMove(post);
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: post.id, disabled: !movable });
+  return <PostCardView post={post} lang={lang} variant={variant} drag={{ ref: setNodeRef, dragging: isDragging, movable, ...listeners, ...attributes }} />;
+}
+
+/** The card itself, without drag wiring (also used as the floating drag preview). */
+export function PostCardView({ post, lang, variant = "card", drag }: { post: Post; lang: Lang | "all"; variant?: Variant; drag?: DragProps }) {
   const langs = lang === "all" ? LK : [lang];
   const slide = firstSlide(post, lang === "all" ? "en" : lang);
+  const { ref, dragging, movable, ...handlers } = drag || {};
   // No iOS link preview on long press: that gesture starts a drag here.
-  const style = { opacity: isDragging && !dragged ? 0.35 : 1, WebkitTouchCallout: "none" as const, WebkitUserSelect: "none" as const, userSelect: "none" as const };
-  const common = { ref: setNodeRef, ...listeners, ...attributes, style, href: `/posts/${post.id}${lang !== "all" ? `?lang=${lang}` : ""}` };
+  const style = { opacity: dragging ? 0.35 : 1, WebkitTouchCallout: "none" as const, WebkitUserSelect: "none" as const, userSelect: "none" as const, touchAction: movable ? ("manipulation" as const) : undefined };
+  const common = { ref, ...handlers, href: `/posts/${post.id}${lang !== "all" ? `?lang=${lang}` : ""}` };
 
   if (variant === "chip") {
     return (

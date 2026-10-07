@@ -21,7 +21,7 @@ const STATUSES: [InspoStatus, string][] = [["todo", "To do"], ["skip", "No"], ["
 const STATUS_COLOR: Record<InspoStatus, string> = { todo: "var(--s-scheduled)", skip: "var(--s-draft)", done: "var(--s-posted)" };
 const PLAN_LANGS: Lang[] = ["en", "it", "es"];
 type Tab = "library" | "plan" | "notes";
-type SortKey = "new" | "likes" | "comments";
+type SortKey = "viral" | "new" | "comments";
 
 async function uploadScreens(files: File[]) {
   const out: Inspo["images"] = [];
@@ -100,7 +100,7 @@ function Library({ items, notes, plansFor, onOpen, setStatus }: {
   const [status, setStatusFilter] = useState<InspoStatus | "all">("todo");
   const [tag, setTag] = useState<string | null>(null);
   const [q, setQ] = useState("");
-  const [sort, setSort] = useState<SortKey>("new");
+  const [sort, setSort] = useState<SortKey>("viral");
 
   const add = useCallback(async (files: File[]) => {
     if (!url.trim() && !files.length) return;
@@ -151,8 +151,12 @@ function Library({ items, notes, plansFor, onOpen, setStatus }: {
       .filter((i) => status === "all" || i.status === status)
       .filter((i) => !tag || i.tags.includes(tag))
       .filter((i) => !s || [i.description, i.username, i.notes, i.format, ...i.tags].join(" ").toLowerCase().includes(s));
-    const v = (i: Inspo) => (sort === "likes" ? i.likes ?? -1 : sort === "comments" ? i.comments ?? -1 : i.createdAt);
-    return list.sort((a, b) => v(b) - v(a));
+    const posted = (i: Inspo) => (i.postedAt ? Date.parse(i.postedAt) : i.createdAt);
+    const cmp = (a: Inspo, b: Inspo) =>
+      sort === "viral" ? (b.likes ?? -1) - (a.likes ?? -1) || (b.comments ?? -1) - (a.comments ?? -1)
+      : sort === "comments" ? (b.comments ?? -1) - (a.comments ?? -1) || (b.likes ?? -1) - (a.likes ?? -1)
+      : posted(b) - posted(a);
+    return list.sort(cmp);
   }, [items, status, tag, q, sort]);
   const counts = useMemo(() => Object.fromEntries(STATUSES.map(([s]) => [s, (items || []).filter((i) => i.status === s).length])), [items]);
   const tagNotes = tag ? notes?.accounts.find((a) => a.tag === tag) : null;
@@ -189,8 +193,8 @@ function Library({ items, notes, plansFor, onOpen, setStatus }: {
           <input type="search" className="field !pl-8 !bg-[var(--panel)]" placeholder="Search descriptions, accounts, tags" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search" />
         </div>
         <select className="field !w-auto !bg-[var(--panel)]" value={sort} onChange={(e) => setSort(e.target.value as SortKey)} aria-label="Sort">
+          <option value="viral">Most viral</option>
           <option value="new">Newest</option>
-          <option value="likes">Most likes</option>
           <option value="comments">Most comments</option>
         </select>
       </div>
@@ -377,7 +381,8 @@ function Detail({ it, plans, onClose, setStatus }: { it: Inspo; plans: PlanItem[
             ))}
           </div>
           {(it.likes != null || it.comments != null) && (
-            <div className="flex gap-4 text-[13px]"><span>♥ <b>{n(it.likes)}</b> likes</span><span><b>{n(it.comments)}</b> comments</span></div>
+            <div className="flex gap-4 text-[13px]"><span>♥ <b>{n(it.likes)}</b> likes</span><span><b>{n(it.comments)}</b> comments</span>
+              {it.postedAt && <span className="muted">{new Date(it.postedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span>}</div>
           )}
           <div>
             <label className="label" htmlFor="i_desc">What it is</label>
