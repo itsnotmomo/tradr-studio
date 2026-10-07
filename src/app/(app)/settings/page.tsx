@@ -213,12 +213,12 @@ function General({ data }: { data: AppState }) {
     <section id="slots" className="card p-4 flex flex-col gap-3 scroll-mt-4">
       <div>
         <h2 className="font-bold text-[15px]">Posting slots</h2>
-        <p className="text-[12.5px] muted mt-0.5">Each day has a Morning and an Afternoon slot. A post goes in one slot, and each account publishes it at its own local time. Daylight saving is handled per zone.</p>
+        <p className="text-[12.5px] muted mt-0.5">Each day has a Morning and an Afternoon slot for posts, plus an optional Reel slot. Each account publishes at its own local time. Daylight saving is handled per zone.</p>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full text-[13px] min-w-[520px]">
+        <table className="w-full text-[13px] min-w-[620px]">
           <thead>
-            <tr className="text-left text-[12px] muted"><th className="font-medium pb-1.5">Account</th><th className="font-medium pb-1.5">Time zone</th><th className="font-medium pb-1.5">Morning</th><th className="font-medium pb-1.5">Afternoon</th></tr>
+            <tr className="text-left text-[12px] muted"><th className="font-medium pb-1.5">Account</th><th className="font-medium pb-1.5">Time zone</th><th className="font-medium pb-1.5">Morning</th><th className="font-medium pb-1.5">Afternoon</th><th className="font-medium pb-1.5">Reel</th></tr>
           </thead>
           <tbody>
             {ZONE_ORDER.map((k) => {
@@ -232,7 +232,7 @@ function General({ data }: { data: AppState }) {
                       {zones.map((z) => <option key={z} value={z}>{z}</option>)}
                     </select>
                   </td>
-                  {(["morning", "afternoon"] as const).map((slot) => (
+                  {(["morning", "afternoon", "reel"] as const).map((slot) => (
                     <td key={slot} className="py-2 pr-3">
                       <input type="time" className="field !min-h-[32px] !py-1 !w-[110px]" defaultValue={sc[slot]} aria-label={`${l.code} ${slot}`}
                         onBlur={(e) => e.target.value && e.target.value !== sc[slot] && save({ schedule: { [k]: { [slot]: e.target.value } } })} />

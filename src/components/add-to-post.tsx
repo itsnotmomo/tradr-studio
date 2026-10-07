@@ -31,7 +31,7 @@ export function AddToPost({ open, onClose, render, available, defaultLangs, targ
   const named = useNamed();
   const today = ymd(new Date());
   const upcoming = useMemo(
-    () => (data?.posts || []).filter((p) => !p.date || p.date >= today).filter((p) => LK.some((k) => !isLocked(p.variants[k])))
+    () => (data?.posts || []).filter((p) => p.kind !== "reel" && (!p.date || p.date >= today)).filter((p) => LK.some((k) => !isLocked(p.variants[k])))
       .sort((a, b) => (a.date || "9999").localeCompare(b.date || "9999") || a.slot.localeCompare(b.slot) * -1),
     [data?.posts, today],
   );

@@ -3,7 +3,7 @@ import { redis } from "./redis";
 import { listPosts } from "./store";
 import { getSettings } from "./settings";
 import { LANGS, LK } from "../langs";
-import { publishAt, slotName } from "../slots";
+import { publishAt, slotName, SLOT_ORDER } from "../slots";
 import { isDone } from "../status";
 import { addDays, fmtDate, parseYmd, utcToZoned, weekStart, ymd } from "../time";
 import type { Lang, Post, Settings } from "../types";
@@ -55,7 +55,7 @@ export async function runNotifications(now = Date.now()) {
     for (const k of LK) {
       const at = publishAt(s, k, p.date!, p.slot);
       const st = p.variants[k].status;
-      const local = s.schedule[k][p.slot];
+      const local = s.schedule[k][p.slot] + (p.kind === "reel" ? " · Reel" : "");
       // Slot reminder at the account's local slot time.
       if (s.notify.slots && now >= at && now < at + SLOT_WINDOW && st !== "posted") {
         const msg = st === "scheduled"
@@ -65,7 +65,7 @@ export async function runNotifications(now = Date.now()) {
       }
       // One follow-up if it's still not scheduled or posted 2 hours later.
       if (s.notify.missed && !isDone(st) && now >= at + MISSED_AFTER && now < at + MISSED_AFTER + MISSED_WINDOW) {
-        const msg = `Missed: ${code(k)} · ${name(p)} wasn't posted`;
+        const msg = `Missed: ${code(k)} · ${p.kind === "reel" ? "Reel · " : ""}${name(p)} wasn't posted`;
         if (await once(`missed:${p.id}:${k}:${at}`, 7 * 86400, () => sendNtfy("Tradr Studio", msg, postScreen(p, k)))) sent.push(msg);
       }
     }
@@ -86,9 +86,11 @@ export async function runNotifications(now = Date.now()) {
 export function weeklyMessage(_s: Settings, planned: Post[], todayYmd: string) {
   const start = weekStart(parseYmd(todayYmd));
   const days = [...Array(7)].map((_, i) => ymd(addDays(start, i)));
-  const week = planned.filter((p) => days.includes(p.date!)).sort((a, b) => a.date!.localeCompare(b.date!) || (a.slot === "morning" ? -1 : 1));
+  const week = planned.filter((p) => days.includes(p.date!)).sort((a, b) => a.date!.localeCompare(b.date!) || SLOT_ORDER[a.slot] - SLOT_ORDER[b.slot]);
   const notScheduled = week.filter((p) => LK.some((k) => !isDone(p.variants[k].status))).length;
-  const head = `Weekly batch: ${week.length} post${week.length === 1 ? "" : "s"} this week.${week.length ? ` ${notScheduled} not scheduled yet.` : ""}`;
+  const posts = week.filter((p) => p.kind !== "reel").length, reels = week.length - posts;
+  const count = `${posts} post${posts === 1 ? "" : "s"}${reels ? `, ${reels} reel${reels === 1 ? "" : "s"}` : ""}`;
+  const head = `Weekly batch: ${count} this week.${week.length ? ` ${notScheduled} not scheduled yet.` : ""}`;
   const lines = days
     .map((d) => [d, week.filter((p) => p.date === d)] as const)
     .filter(([, ps]) => ps.length)

@@ -8,7 +8,7 @@ import { preflight } from "@/lib/preflight";
 import { isLang, langInfo } from "@/lib/langs";
 import { freeSlot, slotFromTime } from "@/lib/slots";
 import { fmtDate, utcToZoned } from "@/lib/time";
-import type { Lang } from "@/lib/types";
+import type { Lang, Slot } from "@/lib/types";
 
 export const maxDuration = 300;
 
@@ -52,7 +52,7 @@ export const POST = route<Ctx>(async (req, { params }) => {
     if (!ks.length) throw new UserError("Nothing to post. Those versions are already posted or publishing.");
     check(ks);
     // A post sent straight from Ideas lands on today's nearest free slot.
-    let placeOn: { date: string; slot: "morning" | "afternoon" } | null = null;
+    let placeOn: { date: string; slot: Slot } | null = null;
     if (!cur.date) {
       const z = utcToZoned(now, s.timezone);
       const slot = freeSlot(await listPosts(), z.date, id, slotFromTime(z.time));

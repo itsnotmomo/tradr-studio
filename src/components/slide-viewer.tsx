@@ -10,7 +10,7 @@ import type { Lang, Post, Settings, Slide } from "@/lib/types";
 // full-screen lightbox (click / tap). It shows the exact stored slide files in posting order,
 // Tradr slide last, so the preview is what gets posted.
 
-type Deck = { slides: Slide[]; tradrId: string | null; title: string };
+type Deck = { slides: Slide[]; tradrId: string | null; title: string; video?: { url: string; w: number; h: number } | null; removed?: boolean };
 type Ctx = {
   hover: (el: HTMLElement, deck: Deck) => void;
   unhover: () => void;
@@ -21,6 +21,13 @@ export const useViewer = () => useContext(ViewerCtx);
 
 /** A language's full carousel, Tradr slide last. */
 export function deckFor(post: Post, k: Lang, s: Settings | undefined): Deck {
+  const title = `${post.title || "Untitled"} · ${langInfo(k).code}`;
+  if (post.kind === "reel") {
+    // Reels: the video (poster = cover or frame). After posting, only the picture is left.
+    const v = post.variants[k];
+    const pic = v.cover || v.frame;
+    return { slides: pic ? [pic] : [], tradrId: null, title: `${title} · Reel`, video: v.video ? { url: v.video.url, w: v.video.w, h: v.video.h } : null, removed: !!v.videoRemovedAt };
+  }
   const end = s?.langs[k].tradrSlide ?? null;
   return { slides: [...post.variants[k].slides, ...(end ? [end] : [])], tradrId: end?.id ?? null, title: `${post.title || "Untitled"} · ${langInfo(k).code}` };
 }
@@ -28,8 +35,9 @@ export function deckFor(post: Post, k: Lang, s: Settings | undefined): Deck {
 /** Planner language: the filtered one, or EN in "All" (another language only if EN has no slides yet). */
 export function previewLang(post: Post, lang: Lang | "all"): Lang {
   if (lang !== "all") return lang;
-  if (post.variants.en.slides.length) return "en";
-  return LK.find((k) => post.variants[k].slides.length) ?? "en";
+  const has = (k: Lang) => (post.kind === "reel" ? !!(post.variants[k].video || post.variants[k].cover || post.variants[k].frame) : !!post.variants[k].slides.length);
+  if (has("en")) return "en";
+  return LK.find(has) ?? "en";
 }
 
 const canHover = () => typeof window !== "undefined" && matchMedia("(hover: hover) and (pointer: fine)").matches;
@@ -40,12 +48,12 @@ export function usePreview(post: Post, lang: Lang | "all", start = 0) {
   const { data } = useAppState();
   const deck = () => deckFor(post, previewLang(post, lang), data?.settings);
   return {
-    onMouseEnter: (e: React.MouseEvent<HTMLElement>) => canHover() && deck().slides.length && v.hover(e.currentTarget, deck()),
+    onMouseEnter: (e: React.MouseEvent<HTMLElement>) => canHover() && deck().slides.length > 0 && v.hover(e.currentTarget, deck()),
     onMouseLeave: () => v.unhover(),
     onPointerDown: () => v.unhover(),
     onClick: (e: React.MouseEvent) => {
       const d = deck();
-      if (!d.slides.length) return;
+      if (!d.slides.length && !d.video) return;
       e.preventDefault();
       e.stopPropagation();
       v.unhover();
@@ -117,7 +125,8 @@ export function SlideViewerProvider({ children }: { children: ReactNode }) {
   );
 }
 
-const counter = (deck: Deck, i: number) => `${i + 1} / ${deck.slides.length}${deck.slides[i]?.id === deck.tradrId ? " · Tradr slide" : ""}`;
+const counter = (deck: Deck, i: number) =>
+  deck.video ? "Reel" : deck.removed ? "Video removed after posting" : `${i + 1} / ${deck.slides.length}${deck.slides[i]?.id === deck.tradrId ? " · Tradr slide" : ""}`;
 
 function Popover({ pop, onEnter, onLeave, step }: { pop: { deck: Deck; rect: DOMRect; i: number }; onEnter: () => void; onLeave: () => void; step: (d: number) => void }) {
   const s = pop.deck.slides[pop.i];
@@ -133,6 +142,7 @@ function Popover({ pop, onEnter, onLeave, step }: { pop: { deck: Deck; rect: DOM
       <div className="relative flex-1 min-h-0 flex items-center justify-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={s.url} alt={counter(pop.deck, pop.i)} className="max-w-full max-h-full object-contain rounded" />
+        {pop.deck.video && <span className="absolute inset-0 flex items-center justify-center pointer-events-none"><span className="rounded-full bg-black/60 text-white text-[13px] font-semibold px-3 py-1.5">▶ Click to play</span></span>}
         {pop.deck.slides.length > 1 && <>
           <button className="absolute left-1 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center" onClick={() => step(-1)} aria-label="Previous slide"><Icon name="left" size={16} /></button>
           <button className="absolute right-1 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center" onClick={() => step(1)} aria-label="Next slide"><Icon name="right" size={16} /></button>
@@ -145,6 +155,7 @@ function Popover({ pop, onEnter, onLeave, step }: { pop: { deck: Deck; rect: DOM
 
 function Lightbox({ box, step, close }: { box: { deck: Deck; i: number }; step: (d: number) => void; close: () => void }) {
   const s = box.deck.slides[box.i];
+  const video = box.deck.video;
   const startX = useRef<number | null>(null);
   // Warm the neighbours so stepping is instant.
   useEffect(() => {
@@ -159,7 +170,7 @@ function Lightbox({ box, step, close }: { box: { deck: Deck; i: number }; step: 
       onPointerUp={(e) => {
         const dx = startX.current === null ? 0 : e.clientX - startX.current;
         startX.current = null;
-        if (Math.abs(dx) > 50) step(dx < 0 ? 1 : -1);
+        if (Math.abs(dx) > 50 && !video) step(dx < 0 ? 1 : -1);
         else if (e.target === e.currentTarget || (e.target as HTMLElement).dataset.backdrop) close();
       }}>
       <div className="flex items-center gap-3 px-4 pt-[max(12px,env(safe-area-inset-top))] pb-2 text-white">
@@ -168,15 +179,17 @@ function Lightbox({ box, step, close }: { box: { deck: Deck; i: number }; step: 
         <button className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center" onClick={close} aria-label="Close"><Icon name="x" size={20} /></button>
       </div>
       <div className="relative flex-1 min-h-0 flex items-center justify-center px-2 pb-[max(16px,env(safe-area-inset-bottom))]" data-backdrop="1">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={s.url} alt={counter(box.deck, box.i)} className="max-w-full max-h-full object-contain select-none" draggable={false} />
-        {box.deck.slides.length > 1 && <>
+        {video
+          ? <video src={video.url} poster={s?.url} controls autoPlay playsInline className="max-w-full max-h-full" />
+          // eslint-disable-next-line @next/next/no-img-element
+          : <img src={s.url} alt={counter(box.deck, box.i)} className="max-w-full max-h-full object-contain select-none" draggable={false} />}
+        {!video && box.deck.slides.length > 1 && <>
           <button className="hidden md:flex absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 text-white items-center justify-center" onClick={() => step(-1)} aria-label="Previous slide"><Icon name="left" size={22} /></button>
           <button className="hidden md:flex absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 text-white items-center justify-center" onClick={() => step(1)} aria-label="Next slide"><Icon name="right" size={22} /></button>
         </>}
       </div>
       <div className="flex justify-center gap-1.5 pb-[max(14px,env(safe-area-inset-bottom))]">
-        {box.deck.slides.map((x, j) => <i key={x.id + j} className="w-1.5 h-1.5 rounded-full" style={{ background: j === box.i ? "#fff" : "rgba(255,255,255,.3)" }} />)}
+        {!video && box.deck.slides.map((x, j) => <i key={x.id + j} className="w-1.5 h-1.5 rounded-full" style={{ background: j === box.i ? "#fff" : "rgba(255,255,255,.3)" }} />)}
       </div>
     </div>
   );
@@ -195,7 +208,8 @@ export function PreviewImg({ post, lang, index, src, alt, className, style, hove
 /** The square thumbnail used in lists (Ideas, Batch): first slide, preview on hover, lightbox on click. */
 export function PreviewThumb({ post, lang, className }: { post: Post; lang: Lang | "all"; className?: string }) {
   const k = previewLang(post, lang);
-  const first = post.variants[k].slides[0];
+  const v = post.variants[k];
+  const first = post.kind === "reel" ? v.cover || v.frame : v.slides[0];
   const p = usePreview(post, lang);
   return <div {...(first ? p : {})} className={`thumb aspect-[4/5] rounded-md flex-none ${first ? "cursor-zoom-in" : ""} ${className || ""}`} style={first ? { backgroundImage: `url("${first.url}")` } : undefined} />;
 }

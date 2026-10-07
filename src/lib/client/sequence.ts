@@ -1,6 +1,7 @@
 "use client";
 
 import { isDone } from "../status";
+import { SLOT_ORDER } from "../slots";
 import { addDays, ymd } from "../time";
 import type { Lang, Post } from "../types";
 
@@ -11,7 +12,7 @@ export type Range = { from: string; to: string };
 export const defaultRange = (days = 7): Range => ({ from: ymd(new Date()), to: ymd(addDays(new Date(), days - 1)) });
 
 export const inRange = (p: Post, r: Range) => !!p.date && p.date >= r.from && p.date <= r.to;
-const bySlot = (a: Post, b: Post) => a.date!.localeCompare(b.date!) || (a.slot === b.slot ? a.createdAt - b.createdAt : a.slot === "morning" ? -1 : 1);
+const bySlot = (a: Post, b: Post) => a.date!.localeCompare(b.date!) || SLOT_ORDER[a.slot] - SLOT_ORDER[b.slot] || a.createdAt - b.createdAt;
 
 /** Every (post, account) in the range, in slot order. */
 export function sequence(posts: Post[], r: Range) {

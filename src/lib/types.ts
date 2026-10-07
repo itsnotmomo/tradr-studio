@@ -1,5 +1,7 @@
 export type Lang = "en" | "es" | "it";
-export type Slot = "morning" | "afternoon";
+export type Slot = "morning" | "afternoon" | "reel";
+export type PostKind = "post" | "reel";
+export type Video = { url: string; size: number; name: string; w: number; h: number; duration: number };
 
 export type Slide = { id: string; url: string; w: number; h: number };
 
@@ -35,6 +37,14 @@ export type Variant = {
   ready: boolean;
   /** Manual posting status (what's shown while auto-publishing is off). */
   status: PostStatus;
+  /** When it was last marked Posted by hand (drives the 48 h video cleanup). */
+  markedPostedAt?: number | null;
+  /** Reels only: the video, an optional cover, and a frame taken from the video for the planner. */
+  video?: Video | null;
+  cover?: Slide | null;
+  frame?: Slide | null;
+  /** Set when the video file was deleted after posting. */
+  videoRemovedAt?: number | null;
   /** Auto-publishing state (Meta API); unused while AUTO_PUBLISH is off. */
   state: VariantState;
   /** When the variant is queued to publish (ms). Resolved from the post's date + slot in this account's zone. */
@@ -62,6 +72,8 @@ export type Post = {
   /** YYYY-MM-DD (the same calendar day in each account's zone), or null for an idea. */
   date: string | null;
   slot: Slot;
+  /** A carousel post, or a reel (reels always use the "reel" slot). */
+  kind: PostKind;
   inspoId: string | null;
   createdAt: number;
   updatedAt: number;
@@ -75,7 +87,7 @@ export type LangSettings = {
   hashtags: string;
 };
 
-export type LangSchedule = { zone: string; morning: string; afternoon: string };
+export type LangSchedule = { zone: string; morning: string; afternoon: string; reel: string };
 
 export type NotifySettings = { weekly: boolean; slots: boolean; missed: boolean; weeklyTime: string };
 

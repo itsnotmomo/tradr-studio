@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { DndContext, DragOverlay, MouseSensor, TouchSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
-import { PostCard, PostCardView, canMove, firstSlide } from "@/components/post-card";
+import { PostCard, PostCardView, canMove, firstSlide, thumbOf } from "@/components/post-card";
 import { PublishControls } from "@/components/publish";
 import { StatusSetter } from "@/components/status";
 import { useNamed } from "@/components/name-prompt";
@@ -18,14 +18,14 @@ import { createPost, patchPost, useAppState, type AppState } from "@/lib/client/
 import { buildCaption } from "@/lib/caption";
 import { STATUS_LABEL, statusOf } from "@/lib/status";
 import { LANGS, LK } from "@/lib/langs";
-import { SLOTS, slotName, slotTaken, slotTimes } from "@/lib/slots";
+import { ALL_SLOTS, SLOT_ORDER, SLOTS, slotName, slotTaken, slotTimes } from "@/lib/slots";
 import { addDays, fmtDate, parseYmd, weekStart, ymd } from "@/lib/time";
 import type { DisplayStatus, Lang, Post, Settings, Slot } from "@/lib/types";
 
 type View = "day" | "week" | "month";
 type Filter = Lang | "all";
 const DOW = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const byTime = (a: Post, b: Post) => (a.slot === b.slot ? 0 : a.slot === "morning" ? -1 : 1) || a.createdAt - b.createdAt;
+const byTime = (a: Post, b: Post) => SLOT_ORDER[a.slot] - SLOT_ORDER[b.slot] || a.createdAt - b.createdAt;
 
 
 /** md breakpoint, so each post is rendered (and registered as draggable) exactly once. */
@@ -99,7 +99,8 @@ export default function PlannerPage() {
   const newPost = async (date: string | null, slot?: Slot) => {
     try {
       // Anything on the planner needs a name; Ideas can stay untitled.
-      const p = await named((title) => createPost({ date, slot, title }));
+      // The Reel row makes a reel; the other rows make carousel posts.
+      const p = await named((title) => createPost({ date, slot, title, kind: slot === "reel" ? "reel" : "post" }));
       if (p) router.push(`/posts/${p.id}`);
     } catch (e) {
       toast((e as Error).message, { tone: "error" });
@@ -119,13 +120,15 @@ export default function PlannerPage() {
     if (over !== "ideas") {
       const [, d, sl] = over.split(":");
       date = d;
-      // Dropped on a whole day (month view on a phone): first free slot.
-      slot = (sl as Slot) || (SLOTS.map((x) => x.k).find((x) => !slotTaken(data.posts, d, x, id)) ?? "morning");
+      // Dropped on a whole day (month view on a phone): the reel slot, or the first free post slot.
+      slot = p.kind === "reel" ? "reel" : (sl as Slot) || (SLOTS.map((x) => x.k).find((x) => !slotTaken(data.posts, d, x, id)) ?? "morning");
+      if (p.kind === "reel" && sl && sl !== "reel") return void toast("Reels go in the Reel row.", { tone: "error" });
+      if (p.kind !== "reel" && sl === "reel") return void toast("Only reels go in the Reel row. Posts use Morning or Afternoon.", { tone: "error" });
     }
     if (p.date === date && (!date || p.slot === slot)) return;
     const other = date ? slotTaken(data.posts, date, slot, id) : null;
     if (other) {
-      toast(`${slotName(slot)} on ${fmtDate(date!, { weekday: "short", day: "numeric", month: "short" })} is taken by “${other.title || "Untitled"}”. Each account posts at most once per slot.`, { tone: "error" });
+      toast(`${slotName(slot)} on ${fmtDate(date!, { weekday: "short", day: "numeric", month: "short" })} is taken by “${other.title || "Untitled"}”. ${slot === "reel" ? "One reel per day." : "Each account posts at most once per slot."}`, { tone: "error" });
       return;
     }
     try {
@@ -261,10 +264,10 @@ function Week({ cursor, byDay, filter, onNew, settings }: { cursor: Date; byDay:
                 {isToday && <span className="ml-1.5 text-[10px] uppercase tracking-wider" style={{ color: "var(--ink)" }}>Today</span>}
               </header>
               <div className="grid grid-cols-2 md:grid-cols-1 gap-1.5">
-                {SLOTS.map(({ k: slot, name }) => {
+                {ALL_SLOTS.map(({ k: slot, name }) => {
                   const here = inSlot(list, slot);
                   return (
-                    <SlotDrop key={slot} date={k} slot={slot} className="group rounded-lg border border-dashed p-1.5 flex flex-col gap-1.5 md:min-h-[200px] min-w-0" style={{ borderColor: "var(--line)", background: "var(--soft)" }}>
+                    <SlotDrop key={slot} date={k} slot={slot} className={`group rounded-lg border border-dashed p-1.5 flex flex-col gap-1.5 min-w-0 ${slot === "reel" ? "col-span-2 md:col-span-1 md:min-h-[64px]" : "md:min-h-[200px]"}`} style={{ borderColor: "var(--line)", background: slot === "reel" ? "transparent" : "var(--soft)" }}>
                       <div className="flex items-center justify-between gap-1" title={slotTimes(settings, slot)}>
                         <span className="text-[11px] font-bold uppercase tracking-wide muted">{name}</span>
                         {!here.length && <button className="btn small ghost !min-h-[22px] !px-1 md:opacity-0 group-hover:opacity-100 focus:opacity-100" onClick={() => onNew(k, slot)} aria-label={`New post, ${name} ${k}`}><Icon name="plus" size={14} /></button>}
@@ -307,14 +310,14 @@ function Month({ cursor, byDay, filter, settings, onNew, onPick }: { cursor: Dat
               style={{ background: out ? "transparent" : "var(--panel)", borderColor: k === t ? "var(--ink)" : "var(--line)", borderStyle: out ? "dashed" : "solid" }}>
               <button className="text-[12px] font-semibold px-1 rounded self-start" style={k === t ? { background: "var(--accent)", color: "var(--accent-ink)" } : { color: "var(--muted)" }} onClick={() => onPick(k)}>{d.getDate()}</button>
               {desktop && <div className="flex flex-col gap-1">
-                {SLOTS.map(({ k: slot }) => {
+                {ALL_SLOTS.map(({ k: slot }) => {
                   const here = inSlot(list, slot);
                   return (
                     <SlotDrop key={slot} date={k} slot={slot} className="group rounded-md min-h-[34px] flex flex-col gap-1 p-0.5" style={{ background: "var(--soft)" }}>
                       {here.map((p) => <PostCard key={p.id} post={p} lang={filter} variant="chip" />)}
                       {!here.length && (
                         <button className="text-[10.5px] muted text-left px-1 py-1 opacity-60 group-hover:opacity-100" onClick={() => onNew(k, slot)}>
-                          {slot === "morning" ? "AM" : "PM"} <span className="opacity-0 group-hover:opacity-100">+ new</span>
+                          {slot === "morning" ? "AM" : slot === "afternoon" ? "PM" : "Reel"} <span className="opacity-0 group-hover:opacity-100">+ new</span>
                         </button>
                       )}
                     </SlotDrop>
@@ -323,7 +326,7 @@ function Month({ cursor, byDay, filter, settings, onNew, onPick }: { cursor: Dat
               </div>}
               {!desktop && <SlotDrop date={k} className="flex-1">
                 <button className="w-full h-full flex flex-col gap-[3px] px-0.5 text-left" onClick={() => onPick(k)} aria-label={`${list.length} posts`}>
-                  {SLOTS.map(({ k: slot }) => (
+                  {ALL_SLOTS.map(({ k: slot }) => (
                     <span key={slot} className="flex gap-[3px] items-center h-[7px]">
                       {inSlot(list, slot).flatMap((p) => ks.map((kk) => <i key={p.id + kk} className={`dot s-${statusOf(p, kk, settings)}`} style={{ width: 7, height: 7 }} />))}
                     </span>
@@ -342,7 +345,7 @@ function Day({ date, posts, filter, data, onNew }: { date: string; posts: Post[]
   const ks = filter === "all" ? LK : [filter];
   return (
     <div className="mt-3 flex flex-col gap-4 max-w-[1200px]">
-      {SLOTS.map(({ k: slot, name }) => {
+      {ALL_SLOTS.map(({ k: slot, name }) => {
         const here = inSlot(posts, slot);
         return (
           <SlotDrop key={slot} date={date} slot={slot} className="flex flex-col gap-2 rounded-xl">
@@ -404,6 +407,14 @@ function DayLang({ post, k, data }: { post: Post; k: Lang; data: AppState }) {
         <span className="text-[12px] muted flex-1 truncate">{l.handle}</span>
         <StatusPill s={statusOf(post, k, data.settings)} />
       </div>
+      {post.kind === "reel" ? (
+        <div className="flex items-center gap-2.5">
+          {thumbOf(post, k)
+            ? <PreviewImg post={post} lang={k} index={0} src={thumbOf(post, k)!.url} alt="Reel" className="w-16 aspect-[9/16] object-cover rounded flex-none" />
+            : <div className="w-16 aspect-[9/16] rounded flex-none flex items-center justify-center text-[9px] text-center text-[#888] p-1" style={{ background: "#1a1a1a" }}>No video yet</div>}
+          <span className="text-[12px] muted">{v.video ? `▶ ${Math.round(v.video.duration)}s video` : v.videoRemovedAt ? "Video removed after posting" : "No video yet"}</span>
+        </div>
+      ) : (
       <div className="flex gap-1.5 scroll-x">
         {v.slides.map((s, i) => (
           <PreviewImg key={s.id} post={post} lang={k} index={i} src={s.url} alt={`Slide ${i + 1}`} className="w-14 aspect-[4/5] object-cover rounded flex-none" />
@@ -412,6 +423,7 @@ function DayLang({ post, k, data }: { post: Post; k: Lang; data: AppState }) {
           ? <PreviewImg post={post} lang={k} index={v.slides.length} src={end.url} alt="Tradr slide" className="w-14 aspect-[4/5] object-cover rounded flex-none ring-2 ring-[var(--s-posted)]" />
           : <div className="w-14 aspect-[4/5] rounded flex-none flex items-center justify-center text-[9px] text-center text-[#888] p-1" style={{ background: "#1a1a1a" }}>Tradr slide missing</div>}
       </div>
+      )}
       <div className="text-[12px] whitespace-pre-wrap max-h-[88px] overflow-hidden" style={{ color: "var(--ink-2)" }}>{cap || <span className="muted">No caption yet.</span>}</div>
       {AUTO_PUBLISH ? <PublishControls post={post} k={k} data={data} compact /> : (
         <div className="flex flex-col gap-2">

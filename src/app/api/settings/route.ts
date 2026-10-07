@@ -9,7 +9,7 @@ import { isValidHm } from "@/lib/time";
 type SettingsPatch = {
   timezone?: string;
   langs?: Partial<Record<string, { tradr?: string; hashtags?: string; tradrSlide?: unknown }>>;
-  schedule?: Partial<Record<string, { zone?: string; morning?: string; afternoon?: string }>>;
+  schedule?: Partial<Record<string, { zone?: string; morning?: string; afternoon?: string; reel?: string }>>;
   applyDefaultsTo?: string;
   notify?: { weekly?: boolean; slots?: boolean; missed?: boolean; weeklyTime?: string };
 };
@@ -30,7 +30,7 @@ export const PATCH = route(async (req) => {
   if (b.timezone && !validZone(b.timezone)) throw new UserError("Unknown time zone");
   for (const sp of Object.values(b.schedule || {})) {
     if (sp?.zone && !validZone(sp.zone)) throw new UserError("Unknown time zone");
-    for (const t of [sp?.morning, sp?.afternoon]) if (t !== undefined && !isValidHm(t)) throw new UserError("Times look like 10:00");
+    for (const t of [sp?.morning, sp?.afternoon, sp?.reel]) if (t !== undefined && !isValidHm(t)) throw new UserError("Times look like 10:00");
   }
   if (b.notify?.weeklyTime !== undefined && !isValidHm(b.notify.weeklyTime)) throw new UserError("Times look like 09:00");
   const s = await mutateSettings((s) => {
@@ -47,7 +47,7 @@ export const PATCH = route(async (req) => {
     }
     for (const [k, sp] of Object.entries(b.schedule || {})) {
       if (!isLang(k) || !sp) continue;
-      Object.assign(s.schedule[k], Object.fromEntries(Object.entries(sp).filter(([, v]) => v !== undefined)));
+      for (const f of ["zone", "morning", "afternoon", "reel"] as const) if (sp[f] !== undefined) s.schedule[k][f] = sp[f]!;
     }
   });
 

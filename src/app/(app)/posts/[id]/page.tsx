@@ -10,7 +10,7 @@ import { Spinner, StatusPill, Warn } from "@/components/ui";
 import { useToast } from "@/components/toast";
 import { api, fetcher } from "@/lib/client/api";
 import { dropPost, patchPost, useAppState, type AppState } from "@/lib/client/state";
-import { downloadUrl, imageFiles, uploadSlides } from "@/lib/client/upload";
+import { downloadUrl, imageFiles, isVideoFile, probeVideo, uploadSlide, uploadSlides, uploadVideo } from "@/lib/client/upload";
 import { buildCaption, charCount, hashtagCount } from "@/lib/caption";
 import { CAPTION_MAX, HASHTAG_MAX } from "@/lib/rules";
 import { isLocked, statusOf } from "@/lib/status";
@@ -103,13 +103,18 @@ function Editor({ post, data, k, setK }: { post: Post; data: AppState; k: Lang; 
           <label className="label" htmlFor="p_date">Date</label>
           <input id="p_date" type="date" className="field !bg-[var(--panel)]" value={post.date || ""} onChange={(e) => save(post.id, { date: e.target.value || null })} />
         </div>
-        <div className="w-[130px]">
+        {post.kind === "reel" ? (
+          <div className="w-[130px]">
+            <span className="label">Slot</span>
+            <div className="field !bg-[var(--panel)] font-semibold" title={slotTimes(data.settings, "reel")}>▶ Reel</div>
+          </div>
+        ) : <div className="w-[130px]">
           <label className="label" htmlFor="p_slot">Slot</label>
           <select id="p_slot" className="field !bg-[var(--panel)]" value={post.slot} onChange={(e) => save(post.id, { slot: e.target.value as "morning" | "afternoon" })}
             title={slotTimes(data.settings, post.slot)}>
             {SLOTS.map((x) => <option key={x.k} value={x.k}>{x.name}</option>)}
           </select>
-        </div>
+        </div>}
         <div className="flex items-center gap-2 self-center pt-4">
           <span className="text-[12px] muted w-[52px]" aria-live="polite">{saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved" : saveState === "error" ? <span style={{ color: "var(--danger)" }}>Not saved</span> : ""}</span>
           {post.date && <button className="btn small" onClick={() => save(post.id, { date: null })}>To Ideas</button>}
@@ -146,7 +151,7 @@ function LangEditor({ post, k, data, save }: { post: Post; k: Lang; data: AppSta
   return (
     <div className="grid lg:grid-cols-[1.1fr_1fr] gap-5">
       <section className="card p-3 md:p-4 flex flex-col gap-3">
-        <Slides post={post} k={k} data={data} locked={locked} save={save} />
+        {post.kind === "reel" ? <ReelMedia post={post} k={k} save={save} /> : <Slides post={post} k={k} data={data} locked={locked} save={save} />}
       </section>
       <section className="flex flex-col gap-4">
         <div className="card p-3 md:p-4">
@@ -340,7 +345,7 @@ function Caption({ post, k, data, locked, save }: { post: Post; k: Lang; data: A
   return (
     <div className="flex flex-col gap-3">
       <h2 className="font-bold text-[13px]">Caption</h2>
-      {field("comment", "1. About this post", 4)}
+      {field("comment", post.kind === "reel" ? "1. About this reel" : "1. About this post", 4)}
       {field("tradr", "2. About Tradr", 3, defs.tradr)}
       {field("hashtags", "3. Hashtags", 2, defs.hashtags)}
       <div>
@@ -378,5 +383,94 @@ function Notes({ post, save }: { post: Post; save: (id: string, patch: Parameter
         </Link>
       )}
     </section>
+  );
+}
+
+/** Reel video + optional cover for one language. Videos upload straight to storage with progress. */
+function ReelMedia({ post, k, save }: { post: Post; k: Lang; save: (id: string, patch: Parameters<typeof patchPost>[1]) => Promise<void> }) {
+  const toast = useToast();
+  const v = post.variants[k];
+  const [pct, setPct] = useState<number | null>(null);
+  const [coverBusy, setCoverBusy] = useState(false);
+  const code = LANGS.find((l) => l.k === k)!.code;
+
+  const addVideo = async (file: File | undefined) => {
+    if (!file) return;
+    if (!isVideoFile(file)) return toast("Use an MP4 or MOV file.", { tone: "error" });
+    setPct(0);
+    try {
+      const meta = await probeVideo(file).catch(() => ({ w: 0, h: 0, duration: 0, frame: null as Blob | null }));
+      const url = await uploadVideo(file, setPct);
+      const frame = meta.frame ? await uploadSlide(meta.frame, "frames") : null;
+      await save(post.id, { variants: { [k]: { video: { url, size: file.size, name: file.name, w: meta.w, h: meta.h, duration: meta.duration }, frame } } });
+    } catch (e) {
+      toast(`Upload failed: ${(e as Error).message}`, { tone: "error" });
+    } finally {
+      setPct(null);
+    }
+  };
+  const setCover = async (file: File | undefined) => {
+    if (!file) return;
+    setCoverBusy(true);
+    try {
+      await save(post.id, { variants: { [k]: { cover: await uploadSlide(file, "covers") } } });
+    } catch (e) {
+      toast((e as Error).message, { tone: "error" });
+    } finally {
+      setCoverBusy(false);
+    }
+  };
+  const poster = v.cover?.url || v.frame?.url;
+
+  return (
+    <>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="font-bold text-[13px]">Video <span className="muted font-medium">· {code}</span></h2>
+        {v.video && <span className="text-[12px] muted">{(v.video.size / 1e6).toFixed(0)} MB · {Math.round(v.video.duration)}s</span>}
+      </div>
+      {pct !== null ? (
+        <div className="rounded-xl border p-5 flex flex-col gap-2" style={{ borderColor: "var(--line)" }}>
+          <div className="text-[13px] font-semibold">Uploading… {pct}%</div>
+          <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--soft)" }}><div className="h-full rounded-full transition-[width]" style={{ width: `${pct}%`, background: "var(--s-scheduled)" }} /></div>
+          <div className="text-[12px] muted">Keep this page open until it finishes.</div>
+        </div>
+      ) : v.video ? (
+        <video key={v.video.url} src={v.video.url} poster={poster} controls playsInline preload="metadata" className="w-full max-h-[70vh] rounded-xl bg-black" />
+      ) : v.videoRemovedAt ? (
+        <div className="rounded-xl p-6 text-center text-[13px] muted flex flex-col items-center gap-3" style={{ background: "var(--soft)" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          {poster && <img src={poster} alt="" className="w-28 aspect-[9/16] object-cover rounded-lg" />}
+          Video removed after posting
+        </div>
+      ) : (
+        <label className="rounded-xl border-2 border-dashed p-8 text-center text-[13px] muted cursor-pointer flex flex-col items-center gap-1 hover:border-[var(--focus)]" style={{ borderColor: "var(--line)" }}
+          onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); addVideo(e.dataTransfer.files[0]); }}>
+          <Icon name="plus" size={22} />
+          <span className="font-semibold" style={{ color: "var(--ink)" }}>Add the {code} video</span>
+          MP4 or MOV, exported from CapCut
+          <input type="file" accept="video/mp4,video/quicktime,.mp4,.mov" className="hidden" onChange={(e) => { addVideo(e.target.files?.[0]); e.target.value = ""; }} />
+        </label>
+      )}
+      {v.video && pct === null && (
+        <div className="flex gap-2">
+          <label className="btn small cursor-pointer">Replace video<input type="file" accept="video/mp4,video/quicktime,.mp4,.mov" className="hidden" onChange={(e) => { addVideo(e.target.files?.[0]); e.target.value = ""; }} /></label>
+          <ConfirmButton className="btn small danger" confirm="Tap again to remove the video" onConfirm={() => save(post.id, { variants: { [k]: { video: null, frame: null } } })}>Remove video</ConfirmButton>
+        </div>
+      )}
+
+      <div className="pt-2 flex flex-col gap-2">
+        <h3 className="font-bold text-[13px]">Cover <span className="muted font-medium">· optional, the grid thumbnail</span></h3>
+        <div className="flex items-end gap-3">
+          {v.cover
+            // eslint-disable-next-line @next/next/no-img-element
+            ? <img src={v.cover.url} alt="Cover" className="w-24 aspect-[9/16] object-cover rounded-lg" />
+            : <div className="w-24 aspect-[9/16] rounded-lg flex items-center justify-center text-center text-[11px] muted p-2" style={{ background: "var(--soft)" }}>{v.frame ? "Using a frame from the video" : "No cover"}</div>}
+          <div className="flex flex-col gap-1.5">
+            <label className="btn small cursor-pointer">{coverBusy ? <Spinner /> : v.cover ? "Replace cover" : "Add cover"}<input type="file" accept="image/*" className="hidden" onChange={(e) => { setCover(e.target.files?.[0]); e.target.value = ""; }} /></label>
+            {v.cover && <button className="btn small ghost" onClick={() => save(post.id, { variants: { [k]: { cover: null } } })}>Remove cover</button>}
+          </div>
+        </div>
+      </div>
+    </>
   );
 }

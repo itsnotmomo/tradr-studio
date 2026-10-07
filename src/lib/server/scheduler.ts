@@ -13,6 +13,7 @@ import { utcToZoned } from "../time";
 import { AUTO_PUBLISH } from "../features";
 import { runNotifications } from "./notify";
 import { noteRecovery } from "./watchdog";
+import { cleanupPostedVideos } from "./videos";
 import type { Lang } from "../types";
 
 const HEARTBEAT = "sched:last";
@@ -50,6 +51,11 @@ export async function tick() {
     // 2. Everything due now. Different accounts publish in parallel.
     const due = await dueVariants(now, 12);
     out.published = await Promise.all(due.map(([id, k]) => publishVariant(id, k)));
+  }
+
+  // Reel videos: deleted 48 h after being marked Posted. Checked every 15 minutes.
+  if (await redis().set("job:videos", "1", { nx: true, ex: 14 * 60 })) {
+    await cleanupPostedVideos(now).catch((e) => console.error("video cleanup failed", e));
   }
 
   // 3. Numbers, every 15 minutes at most.

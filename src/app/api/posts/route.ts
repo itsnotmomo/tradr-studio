@@ -4,18 +4,22 @@ import { getSettings } from "@/lib/server/settings";
 import { cleanSlides, NAME_REQUIRED, slotConflictMessage } from "@/lib/server/posts";
 import { mutatePlan } from "@/lib/server/store";
 import { isLang } from "@/lib/langs";
-import { freeSlot, isSlot, slotTaken } from "@/lib/slots";
+import { freeSlot, isPostSlot, slotTaken } from "@/lib/slots";
 import { fmtDate, isValidYmd } from "@/lib/time";
 import type { Lang, Slot, Variant } from "@/lib/types";
 
 export const POST = route(async (req) => {
-  const b = await body<{ title?: string; date?: string | null; slot?: string; inspoId?: string; planId?: string; slides?: Record<string, unknown> }>(req);
+  const b = await body<{ title?: string; date?: string | null; slot?: string; kind?: string; inspoId?: string; planId?: string; slides?: Record<string, unknown> }>(req);
+  const kind = b.kind === "reel" ? "reel" : "post";
   if (b.date && !isValidYmd(b.date)) throw new UserError("Invalid date");
   if (b.date && !String(b.title || "").trim()) throw new UserError(NAME_REQUIRED, 422);
   const [s, posts] = await Promise.all([getSettings(), listPosts()]);
-  let slot: Slot = isSlot(b.slot) ? b.slot : "morning";
-  if (b.date) {
-    if (isSlot(b.slot)) {
+  let slot: Slot = kind === "reel" ? "reel" : isPostSlot(b.slot) ? b.slot : "morning";
+  if (b.date && kind === "reel") {
+    const other = slotTaken(posts, b.date, "reel");
+    if (other) throw new UserError(slotConflictMessage(other, b.date, "reel"), 409);
+  } else if (b.date) {
+    if (isPostSlot(b.slot)) {
       const other = slotTaken(posts, b.date, b.slot);
       if (other) throw new UserError(slotConflictMessage(other, b.date, b.slot), 409);
     } else {
@@ -27,7 +31,7 @@ export const POST = route(async (req) => {
   const variants: Partial<Record<Lang, Partial<Variant>>> = {};
   for (const [k, slides] of Object.entries(b.slides || {})) if (isLang(k)) variants[k] = { slides: cleanSlides(slides) };
   const post = await createPost(
-    { title: String(b.title || "").slice(0, 200), date: b.date || null, slot, inspoId: b.inspoId || null, variants: variants as Record<Lang, Variant> },
+    { title: String(b.title || "").slice(0, 200), date: b.date || null, slot, kind, inspoId: b.inspoId || null, variants: variants as Record<Lang, Variant> },
     s,
   );
   // Making a post from an inspo item marks it done and links it.

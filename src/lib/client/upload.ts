@@ -69,3 +69,57 @@ export async function downloadUrl(url: string, filename: string) {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 3000);
 }
+
+// ---------- Reel videos ----------
+
+export const isVideoFile = (f: File) => /^video\/(mp4|quicktime)$/.test(f.type) || /\.(mp4|mov)$/i.test(f.name);
+
+/** Size and duration, plus a JPEG frame (about 1 s in) for the planner card. Read from the local file. */
+export async function probeVideo(file: File): Promise<{ w: number; h: number; duration: number; frame: Blob | null }> {
+  const url = URL.createObjectURL(file);
+  try {
+    const v = document.createElement("video");
+    v.muted = true;
+    v.playsInline = true;
+    v.preload = "auto";
+    v.src = url;
+    await new Promise<void>((res, rej) => {
+      v.onloadeddata = () => res();
+      v.onerror = () => rej(new Error("This video can't be read in the browser."));
+    });
+    const w = v.videoWidth, h = v.videoHeight, duration = v.duration || 0;
+    await new Promise<void>((res) => {
+      v.onseeked = () => res();
+      v.currentTime = Math.min(1, duration / 2 || 0);
+      setTimeout(res, 3000);
+    });
+    let frame: Blob | null = null;
+    try {
+      const scale = Math.min(1, 1080 / w);
+      const c = document.createElement("canvas");
+      c.width = Math.round(w * scale);
+      c.height = Math.round(h * scale);
+      c.getContext("2d")!.drawImage(v, 0, 0, c.width, c.height);
+      frame = await new Promise<Blob | null>((r) => c.toBlob(r, "image/jpeg", 0.88));
+    } catch {
+      /* some codecs can't be drawn; the card just has no picture */
+    }
+    return { w, h, duration, frame };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/** Uploads straight to storage in parallel parts, reporting progress (0–100). */
+export async function uploadVideo(file: File, onProgress: (pct: number) => void) {
+  const ext = /\.mov$/i.test(file.name) || file.type === "video/quicktime" ? "mov" : "mp4";
+  const r = await upload(`videos/${crypto.randomUUID()}.${ext}`, file, {
+    access: "public",
+    handleUploadUrl: "/api/upload",
+    contentType: ext === "mov" ? "video/quicktime" : "video/mp4",
+    multipart: true,
+    clientPayload: JSON.stringify({ size: file.size }),
+    onUploadProgress: (p) => onProgress(Math.round(p.percentage)),
+  });
+  return r.url;
+}

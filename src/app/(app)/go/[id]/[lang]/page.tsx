@@ -38,11 +38,52 @@ function Go({ id, k }: { id: string; k: Lang }) {
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState<PostStatus | null>(null);
 
+  const isReel = post?.kind === "reel";
   const slides = useMemo(() => {
-    if (!post || !data) return [];
+    if (!post || !data || post.kind === "reel") return [];
     const end = data.settings.langs[k].tradrSlide;
     return [...post.variants[k].slides, ...(end ? [end] : [])];
   }, [post, data, k]);
+  const slidesKey = slides.map((x) => x.url).join("|");
+  const videoUrl = isReel ? post?.variants[k].video?.url ?? null : null;
+  const coverUrl = isReel ? post?.variants[k].cover?.url ?? null : null;
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoPct, setVideoPct] = useState(0);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+
+  // Reels: download the video (and cover) up front, with progress, for the same reason.
+  useEffect(() => {
+    if (!videoUrl) return;
+    let off = false;
+    (async () => {
+      const res = await fetch(videoUrl);
+      const total = Number(res.headers.get("content-length")) || 0;
+      const reader = res.body!.getReader();
+      const parts: BlobPart[] = [];
+      let got = 0;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done || off) break;
+        parts.push(value);
+        got += value.length;
+        if (total) setVideoPct(Math.round((got / total) * 100));
+      }
+      if (off) return;
+      const mov = /\.mov($|\?)/i.test(videoUrl);
+      setVideoFile(new File(parts, mov ? "reel.mov" : "reel.mp4", { type: mov ? "video/quicktime" : "video/mp4" }));
+    })().catch(() => !off && toast("Couldn't download the video.", { tone: "error" }));
+    return () => {
+      off = true;
+    };
+  }, [videoUrl, toast]);
+  useEffect(() => {
+    if (!coverUrl) return;
+    let off = false;
+    fetch(coverUrl).then((r) => r.blob()).then((b) => !off && setCoverFile(new File([b], "cover.jpg", { type: "image/jpeg" }))).catch(() => {});
+    return () => {
+      off = true;
+    };
+  }, [coverUrl]);
 
   // Fetch the images up front: iOS only opens the share sheet straight from the tap.
   useEffect(() => {
@@ -59,7 +100,7 @@ function Go({ id, k }: { id: string; k: Lang }) {
     return () => {
       off = true;
     };
-  }, [slides]);
+  }, [slidesKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!data) return <div className="p-6 flex items-center gap-2 muted"><Spinner /> Loading…</div>;
   if (!post) return <div className="p-6">This post doesn’t exist anymore. <Link className="underline" href="/batch">Back to Batch</Link></div>;
@@ -71,6 +112,27 @@ function Go({ id, k }: { id: string; k: Lang }) {
   const next = nextAfter(data.posts, range, post.id, k);
   const goNext = () => router.push(next ? `/go/${next.post.id}/${next.k}?${rangeQuery(range)}` : `/batch?${rangeQuery(range)}&done=1`);
 
+  const share = async (fs: File[]) => {
+    try {
+      if (navigator.canShare?.({ files: fs })) {
+        await navigator.share({ files: fs });
+        return true;
+      }
+    } catch (e) {
+      if ((e as Error).name === "AbortError") return true;
+    }
+    return false;
+  };
+  const saveVideo = async () => {
+    if (!videoFile) return;
+    if (await share([videoFile])) return;
+    await downloadUrl(post.variants[k].video!.url, `${post.date || "idea"}_${k.toUpperCase()}_reel.${videoFile.name.split(".").pop()}`);
+  };
+  const saveCover = async () => {
+    if (!coverFile) return;
+    if (await share([coverFile])) return;
+    await downloadUrl(coverUrl!, `${post.date || "idea"}_${k.toUpperCase()}_cover.jpg`);
+  };
   const save = async () => {
     if (!files?.length) return;
     try {
@@ -119,6 +181,16 @@ function Go({ id, k }: { id: string; k: Lang }) {
         <StatusPill s={statusOf(post, k, data.settings)} />
       </header>
 
+      {isReel ? (
+        <div className="flex gap-3 items-start">
+          {(v.cover || v.frame)
+            ? <PreviewImg post={post} lang={k} index={0} hover={false} src={(v.cover || v.frame)!.url} alt="Reel" className="h-[180px] aspect-[9/16] object-cover rounded-lg flex-none" />
+            : <div className="h-[180px] aspect-[9/16] rounded-lg flex-none flex items-center justify-center text-[12px] muted" style={{ background: "var(--soft)" }}>No video</div>}
+          <div className="text-[13px] muted pt-1">
+            {v.video ? <>▶ {Math.round(v.video.duration)}s · {(v.video.size / 1e6).toFixed(0)} MB<br />Tap the picture to watch it.</> : v.videoRemovedAt ? "Video removed after posting." : <>No video yet. <Link className="underline" href={`/posts/${post.id}?lang=${k}`}>Add it</Link></>}
+          </div>
+        </div>
+      ) : <>
       <div className="flex gap-1.5 scroll-x -mx-4 px-4">
         {slides.map((s, i) => (
           <PreviewImg key={s.id + i} post={post} lang={k} index={i} hover={false} src={s.url} alt={`Slide ${i + 1}`} className="h-[150px] aspect-[4/5] object-cover rounded-lg flex-none" style={i === slides.length - 1 && !missingEnd ? { outline: "2px solid var(--s-posted)", outlineOffset: -2 } : undefined} />
@@ -130,6 +202,17 @@ function Go({ id, k }: { id: string; k: Lang }) {
       <button className={big} style={{ background: "var(--accent)", color: "var(--accent-ink)" }} onClick={save} disabled={!files?.length}>
         {files === null && slides.length ? <><Spinner size={18} /> Preparing {slides.length} slides…</> : <><Icon name="download" size={20} /> Save {slides.length} slides to Photos</>}
       </button>
+      </>}
+      {isReel && v.video && (
+        <button className={big} style={{ background: "var(--accent)", color: "var(--accent-ink)" }} onClick={saveVideo} disabled={!videoFile}>
+          {videoFile ? <><Icon name="download" size={20} /> Save video to Photos</> : <><Spinner size={18} /> Preparing video… {videoPct}%</>}
+        </button>
+      )}
+      {isReel && v.cover && (
+        <button className={big} style={{ background: "var(--panel)", border: "1px solid var(--line-2)" }} onClick={saveCover} disabled={!coverFile}>
+          <Icon name="download" size={20} /> Save cover to Photos
+        </button>
+      )}
       <button className={big} style={{ background: "var(--panel)", border: "1px solid var(--line-2)" }} onClick={copy} disabled={!caption}>
         <Icon name="copy" size={20} /> {copied ? "Caption copied" : caption ? "Copy caption" : "No caption yet"}
       </button>

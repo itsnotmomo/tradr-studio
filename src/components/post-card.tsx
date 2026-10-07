@@ -8,11 +8,25 @@ import { slotName } from "@/lib/slots";
 import { usePreview } from "./slide-viewer";
 import type { Lang, Post } from "@/lib/types";
 
+/** The picture for a card: first slide of a post, or a reel's cover (else its video frame). */
+export function thumbOf(p: Post, k: Lang) {
+  const v = p.variants[k];
+  return p.kind === "reel" ? v.cover || v.frame || null : v.slides[0] || null;
+}
+
 export function firstSlide(p: Post, prefer?: Lang) {
   const order = prefer ? [prefer, ...LK.filter((k) => k !== prefer)] : LK;
-  for (const k of order) if (p.variants[k].slides[0]) return p.variants[k].slides[0];
+  for (const k of order) {
+    const t = thumbOf(p, k);
+    if (t) return t;
+  }
   return null;
 }
+
+/** Small "▶ Reel" badge for cards. */
+export const ReelBadge = ({ className }: { className?: string }) => (
+  <span className={`inline-flex items-center gap-0.5 rounded px-1 text-[10px] font-bold uppercase tracking-wide text-white ${className || ""}`} style={{ background: "#7c3aed" }}>▶ Reel</span>
+);
 
 export const canMove = (p: Post) => !LK.some((k) => ["posted", "publishing"].includes(p.variants[k].state));
 
@@ -52,7 +66,7 @@ export function PostCardView({ post, lang, variant = "card", drag }: { post: Pos
       <Link {...common} className="flex items-center gap-3 rounded-xl border p-2 pr-3 min-w-0 hover:border-[var(--line-2)]" style={{ ...style, background: "var(--panel)", borderColor: "var(--line)" }}>
         <div {...(slide ? preview : {})} className={`thumb w-11 aspect-[4/5] rounded-md flex-none ${slide ? "cursor-zoom-in" : ""}`} style={slide ? { backgroundImage: `url("${slide.url}")` } : undefined} />
         <div className="flex-1 min-w-0">
-          <div className="truncate font-semibold text-[13.5px]">{post.title || "Untitled"}</div>
+          <div className="truncate font-semibold text-[13.5px]">{post.kind === "reel" && <ReelBadge className="mr-1.5 align-[1px]" />}{post.title || "Untitled"}</div>
           <div className="flex items-center gap-2 mt-0.5 text-[12px] muted">
             {post.date && <span>{slotName(post.slot)}</span>}
             <LangDots post={post} langs={langs} />
@@ -63,8 +77,9 @@ export function PostCardView({ post, lang, variant = "card", drag }: { post: Pos
   }
   return (
     <Link {...common} className="block rounded-lg border overflow-hidden hover:border-[var(--line-2)]" style={{ ...style, background: "var(--soft)", borderColor: "var(--line)" }}>
-      <div {...(slide ? preview : {})} className={`thumb aspect-[4/5] flex items-center justify-center text-[11px] text-[#888] ${slide ? "cursor-zoom-in" : ""}`} style={slide ? { backgroundImage: `url("${slide.url}")` } : undefined}>
-        {!slide && "No slides yet"}
+      <div {...(slide ? preview : {})} className={`thumb relative ${post.kind === "reel" ? "aspect-[9/16] max-h-[220px] w-full" : "aspect-[4/5]"} flex items-center justify-center text-[11px] text-[#888] ${slide ? "cursor-zoom-in" : ""}`} style={slide ? { backgroundImage: `url("${slide.url}")` } : undefined}>
+        {!slide && (post.kind === "reel" ? "No video yet" : "No slides yet")}
+        {post.kind === "reel" && <ReelBadge className="absolute top-1.5 left-1.5" />}
       </div>
       <div className="px-2 py-1.5">
         <div className="truncate font-semibold text-[12.5px]">{post.title || "Untitled"}</div>

@@ -2,9 +2,9 @@ import "server-only";
 import { UserError } from "./store";
 import { isLang, LK, langInfo } from "../langs";
 import { isLocked } from "../status";
-import { isSlot, publishAt, slotName, slotTaken, zoneLabel } from "../slots";
+import { isPostSlot, isSlot, publishAt, slotName, slotTaken, zoneLabel } from "../slots";
 import { fmtDate, isValidYmd } from "../time";
-import type { Lang, Post, PostStatus, Settings, Slide, Slot } from "../types";
+import type { Lang, Post, PostStatus, Settings, Slide, Slot, Video } from "../types";
 
 const STATUSES: PostStatus[] = ["draft", "ready", "scheduled", "posted"];
 export const NAME_REQUIRED = "Give this post a name first. Names are used in reminders.";
@@ -31,9 +31,21 @@ export function cleanSlides(raw: unknown): Slide[] {
   });
 }
 
+const BLOB = /^https:\/\/[a-z0-9]+\.public\.blob\.vercel-storage\.com\//;
+
+export function cleanVideo(raw: unknown): Video | null {
+  if (raw === null) return null;
+  const v = raw as Video;
+  if (!v || typeof v.url !== "string" || !BLOB.test(v.url) || !/\/videos\//.test(v.url)) throw new UserError("Invalid video");
+  return { url: v.url, size: Math.max(0, Number(v.size) || 0), name: String(v.name || "").slice(0, 200), w: Number(v.w) || 0, h: Number(v.h) || 0, duration: Number(v.duration) || 0 };
+}
+
 export type PostPatch = {
   title?: string; notes?: string; date?: string | null; slot?: Slot; inspoId?: string | null;
-  variants?: Partial<Record<string, { comment?: string; tradr?: string; hashtags?: string; slides?: unknown; ready?: boolean; status?: string }>>;
+  variants?: Partial<Record<string, {
+    comment?: string; tradr?: string; hashtags?: string; slides?: unknown; ready?: boolean; status?: string;
+    video?: unknown; cover?: unknown; frame?: unknown;
+  }>>;
 };
 
 const day = (d: string) => fmtDate(d, { weekday: "short", day: "numeric", month: "short" });
@@ -67,6 +79,9 @@ export function applyPatch(p: Post, patch: PostPatch, s: Settings, others: Post[
   if (dateChanged || slotChanged) {
     if (patch.date !== undefined && patch.date !== null && !isValidYmd(patch.date)) throw new UserError("Invalid date");
     if (patch.slot !== undefined && !isSlot(patch.slot)) throw new UserError("Invalid slot");
+    if (patch.slot !== undefined && (p.kind === "reel" ? patch.slot !== "reel" : !isPostSlot(patch.slot))) {
+      throw new UserError(p.kind === "reel" ? "Reels always go in the Reel slot." : "Only reels go in the Reel slot.");
+    }
     const pinned = LK.filter((k) => ["posted", "publishing"].includes(p.variants[k].state));
     if (pinned.length) {
       throw new UserError(`Can't move this post: ${pinned.map((k) => langInfo(k).code).join(", ")} ${pinned.length === 1 ? "is" : "are"} already on Instagram.`);
@@ -103,8 +118,17 @@ export function applyPatch(p: Post, patch: PostPatch, s: Settings, others: Post[
     if (vp.ready !== undefined) v.ready = !!vp.ready;
     if (vp.status !== undefined) {
       if (!STATUSES.includes(vp.status as PostStatus)) throw new UserError("Invalid status");
+      if (vp.status !== v.status) v.markedPostedAt = vp.status === "posted" ? Date.now() : null;
       v.status = vp.status as PostStatus;
       v.ready = v.status !== "draft";
+    }
+    if (p.kind === "reel") {
+      if (vp.video !== undefined) {
+        v.video = cleanVideo(vp.video);
+        if (v.video) v.videoRemovedAt = null;
+      }
+      if (vp.cover !== undefined) v.cover = vp.cover ? cleanSlides([vp.cover])[0] : null;
+      if (vp.frame !== undefined) v.frame = vp.frame ? cleanSlides([vp.frame])[0] : null;
     }
   }
   if (needsName(p)) throw new UserError(NAME_REQUIRED, 422);

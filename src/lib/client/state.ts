@@ -52,7 +52,7 @@ const upsert = (list: Post[], p: Post) => (list.some((x) => x.id === p.id) ? lis
 
 export type PostPatch = {
   title?: string; notes?: string; date?: string | null; slot?: Slot; inspoId?: string | null;
-  variants?: Partial<Record<Lang, Partial<Pick<Post["variants"]["en"], "comment" | "tradr" | "hashtags" | "slides" | "ready" | "status">>>>;
+  variants?: Partial<Record<Lang, Partial<Pick<Post["variants"]["en"], "comment" | "tradr" | "hashtags" | "slides" | "ready" | "status" | "video" | "cover" | "frame">>>>;
 };
 
 /** Optimistic edit: the UI updates at once, rolls back if the server says no. */
@@ -83,7 +83,7 @@ export async function patchPost(id: string, patch: PostPatch) {
   }
 }
 
-export async function createPost(init: { title?: string; date?: string | null; slot?: Slot; inspoId?: string; planId?: string; slides?: Partial<Record<Lang, unknown[]>> }) {
+export async function createPost(init: { title?: string; date?: string | null; slot?: Slot; kind?: "post" | "reel"; inspoId?: string; planId?: string; slides?: Partial<Record<Lang, unknown[]>> }) {
   const p = await api<Post>("/api/posts", { body: init });
   await putPost(p);
   return p;

@@ -2,6 +2,7 @@ import { body, route } from "@/lib/server/api";
 import { deletePost, getPost, listPosts, mutatePost, NotFoundError, UserError } from "@/lib/server/store";
 import { getSettings } from "@/lib/server/settings";
 import { applyPatch, type PostPatch } from "@/lib/server/posts";
+import { deleteVideoFiles, videoUrls } from "@/lib/server/videos";
 import { LK } from "@/lib/langs";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -17,9 +18,14 @@ export const PATCH = route<Ctx>(async (req, { params }) => {
   const patch = await body<PostPatch>(req);
   const [s, others] = await Promise.all([getSettings(), patch.date !== undefined || patch.slot !== undefined ? listPosts() : Promise.resolve([])]);
   let notes: string[] = [];
+  let before: string[] = [];
   const post = await mutatePost(id, (p) => {
+    before = videoUrls(p);
     notes = applyPatch(p, patch, s, others);
   });
+  // A replaced or removed video is deleted straight away (storage is tight).
+  const after = new Set(videoUrls(post));
+  await deleteVideoFiles(before.filter((u) => !after.has(u))).catch((e) => console.error("video delete failed", e));
   return { post, notes };
 });
 
@@ -29,5 +35,6 @@ export const DELETE = route<Ctx>(async (_req, { params }) => {
   if (!p) return { ok: true };
   if (LK.some((k) => p.variants[k].state === "publishing")) throw new UserError("This post is publishing right now. Wait a moment.");
   await deletePost(id);
+  await deleteVideoFiles(videoUrls(p)).catch((e) => console.error("video delete failed", e));
   return { ok: true };
 });

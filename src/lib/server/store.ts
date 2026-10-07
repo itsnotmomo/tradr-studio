@@ -120,6 +120,7 @@ export function blankVariant(s: Settings, k: Lang): Variant {
 function normalizePost(p: Post & { time?: string }): Post {
   if (!p.slot) p.slot = slotFromTime(p.time);
   delete p.time;
+  if (!p.kind) p.kind = p.slot === "reel" ? "reel" : "post";
   for (const k of LK) {
     const v = p.variants[k];
     if (!v.status) v.status = v.state === "posted" ? "posted" : v.ready ? "ready" : "draft";
@@ -138,7 +139,7 @@ export async function createPost(init: Partial<Post>, s: Settings): Promise<Post
   const variants = {} as Record<Lang, Variant>;
   for (const k of LK) variants[k] = { ...blankVariant(s, k), ...(init.variants?.[k] || {}) };
   const p: Post = {
-    id: uid(), title: "", notes: "", date: null, slot: "morning", inspoId: null, createdAt: now, updatedAt: now,
+    id: uid(), title: "", notes: "", date: null, slot: "morning", kind: "post", inspoId: null, createdAt: now, updatedAt: now,
     ...init, variants, rev: 0,
   };
   p.rev = await cas("posts", p.id, 0, p, postIndexArgs(p));

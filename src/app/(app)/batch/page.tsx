@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Icon } from "@/components/icons";
 import { PreviewThumb } from "@/components/slide-viewer";
+import { ReelBadge } from "@/components/post-card";
 import { slotTimeLabel } from "@/components/publish";
 import { PageHeader, Spinner, StatusPill } from "@/components/ui";
 import { useAppState } from "@/lib/client/state";
@@ -58,7 +59,7 @@ function Batch() {
         <div className="card p-4 flex flex-col gap-2.5">
           <div className="flex items-baseline justify-between gap-3">
             <div className="text-[18px] font-bold tabular-nums">{done} of {seq.length} scheduled</div>
-            <div className="text-[12px] muted">{posts.length} post{posts.length === 1 ? "" : "s"} × 3 accounts</div>
+            <div className="text-[12px] muted">{(() => { const r = posts.filter((p) => p.kind === "reel").length, n = posts.length - r; return `${n} post${n === 1 ? "" : "s"}${r ? `, ${r} reel${r === 1 ? "" : "s"}` : ""} × 3 accounts`; })()}</div>
           </div>
           <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--soft)" }}>
             <div className="h-full rounded-full" style={{ width: `${seq.length ? (done / seq.length) * 100 : 0}%`, background: "var(--s-posted)" }} />
@@ -82,7 +83,7 @@ function Batch() {
                     <PreviewThumb post={p} lang={"it"} className="w-10" />
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold truncate">{p.title || "Untitled"}</div>
-                      <div className="text-[12px] muted">{slotName(p.slot)}</div>
+                      <div className="text-[12px] muted">{p.kind === "reel" ? <ReelBadge /> : slotName(p.slot)}</div>
                     </div>
                     <Link href={`/posts/${p.id}`} className="btn small ghost">Edit</Link>
                   </header>

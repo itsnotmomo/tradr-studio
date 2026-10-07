@@ -1,17 +1,22 @@
 import { zonedToUtc } from "./time";
 import type { Lang, Post, Settings, Slot } from "./types";
 
+/** Post slots (carousels). */
 export const SLOTS: { k: Slot; name: string }[] = [
   { k: "morning", name: "Morning" },
   { k: "afternoon", name: "Afternoon" },
 ];
-export const slotName = (s: Slot) => (s === "morning" ? "Morning" : "Afternoon");
-export const isSlot = (v: unknown): v is Slot => v === "morning" || v === "afternoon";
+/** Every planner row: the two post slots, then the optional reel. */
+export const ALL_SLOTS: { k: Slot; name: string }[] = [...SLOTS, { k: "reel", name: "Reel" }];
+export const SLOT_ORDER: Record<Slot, number> = { morning: 0, afternoon: 1, reel: 2 };
+export const slotName = (s: Slot) => (s === "morning" ? "Morning" : s === "afternoon" ? "Afternoon" : "Reel");
+export const isSlot = (v: unknown): v is Slot => v === "morning" || v === "afternoon" || v === "reel";
+export const isPostSlot = (v: unknown): v is Slot => v === "morning" || v === "afternoon";
 
 export const DEFAULT_SCHEDULE: Settings["schedule"] = {
-  it: { zone: "Europe/Rome", morning: "10:00", afternoon: "14:00" },
-  es: { zone: "America/Argentina/Buenos_Aires", morning: "10:00", afternoon: "14:00" },
-  en: { zone: "UTC", morning: "12:00", afternoon: "18:00" },
+  it: { zone: "Europe/Rome", morning: "10:00", afternoon: "14:00", reel: "12:00" },
+  es: { zone: "America/Argentina/Buenos_Aires", morning: "10:00", afternoon: "14:00", reel: "12:00" },
+  en: { zone: "UTC", morning: "12:00", afternoon: "18:00", reel: "15:00" },
 };
 
 /** When this account publishes a post in this slot on this day (ms, UTC). DST-correct per zone. */
@@ -33,7 +38,7 @@ export function slotTaken(posts: Post[], date: string, slot: Slot, exceptId?: st
   return posts.find((p) => p.id !== exceptId && p.date === date && p.slot === slot) || null;
 }
 
-/** First free slot on a day, or null if both are taken. */
+/** First free post slot on a day, or null if both are taken. */
 export function freeSlot(posts: Post[], date: string, exceptId?: string, prefer?: Slot): Slot | null {
   const order: Slot[] = prefer === "afternoon" ? ["afternoon", "morning"] : ["morning", "afternoon"];
   return order.find((s) => !slotTaken(posts, date, s, exceptId)) || null;
