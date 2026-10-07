@@ -10,8 +10,8 @@ export const GET = route(async (req) => {
   const origin = appOrigin(req);
   const back = (q: Record<string, string>) => NextResponse.redirect(`${origin}/settings?${new URLSearchParams(q)}#accounts`);
   const jar = await cookies();
-  const expected = jar.get("tape_oauth")?.value;
-  jar.delete("tape_oauth");
+  const expected = jar.get("studio_oauth")?.value;
+  jar.delete("studio_oauth");
   if (url.searchParams.get("error")) return back({ meta_error: url.searchParams.get("error_description") || "Facebook login was cancelled." });
   if (!expected || url.searchParams.get("state") !== expected) return back({ meta_error: "The login link expired. Try connecting again." });
   try {

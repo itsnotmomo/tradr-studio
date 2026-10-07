@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Tape",
-    short_name: "Tape",
+    name: "Tradr Studio",
+    short_name: "Tradr Studio",
     start_url: "/",
     display: "standalone",
     background_color: "#f3f3f0",

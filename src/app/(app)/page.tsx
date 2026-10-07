@@ -13,13 +13,15 @@ import { createPost, patchPost, useAppState, type AppState } from "@/lib/client/
 import { buildCaption } from "@/lib/caption";
 import { displayStatus, STATUS_LABEL } from "@/lib/status";
 import { LANGS, LK } from "@/lib/langs";
+import { SLOTS, slotName, slotTaken, slotTimes } from "@/lib/slots";
 import { addDays, fmtDate, parseYmd, weekStart, ymd } from "@/lib/time";
-import type { DisplayStatus, Lang, Post } from "@/lib/types";
+import type { DisplayStatus, Lang, Post, Settings, Slot } from "@/lib/types";
 
 type View = "day" | "week" | "month";
 type Filter = Lang | "all";
 const DOW = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const byTime = (a: Post, b: Post) => a.time.localeCompare(b.time) || a.createdAt - b.createdAt;
+const byTime = (a: Post, b: Post) => (a.slot === b.slot ? 0 : a.slot === "morning" ? -1 : 1) || a.createdAt - b.createdAt;
+
 
 function usePersisted<T>(key: string, initial: T) {
   const [v, setV] = useState<T>(initial);
@@ -47,8 +49,8 @@ export default function PlannerPage() {
   const { data, error } = useAppState();
   const router = useRouter();
   const toast = useToast();
-  const [view, setView] = usePersisted<View>("tape.view", "week");
-  const [filter, setFilter] = usePersisted<Filter>("tape.filter", "all");
+  const [view, setView] = usePersisted<View>("studio.view", "week");
+  const [filter, setFilter] = usePersisted<Filter>("studio.filter", "all");
   const [cursor, setCursor] = useState(() => new Date());
   const [dragId, setDragId] = useState<string | null>(null);
   const justDragged = useRef(0);
@@ -75,9 +77,9 @@ export default function PlannerPage() {
   const shift = (n: number) =>
     setCursor((c) => (view === "month" ? new Date(c.getFullYear(), c.getMonth() + n, 1) : addDays(c, n * (view === "week" ? 7 : 1))));
 
-  const newPost = async (date: string | null) => {
+  const newPost = async (date: string | null, slot?: Slot) => {
     try {
-      const p = await createPost({ date });
+      const p = await createPost({ date, slot });
       router.push(`/posts/${p.id}`);
     } catch (e) {
       toast((e as Error).message, { tone: "error" });
@@ -91,13 +93,25 @@ export default function PlannerPage() {
     const id = String(e.active.id);
     const over = e.over?.id ? String(e.over.id) : null;
     if (!over) return;
-    const date = over === "ideas" ? null : over.replace(/^day:/, "");
     const p = data.posts.find((x) => x.id === id);
-    if (!p || p.date === date) return;
+    if (!p) return;
+    let date: string | null = null, slot: Slot = p.slot;
+    if (over !== "ideas") {
+      const [, d, sl] = over.split(":");
+      date = d;
+      // Dropped on a whole day (month view on a phone): first free slot.
+      slot = (sl as Slot) || (SLOTS.map((x) => x.k).find((x) => !slotTaken(data.posts, d, x, id)) ?? "morning");
+    }
+    if (p.date === date && (!date || p.slot === slot)) return;
+    const other = date ? slotTaken(data.posts, date, slot, id) : null;
+    if (other) {
+      toast(`${slotName(slot)} on ${fmtDate(date!, { weekday: "short", day: "numeric", month: "short" })} is taken by “${other.title || "Untitled"}”. Each account posts at most once per slot.`, { tone: "error" });
+      return;
+    }
     try {
-      const r = await patchPost(id, { date });
+      const r = await patchPost(id, { date, slot });
       const note = r.notes.join(" ");
-      toast(date ? `Moved to ${fmtDate(date, { weekday: "short", day: "numeric", month: "short" })}. ${note}` : `Moved to Ideas. ${note}`);
+      toast(date ? `Moved to ${slotName(slot)}, ${fmtDate(date, { weekday: "short", day: "numeric", month: "short" })}. ${note}` : `Moved to Ideas. ${note}`);
     } catch (err) {
       toast((err as Error).message, { tone: "error" });
     }
@@ -120,7 +134,7 @@ export default function PlannerPage() {
         <div className={view === "day" ? "" : "lg:grid lg:grid-cols-[1fr_250px]"}>
           <div className="px-3 md:px-6 pb-10 pt-1 min-w-0">
             {view === "month" && <Month cursor={cursor} byDay={byDay} filter={filter} onNew={newPost} onPick={(d) => { setCursor(parseYmd(d)); setView("day"); }} />}
-            {view === "week" && <Week cursor={cursor} byDay={byDay} filter={filter} onNew={newPost} />}
+            {view === "week" && <Week cursor={cursor} byDay={byDay} filter={filter} onNew={newPost} settings={data.settings} />}
             {view === "day" && <Day date={ymd(cursor)} posts={byDay.get(ymd(cursor)) || []} filter={filter} data={data} onNew={newPost} />}
           </div>
           {view !== "day" && <IdeasPanel ideas={ideas} filter={filter} onNew={() => newPost(null)} />}
@@ -195,41 +209,57 @@ function Summary({ posts, filter }: { posts: Post[]; filter: Filter }) {
   );
 }
 
-function DayDrop({ date, children, className, style }: { date: string; children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
-  const { setNodeRef, isOver } = useDroppable({ id: `day:${date}` });
+function SlotDrop({ date, slot, children, className, style }: { date: string; slot?: Slot; children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
+  const { setNodeRef, isOver } = useDroppable({ id: slot ? `slot:${date}:${slot}` : `day:${date}` });
   return <div ref={setNodeRef} className={`${className || ""} ${isOver ? "drop-on" : ""}`} style={style}>{children}</div>;
 }
 
-function Week({ cursor, byDay, filter, onNew }: { cursor: Date; byDay: Map<string, Post[]>; filter: Filter; onNew: (d: string) => void }) {
+const inSlot = (list: Post[], slot: Slot) => list.filter((p) => p.slot === slot);
+
+function Week({ cursor, byDay, filter, onNew, settings }: { cursor: Date; byDay: Map<string, Post[]>; filter: Filter; onNew: (d: string, s?: Slot) => void; settings: Settings }) {
   const s = weekStart(cursor), t = ymd(new Date());
+  const only = filter === "all" ? undefined : [filter];
   return (
-    <div className="grid grid-cols-1 md:grid-cols-7 gap-2 mt-3">
-      {[...Array(7)].map((_, i) => {
-        const d = addDays(s, i), k = ymd(d), list = byDay.get(k) || [];
-        const isToday = k === t;
-        return (
-          <DayDrop key={k} date={k} className="group rounded-xl border p-2 md:min-h-[440px] flex flex-col gap-2 min-w-0" style={{ background: "var(--panel)", borderColor: isToday ? "var(--ink)" : "var(--line)" }}>
-            <header className="flex items-baseline justify-between">
-              <span className="text-[12px] font-semibold muted">
-                <b className={`text-[18px] mr-1 ${isToday ? "" : ""}`} style={{ color: "var(--ink)" }}>{d.getDate()}</b>
+    <div className="mt-3">
+      <div className="grid grid-cols-1 md:grid-cols-7 gap-2">
+        {[...Array(7)].map((_, i) => {
+          const d = addDays(s, i), k = ymd(d), list = byDay.get(k) || [];
+          const isToday = k === t;
+          return (
+            <div key={k} className="rounded-xl border p-2 flex flex-col gap-1.5 min-w-0" style={{ background: "var(--panel)", borderColor: isToday ? "var(--ink)" : "var(--line)" }}>
+              <header className="text-[12px] font-semibold muted px-0.5">
+                <b className="text-[18px] mr-1" style={{ color: "var(--ink)" }}>{d.getDate()}</b>
                 {d.toLocaleDateString("en-GB", { weekday: "short" })}
                 {isToday && <span className="ml-1.5 text-[10px] uppercase tracking-wider" style={{ color: "var(--ink)" }}>Today</span>}
-              </span>
-              <button className="btn small ghost md:opacity-0 group-hover:opacity-100 focus:opacity-100" onClick={() => onNew(k)} aria-label={`New post on ${k}`}><Icon name="plus" size={15} /></button>
-            </header>
-            <div className="hidden md:flex flex-col gap-2">{list.map((p) => <PostCard key={p.id} post={p} lang={filter} />)}</div>
-            <div className="md:hidden flex flex-col gap-1.5">
-              {list.map((p) => <PostCard key={p.id} post={p} lang={filter} variant="row" />)}
-              {!list.length && <span className="text-[12px] muted px-1 pb-1">Nothing planned</span>}
+              </header>
+              <div className="grid grid-cols-2 md:grid-cols-1 gap-1.5">
+                {SLOTS.map(({ k: slot, name }) => {
+                  const here = inSlot(list, slot);
+                  return (
+                    <SlotDrop key={slot} date={k} slot={slot} className="group rounded-lg border border-dashed p-1.5 flex flex-col gap-1.5 md:min-h-[200px] min-w-0" style={{ borderColor: "var(--line)", background: "var(--soft)" }}>
+                      <div className="flex items-center justify-between gap-1" title={slotTimes(settings, slot)}>
+                        <span className="text-[11px] font-bold uppercase tracking-wide muted">{name}</span>
+                        {!here.length && <button className="btn small ghost !min-h-[22px] !px-1 md:opacity-0 group-hover:opacity-100 focus:opacity-100" onClick={() => onNew(k, slot)} aria-label={`New post, ${name} ${k}`}><Icon name="plus" size={14} /></button>}
+                      </div>
+                      <div className="text-[10px] muted -mt-1 truncate">{slotTimes(settings, slot, only)}</div>
+                      <div className="hidden md:flex flex-col gap-1.5">{here.map((p) => <PostCard key={p.id} post={p} lang={filter} />)}</div>
+                      <div className="md:hidden flex flex-col gap-1.5">
+                        {here.map((p) => <PostCard key={p.id} post={p} lang={filter} variant="row" />)}
+                        {!here.length && <span className="text-[11.5px] muted px-0.5 pb-0.5">Free</span>}
+                      </div>
+                    </SlotDrop>
+                  );
+                })}
+              </div>
             </div>
-          </DayDrop>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-function Month({ cursor, byDay, filter, onNew, onPick }: { cursor: Date; byDay: Map<string, Post[]>; filter: Filter; onNew: (d: string) => void; onPick: (d: string) => void }) {
+function Month({ cursor, byDay, filter, onNew, onPick }: { cursor: Date; byDay: Map<string, Post[]>; filter: Filter; onNew: (d: string, s?: Slot) => void; onPick: (d: string) => void }) {
   const first = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
   const start = weekStart(first);
   const last = new Date(first.getFullYear(), first.getMonth() + 1, 0);
@@ -245,17 +275,34 @@ function Month({ cursor, byDay, filter, onNew, onPick }: { cursor: Date; byDay: 
         {cells.map((d) => {
           const k = ymd(d), out = d.getMonth() !== first.getMonth(), list = byDay.get(k) || [];
           return (
-            <DayDrop key={k} date={k} className="group rounded-lg border p-1 md:p-1.5 min-h-[64px] md:min-h-[120px] flex flex-col gap-1 min-w-0"
+            <div key={k} className="rounded-lg border p-1 md:p-1.5 min-h-[64px] md:min-h-[118px] flex flex-col gap-1 min-w-0"
               style={{ background: out ? "transparent" : "var(--panel)", borderColor: k === t ? "var(--ink)" : "var(--line)", borderStyle: out ? "dashed" : "solid" }}>
-              <div className="flex items-center justify-between">
-                <button className="text-[12px] font-semibold px-1 rounded" style={k === t ? { background: "var(--accent)", color: "var(--accent-ink)" } : { color: "var(--muted)" }} onClick={() => onPick(k)}>{d.getDate()}</button>
-                <button className="hidden md:block btn small ghost !min-h-0 !p-0.5 opacity-0 group-hover:opacity-100 focus:opacity-100" onClick={() => onNew(k)} aria-label={`New post on ${k}`}><Icon name="plus" size={14} /></button>
+              <button className="text-[12px] font-semibold px-1 rounded self-start" style={k === t ? { background: "var(--accent)", color: "var(--accent-ink)" } : { color: "var(--muted)" }} onClick={() => onPick(k)}>{d.getDate()}</button>
+              <div className="hidden md:flex flex-col gap-1">
+                {SLOTS.map(({ k: slot }) => {
+                  const here = inSlot(list, slot);
+                  return (
+                    <SlotDrop key={slot} date={k} slot={slot} className="group rounded-md min-h-[34px] flex flex-col gap-1 p-0.5" style={{ background: "var(--soft)" }}>
+                      {here.map((p) => <PostCard key={p.id} post={p} lang={filter} variant="chip" />)}
+                      {!here.length && (
+                        <button className="text-[10.5px] muted text-left px-1 py-1 opacity-60 group-hover:opacity-100" onClick={() => onNew(k, slot)}>
+                          {slot === "morning" ? "AM" : "PM"} <span className="opacity-0 group-hover:opacity-100">+ new</span>
+                        </button>
+                      )}
+                    </SlotDrop>
+                  );
+                })}
               </div>
-              <div className="hidden md:flex flex-col gap-1">{list.map((p) => <PostCard key={p.id} post={p} lang={filter} variant="chip" />)}</div>
-              <button className="md:hidden flex flex-wrap gap-[3px] px-0.5 text-left" onClick={() => onPick(k)} aria-label={`${list.length} posts`}>
-                {list.flatMap((p) => ks.map((kk) => <i key={p.id + kk} className={`dot s-${displayStatus(p.variants[kk])}`} style={{ width: 7, height: 7 }} />))}
-              </button>
-            </DayDrop>
+              <SlotDrop date={k} className="md:hidden flex-1">
+                <button className="w-full h-full flex flex-col gap-[3px] px-0.5 text-left" onClick={() => onPick(k)} aria-label={`${list.length} posts`}>
+                  {SLOTS.map(({ k: slot }) => (
+                    <span key={slot} className="flex gap-[3px] items-center h-[7px]">
+                      {inSlot(list, slot).flatMap((p) => ks.map((kk) => <i key={p.id + kk} className={`dot s-${displayStatus(p.variants[kk])}`} style={{ width: 7, height: 7 }} />))}
+                    </span>
+                  ))}
+                </button>
+              </SlotDrop>
+            </div>
           );
         })}
       </div>
@@ -263,34 +310,42 @@ function Month({ cursor, byDay, filter, onNew, onPick }: { cursor: Date; byDay: 
   );
 }
 
-function Day({ date, posts, filter, data, onNew }: { date: string; posts: Post[]; filter: Filter; data: AppState; onNew: (d: string) => void }) {
-  if (!posts.length) {
-    return (
-      <DayDrop date={date} className="mt-4 rounded-xl border-2 border-dashed p-10 text-center muted" style={{ borderColor: "var(--line)" }}>
-        Nothing planned for this day.
-        <div className="mt-4"><button className="btn primary" onClick={() => onNew(date)}>New post</button></div>
-      </DayDrop>
-    );
-  }
+function Day({ date, posts, filter, data, onNew }: { date: string; posts: Post[]; filter: Filter; data: AppState; onNew: (d: string, s?: Slot) => void }) {
   const ks = filter === "all" ? LK : [filter];
   return (
-    <DayDrop date={date} className="mt-3 flex flex-col gap-4 max-w-[1200px]">
-      {posts.map((p) => (
-        <section key={p.id} className="card p-3 md:p-4">
-          <header className="flex items-center gap-3 mb-3">
-            <PostCardHandle post={p} />
-            <div className="flex-1 min-w-0">
-              <h3 className="font-bold text-[15px] truncate">{p.time} · {p.title || "Untitled"}</h3>
-              <LangDots post={p} />
-            </div>
-            <Link href={`/posts/${p.id}`} className="btn">Edit</Link>
-          </header>
-          <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
-            {ks.map((k) => <DayLang key={k} post={p} k={k} data={data} />)}
-          </div>
-        </section>
-      ))}
-    </DayDrop>
+    <div className="mt-3 flex flex-col gap-4 max-w-[1200px]">
+      {SLOTS.map(({ k: slot, name }) => {
+        const here = inSlot(posts, slot);
+        return (
+          <SlotDrop key={slot} date={date} slot={slot} className="flex flex-col gap-2 rounded-xl">
+            <h2 className="flex flex-wrap items-baseline gap-x-3 px-1">
+              <span className="font-bold text-[15px]">{name}</span>
+              <span className="text-[12px] muted">{slotTimes(data.settings, slot, filter === "all" ? undefined : [filter])}</span>
+            </h2>
+            {!here.length && (
+              <div className="rounded-xl border-2 border-dashed p-6 text-center muted text-[13px]" style={{ borderColor: "var(--line)" }}>
+                Free. <button className="underline font-semibold" style={{ color: "var(--ink)" }} onClick={() => onNew(date, slot)}>New post</button> or drag one here.
+              </div>
+            )}
+            {here.map((p) => (
+              <section key={p.id} className="card p-3 md:p-4">
+                <header className="flex items-center gap-3 mb-3">
+                  <PostCardHandle post={p} />
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-[15px] truncate">{p.title || "Untitled"}</h3>
+                    <LangDots post={p} />
+                  </div>
+                  <Link href={`/posts/${p.id}`} className="btn">Edit</Link>
+                </header>
+                <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
+                  {ks.map((k) => <DayLang key={k} post={p} k={k} data={data} />)}
+                </div>
+              </section>
+            ))}
+          </SlotDrop>
+        );
+      })}
+    </div>
   );
 }
 

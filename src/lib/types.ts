@@ -1,4 +1,5 @@
 export type Lang = "en" | "es" | "it";
+export type Slot = "morning" | "afternoon";
 
 export type Slide = { id: string; url: string; w: number; h: number };
 
@@ -31,8 +32,10 @@ export type Variant = {
   slides: Slide[];
   ready: boolean;
   state: VariantState;
-  /** When the variant is queued to publish (ms). Derived from the post's date + time. */
+  /** When the variant is queued to publish (ms). Resolved from the post's date + slot in this account's zone. */
   scheduledAt: number | null;
+  /** Queued by "Post now" / retry rather than by the slot. */
+  postNow?: boolean;
   /** Set when an automatic retry is pending. */
   nextAttemptAt: number | null;
   attempts: number;
@@ -51,10 +54,9 @@ export type Post = {
   id: string;
   title: string;
   notes: string;
-  /** YYYY-MM-DD in the planner's time zone, or null for an idea. */
+  /** YYYY-MM-DD (the same calendar day in each account's zone), or null for an idea. */
   date: string | null;
-  /** HH:MM */
-  time: string;
+  slot: Slot;
   inspoId: string | null;
   createdAt: number;
   updatedAt: number;
@@ -68,10 +70,14 @@ export type LangSettings = {
   hashtags: string;
 };
 
+export type LangSchedule = { zone: string; morning: string; afternoon: string };
+
 export type Settings = {
+  /** Your own zone, for "today" when posting from Ideas. */
   timezone: string;
-  defaultTime: string;
   langs: Record<Lang, LangSettings>;
+  /** Per account: its time zone and the local HH:MM of each slot. */
+  schedule: Record<Lang, LangSchedule>;
 };
 
 export type Account = {
@@ -99,14 +105,12 @@ export type Inspo = {
   url: string | null;
   shortcode: string | null;
   username: string | null;
-  caption: string;
+  /** What the post is (from the archive, or your own words). */
+  description: string;
+  format: string | null;
   likes: number | null;
   comments: number | null;
-  mediaType: string | null;
   images: { url: string; w?: number; h?: number }[];
-  postedAt: string | null;
-  source: "api" | "screenshot";
-  fetchError: string | null;
   status: InspoStatus;
   tags: string[];
   notes: string;
@@ -117,3 +121,21 @@ export type Inspo = {
 };
 
 export type SchedulerHealth = { lastTickAt: number | null; lastResult: string | null };
+
+/** A planned post idea with its slide text per language and reference posts. */
+export type PlanItem = {
+  id: string;
+  number: number;
+  /** e.g. "Week 1" */
+  group: string;
+  type: string;
+  texts: Record<Lang, string>;
+  refs: { inspoId: string; note: string }[];
+  postId: string | null;
+  createdAt: number;
+  updatedAt: number;
+  rev: number;
+};
+
+/** Readable notes kept with the inspo archive. */
+export type InspoNotes = { intro: string; planIntro: string; accounts: { tag: string; title: string; text: string }[] };

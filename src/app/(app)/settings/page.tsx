@@ -81,7 +81,7 @@ function Accounts({ data }: { data: AppState }) {
       {ok && <div className="text-[13px]" style={{ color: "var(--s-posted)" }}>Connected {ok.split(",").map((k) => LANGS.find((l) => l.k === k)?.handle).join(", ")}.</div>}
       {err && <ErrorBox title="Couldn’t connect">{err}</ErrorBox>}
       {!m.configured && (
-        <Warn>The Meta app isn’t set up yet, so posting, numbers and inspo fetching are off. Everything else works. Once META_APP_ID and META_APP_SECRET are set, a “Connect with Facebook” button appears here.</Warn>
+        <Warn>The Meta app isn’t set up yet, so posting and numbers are off. Everything else works. Once META_APP_ID and META_APP_SECRET are set, a “Connect with Facebook” button appears here.</Warn>
       )}
       <div className="grid md:grid-cols-3 gap-2">
         {LANGS.map((l) => {
@@ -107,9 +107,6 @@ function Accounts({ data }: { data: AppState }) {
         })}
       </div>
       {m.unmatched.length > 0 && <div className="text-[12px] muted">Also visible but not used: {m.unmatched.map((u) => "@" + u.username).join(", ")}.</div>}
-      {m.userTokenExpiresAt && m.userTokenExpiresAt - data.now < 10 * 864e5 && (
-        <Warn>The Facebook login used for fetching inspo expires {relTime(m.userTokenExpiresAt)}. Reconnect to keep fetching working. Posting isn’t affected.</Warn>
-      )}
       {m.configured && (
         <details className="text-[13px]">
           <summary className="cursor-pointer muted">Use a token instead (system user or Graph API Explorer)</summary>
@@ -196,22 +193,58 @@ function LangColumn({ k, data }: { k: Lang; data: AppState }) {
   );
 }
 
+const ZONE_ORDER: Lang[] = ["it", "es", "en"];
+
 function General({ data }: { data: AppState }) {
   const toast = useToast();
-  const zones = typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [data.settings.timezone];
+  const zones = typeof Intl.supportedValuesOf === "function" ? ["UTC", ...Intl.supportedValuesOf("timeZone").filter((z) => z !== "UTC")] : [data.settings.timezone];
   const local = typeof window !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : null;
   const save = async (body: Record<string, unknown>) => {
     try {
-      await patchSettings(body);
-      toast("Saved.", { ms: 1500 });
+      const r = await api<{ rescheduled: number }>("/api/settings", { method: "PATCH", body });
+      await refreshState();
+      toast(r.rescheduled ? `Saved. ${r.rescheduled} scheduled version${r.rescheduled === 1 ? "" : "s"} moved to the new time.` : "Saved.", { ms: 2500 });
     } catch (e) {
       toast((e as Error).message, { tone: "error" });
     }
   };
   return (
-    <section className="card p-4 grid sm:grid-cols-2 gap-3">
+    <section id="slots" className="card p-4 flex flex-col gap-3 scroll-mt-4">
       <div>
-        <label className="label" htmlFor="tz">Time zone for scheduling</label>
+        <h2 className="font-bold text-[15px]">Posting slots</h2>
+        <p className="text-[12.5px] muted mt-0.5">Each day has a Morning and an Afternoon slot. A post goes in one slot, and each account publishes it at its own local time. Daylight saving is handled per zone.</p>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-[13px] min-w-[520px]">
+          <thead>
+            <tr className="text-left text-[12px] muted"><th className="font-medium pb-1.5">Account</th><th className="font-medium pb-1.5">Time zone</th><th className="font-medium pb-1.5">Morning</th><th className="font-medium pb-1.5">Afternoon</th></tr>
+          </thead>
+          <tbody>
+            {ZONE_ORDER.map((k) => {
+              const l = LANGS.find((x) => x.k === k)!;
+              const sc = data.settings.schedule[k];
+              return (
+                <tr key={k} className="border-t" style={{ borderColor: "var(--line)" }}>
+                  <td className="py-2 pr-3"><b>{l.code}</b> <span className="muted">{l.handle}</span></td>
+                  <td className="py-2 pr-3">
+                    <select className="field !min-h-[32px] !py-1" value={sc.zone} onChange={(e) => save({ schedule: { [k]: { zone: e.target.value } } })} aria-label={`${l.code} time zone`}>
+                      {zones.map((z) => <option key={z} value={z}>{z}</option>)}
+                    </select>
+                  </td>
+                  {(["morning", "afternoon"] as const).map((slot) => (
+                    <td key={slot} className="py-2 pr-3">
+                      <input type="time" className="field !min-h-[32px] !py-1 !w-[110px]" defaultValue={sc[slot]} aria-label={`${l.code} ${slot}`}
+                        onBlur={(e) => e.target.value && e.target.value !== sc[slot] && save({ schedule: { [k]: { [slot]: e.target.value } } })} />
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="max-w-[360px]">
+        <label className="label" htmlFor="tz">Your time zone (for “today” when posting from Ideas)</label>
         <select id="tz" className="field" value={data.settings.timezone} onChange={(e) => save({ timezone: e.target.value })}>
           {zones.map((z) => <option key={z} value={z}>{z}</option>)}
         </select>
@@ -220,10 +253,6 @@ function General({ data }: { data: AppState }) {
             This device is on {local}. <button className="underline" onClick={() => save({ timezone: local })}>Use it</button>
           </div>
         )}
-      </div>
-      <div>
-        <label className="label" htmlFor="dt">Default time for new posts</label>
-        <input id="dt" type="time" className="field" defaultValue={data.settings.defaultTime} onBlur={(e) => e.target.value !== data.settings.defaultTime && save({ defaultTime: e.target.value })} />
       </div>
     </section>
   );
@@ -245,7 +274,7 @@ function Scheduler({ data }: { data: AppState }) {
         <i className={`dot ${healthy ? "s-posted" : "s-failed"}`} />
         {last ? <>Last ran {relTime(last, data.now)}{result.summary ? ` · ${result.summary}` : ""}</> : "Has never run."}
       </div>
-      <p className="text-[12.5px] muted">Instagram has no scheduling of its own, so Tape checks every minute for posts that are due. cron-job.org calls it every minute; Vercel calls it once a day as a backstop.</p>
+      <p className="text-[12.5px] muted">Instagram has no scheduling of its own, so Tradr Studio checks every minute for posts that are due. cron-job.org calls it every minute; Vercel calls it once a day as a backstop.</p>
     </section>
   );
 }

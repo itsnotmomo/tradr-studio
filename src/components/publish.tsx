@@ -8,8 +8,9 @@ import { patchPost, postAction, type AppState } from "@/lib/client/state";
 import { preflight } from "@/lib/preflight";
 import { buildCaption } from "@/lib/caption";
 import { LANGS, LK, langInfo } from "@/lib/langs";
+import { publishAt, slotName, zoneLabel } from "@/lib/slots";
 import { fmtDate, relTime } from "@/lib/time";
-import type { Lang, Post } from "@/lib/types";
+import type { Lang, Post, Settings } from "@/lib/types";
 
 const STAGES: Record<string, string> = {
   starting: "Starting",
@@ -21,6 +22,15 @@ const STAGES: Record<string, string> = {
 
 const when = (ms: number) =>
   new Date(ms).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+
+/** "10:00 Rome" and, if different, "(11:00 your time)". */
+export function slotTimeLabel(s: Settings, k: Lang, post: Pick<Post, "date" | "slot">) {
+  const sc = s.schedule[k];
+  const local = `${sc[post.slot]} ${zoneLabel(sc.zone)}`;
+  if (!post.date) return local;
+  const yours = new Date(publishAt(s, k, post.date, post.slot)).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  return yours === sc[post.slot] ? local : `${local} (${yours} your time)`;
+}
 
 /** A button that needs a second tap within 4 s. For things that can't be undone. */
 export function ConfirmButton({ children, confirm, onConfirm, className, disabled }: { children: React.ReactNode; confirm: string; onConfirm: () => void; className?: string; disabled?: boolean }) {
@@ -65,7 +75,7 @@ export function PublishControls({ post, k, data, compact }: { post: Post; k: Lan
     setBusy(action);
     try {
       await postAction(post.id, action, [k]);
-      if (action === "schedule") toast(`${code} scheduled for ${fmtDate(post.date!, { weekday: "short", day: "numeric", month: "short" })} at ${post.time}.`);
+      if (action === "schedule") toast(`${code} scheduled for ${fmtDate(post.date!, { weekday: "short", day: "numeric", month: "short" })}, ${slotTimeLabel(data.settings, k, post)}.`);
       if (action === "now" || action === "retry") toast(`${code} is publishing. This takes up to a minute.`);
     } catch (e) {
       toast(`${code}: ${(e as Error).message}`, { tone: "error" });
@@ -159,9 +169,9 @@ export function PublishControls({ post, k, data, compact }: { post: Post; k: Lan
           <input type="checkbox" className="chk" checked={v.ready} onChange={toggleReady} /> Ready
         </label>
         <button className="btn small primary" onClick={() => run("schedule")} disabled={!!busy || problems.length > 0 || !post.date}
-          title={post.date ? undefined : "Give the post a date first"}>
+          title={post.date ? undefined : "Put the post on a day first"}>
           {busy === "schedule" ? <Spinner /> : null}
-          {post.date ? `Schedule ${fmtDate(post.date, { day: "numeric", month: "short" })} ${post.time}` : "Schedule"}
+          {post.date ? `Schedule ${fmtDate(post.date, { day: "numeric", month: "short" })}, ${data.settings.schedule[k][post.slot]} ${zoneLabel(data.settings.schedule[k].zone)}` : "Schedule"}
         </button>
         <ConfirmButton className="btn small" confirm="Tap again to post now" onConfirm={() => run("now")} disabled={!!busy || problems.length > 0}>
           {busy === "now" ? <Spinner /> : null} Post now
@@ -194,11 +204,11 @@ export function PublishAll({ post, data }: { post: Post; data: AppState }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
       <button className="btn primary" disabled={busy || !!blocked.length || !post.date} onClick={() => go("schedule")}>
-        Schedule {label}{post.date ? ` · ${fmtDate(post.date, { day: "numeric", month: "short" })} ${post.time}` : ""}
+        Schedule {label}{post.date ? ` · ${fmtDate(post.date, { weekday: "short", day: "numeric", month: "short" })} ${slotName(post.slot)}` : ""}
       </button>
       <ConfirmButton className="btn" confirm={`Tap again to post ${label} now`} onConfirm={() => go("now")} disabled={busy || !!blocked.length}>Post {label} now</ConfirmButton>
       {blocked.length > 0 && <span className="text-[12px]" style={{ color: "var(--warn)" }}>{blocked.map((k) => LANGS.find((l) => l.k === k)!.code).join(", ")} not ready to go out yet (see below).</span>}
-      {!post.date && <span className="text-[12px] muted">Set a date to schedule.</span>}
+      {!post.date && <span className="text-[12px] muted">Put it on a day to schedule.</span>}
     </div>
   );
 }

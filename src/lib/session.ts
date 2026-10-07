@@ -1,6 +1,6 @@
 // Signed session cookie. Uses Web Crypto so it runs in the proxy and in route handlers.
 
-export const SESSION_COOKIE = "tape_session";
+export const SESSION_COOKIE = "studio_session";
 export const SESSION_DAYS = 180;
 
 const enc = new TextEncoder();
@@ -12,8 +12,8 @@ async function hmacKey(secret: string) {
 }
 
 function secret() {
-  const s = process.env.TAPE_SECRET;
-  if (!s || s.length < 32) throw new Error("TAPE_SECRET is missing or too short");
+  const s = process.env.STUDIO_SECRET;
+  if (!s || s.length < 32) throw new Error("STUDIO_SECRET is missing or too short");
   return s;
 }
 

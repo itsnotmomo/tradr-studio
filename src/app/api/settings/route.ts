@@ -2,39 +2,70 @@ import { body, route } from "@/lib/server/api";
 import { getSettings, mutateSettings } from "@/lib/server/settings";
 import { listPosts, mutatePost, UserError } from "@/lib/server/store";
 import { cleanSlides } from "@/lib/server/posts";
-import { isLang } from "@/lib/langs";
+import { isLang, LK } from "@/lib/langs";
+import { publishAt } from "@/lib/slots";
 import { isValidHm } from "@/lib/time";
 
 type SettingsPatch = {
-  timezone?: string; defaultTime?: string;
+  timezone?: string;
   langs?: Partial<Record<string, { tradr?: string; hashtags?: string; tradrSlide?: unknown }>>;
+  schedule?: Partial<Record<string, { zone?: string; morning?: string; afternoon?: string }>>;
   applyDefaultsTo?: string;
+};
+
+const validZone = (z: string) => {
+  try {
+    new Intl.DateTimeFormat("en", { timeZone: z });
+    return true;
+  } catch {
+    return false;
+  }
 };
 
 export const GET = route(async () => getSettings());
 
 export const PATCH = route(async (req) => {
   const b = await body<SettingsPatch>(req);
-  if (b.timezone) {
-    try {
-      new Intl.DateTimeFormat("en", { timeZone: b.timezone });
-    } catch {
-      throw new UserError("Unknown time zone");
-    }
+  if (b.timezone && !validZone(b.timezone)) throw new UserError("Unknown time zone");
+  for (const sp of Object.values(b.schedule || {})) {
+    if (sp?.zone && !validZone(sp.zone)) throw new UserError("Unknown time zone");
+    for (const t of [sp?.morning, sp?.afternoon]) if (t !== undefined && !isValidHm(t)) throw new UserError("Times look like 10:00");
   }
-  if (b.defaultTime && !isValidHm(b.defaultTime)) throw new UserError("Invalid time");
   const s = await mutateSettings((s) => {
     if (b.timezone) s.timezone = b.timezone;
-    if (b.defaultTime) s.defaultTime = b.defaultTime;
     for (const [k, lp] of Object.entries(b.langs || {})) {
       if (!isLang(k) || !lp) continue;
       if (lp.tradr !== undefined) s.langs[k].tradr = String(lp.tradr);
       if (lp.hashtags !== undefined) s.langs[k].hashtags = String(lp.hashtags);
       if (lp.tradrSlide !== undefined) s.langs[k].tradrSlide = lp.tradrSlide ? cleanSlides([lp.tradrSlide])[0] : null;
     }
+    for (const [k, sp] of Object.entries(b.schedule || {})) {
+      if (!isLang(k) || !sp) continue;
+      Object.assign(s.schedule[k], Object.fromEntries(Object.entries(sp).filter(([, v]) => v !== undefined)));
+    }
   });
+
+  let updated = 0, rescheduled = 0;
+  // New slot times apply to everything already scheduled.
+  if (b.schedule) {
+    const now = Date.now();
+    for (const p of await listPosts()) {
+      if (!p.date || !LK.some((k) => p.variants[k].state === "scheduled" && !p.variants[k].postNow)) continue;
+      await mutatePost(p.id, (x) => {
+        for (const k of LK) {
+          const v = x.variants[k];
+          if (v.state !== "scheduled" || v.postNow || !x.date) continue;
+          const at = publishAt(s, k, x.date, x.slot);
+          if (at > now && at !== v.scheduledAt) {
+            v.scheduledAt = at;
+            v.nextAttemptAt = null;
+            rescheduled++;
+          }
+        }
+      });
+    }
+  }
   // "Apply defaults to posts not posted yet"
-  let updated = 0;
   if (b.applyDefaultsTo && isLang(b.applyDefaultsTo)) {
     const k = b.applyDefaultsTo;
     for (const p of await listPosts()) {
@@ -46,5 +77,5 @@ export const PATCH = route(async (req) => {
       updated++;
     }
   }
-  return { settings: s, updated };
+  return { settings: s, updated, rescheduled };
 });

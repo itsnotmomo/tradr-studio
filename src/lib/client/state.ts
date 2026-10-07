@@ -3,7 +3,7 @@
 import useSWR, { mutate as globalMutate } from "swr";
 import { api, fetcher } from "./api";
 import { LK } from "../langs";
-import type { AccountPublic, Lang, Post, SchedulerHealth, Settings } from "../types";
+import type { AccountPublic, Lang, Post, SchedulerHealth, Settings, Slot } from "../types";
 
 export type AppState = {
   posts: Post[];
@@ -51,7 +51,7 @@ export function dropPost(id: string) {
 const upsert = (list: Post[], p: Post) => (list.some((x) => x.id === p.id) ? list.map((x) => (x.id === p.id ? p : x)) : [...list, p]);
 
 export type PostPatch = {
-  title?: string; notes?: string; date?: string | null; time?: string; inspoId?: string | null;
+  title?: string; notes?: string; date?: string | null; slot?: Slot; inspoId?: string | null;
   variants?: Partial<Record<Lang, Partial<Pick<Post["variants"]["en"], "comment" | "tradr" | "hashtags" | "slides" | "ready">>>>;
 };
 
@@ -83,7 +83,7 @@ export async function patchPost(id: string, patch: PostPatch) {
   }
 }
 
-export async function createPost(init: { title?: string; date?: string | null; time?: string; inspoId?: string; slides?: Partial<Record<Lang, unknown[]>> }) {
+export async function createPost(init: { title?: string; date?: string | null; slot?: Slot; inspoId?: string; planId?: string; slides?: Partial<Record<Lang, unknown[]>> }) {
   const p = await api<Post>("/api/posts", { body: init });
   await putPost(p);
   return p;

@@ -1,7 +1,8 @@
 import "server-only";
 import { hashToObject, redis } from "./redis";
 import { LK } from "../langs";
-import type { Inspo, Lang, Post, Settings, Variant } from "../types";
+import { slotFromTime } from "../slots";
+import type { Inspo, Lang, PlanItem, Post, Settings, Variant } from "../types";
 
 // ---------------------------------------------------------------------------
 // Documents live as JSON in Redis hashes (one hash per collection) with a
@@ -33,7 +34,7 @@ for i = 2, #ARGV do
 end
 return 1`;
 
-type Coll = "posts" | "inspo" | "kv";
+type Coll = "posts" | "inspo" | "plans" | "kv";
 const K = { due: "due", inflight: "inflight" };
 
 export class ConflictError extends Error {}
@@ -115,15 +116,25 @@ export function blankVariant(s: Settings, k: Lang): Variant {
   };
 }
 
-export const listPosts = () => readAll<Post>("posts");
-export const getPost = (id: string) => readOne<Post>("posts", id);
+/** Posts saved before slots had an HH:MM time instead. */
+function normalizePost(p: Post & { time?: string }): Post {
+  if (!p.slot) p.slot = slotFromTime(p.time);
+  delete p.time;
+  return p;
+}
+
+export const listPosts = async () => (await readAll<Post>("posts")).map(normalizePost);
+export const getPost = async (id: string) => {
+  const p = await readOne<Post>("posts", id);
+  return p && normalizePost(p);
+};
 
 export async function createPost(init: Partial<Post>, s: Settings): Promise<Post> {
   const now = Date.now();
   const variants = {} as Record<Lang, Variant>;
   for (const k of LK) variants[k] = { ...blankVariant(s, k), ...(init.variants?.[k] || {}) };
   const p: Post = {
-    id: uid(), title: "", notes: "", date: null, time: s.defaultTime, inspoId: null, createdAt: now, updatedAt: now,
+    id: uid(), title: "", notes: "", date: null, slot: "morning", inspoId: null, createdAt: now, updatedAt: now,
     ...init, variants, rev: 0,
   };
   p.rev = await cas("posts", p.id, 0, p, postIndexArgs(p));
@@ -132,6 +143,7 @@ export async function createPost(init: Partial<Post>, s: Settings): Promise<Post
 
 export function mutatePost(id: string, fn: (p: Post) => Post | void | Promise<Post | void>) {
   return mutate<Post>("posts", id, async (p) => {
+    normalizePost(p);
     const out = (await fn(p)) ?? p;
     out.updatedAt = Date.now();
     return out;
@@ -163,9 +175,8 @@ export const getInspo = (id: string) => readOne<Inspo>("inspo", id);
 export async function createInspo(init: Partial<Inspo>): Promise<Inspo> {
   const now = Date.now();
   const doc: Inspo = {
-    id: uid(), url: null, shortcode: null, username: null, caption: "", likes: null, comments: null, mediaType: null,
-    images: [], postedAt: null, source: "screenshot", fetchError: null, status: "todo", tags: [], notes: "", postId: null,
-    createdAt: now, updatedAt: now, ...init, rev: 0,
+    id: uid(), url: null, shortcode: null, username: null, description: "", format: null, likes: null, comments: null,
+    images: [], status: "todo", tags: [], notes: "", postId: null, createdAt: now, updatedAt: now, ...init, rev: 0,
   };
   doc.rev = await cas("inspo", doc.id, 0, doc);
   return doc;
@@ -179,6 +190,22 @@ export const mutateInspo = (id: string, fn: (d: Inspo) => Inspo | void | Promise
 export async function deleteInspo(id: string) {
   await redis().eval(DEL, ["inspo", "inspo:rev", K.due, K.inflight], [id]);
 }
+
+// ---------- Content plan ----------
+
+export const listPlans = () => readAll<PlanItem>("plans");
+export async function createPlan(init: Omit<PlanItem, "id" | "rev" | "createdAt" | "updatedAt">): Promise<PlanItem> {
+  const now = Date.now();
+  const doc: PlanItem = { id: uid(), ...init, createdAt: now, updatedAt: now, rev: 0 };
+  doc.rev = await cas("plans", doc.id, 0, doc);
+  return doc;
+}
+export const mutatePlan = (id: string, fn: (d: PlanItem) => PlanItem | void) =>
+  mutate<PlanItem>("plans", id, (d) => {
+    const out = fn(d) ?? d;
+    out.updatedAt = Date.now();
+    return out;
+  });
 
 // ---------- Key-value documents (settings, accounts) ----------
 

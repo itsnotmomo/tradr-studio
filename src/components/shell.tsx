@@ -43,7 +43,7 @@ export function Shell({ children }: { children: ReactNode }) {
         <Link href="/" className="flex items-center gap-2.5 px-2 pb-5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/icon.png" alt="" width={26} height={26} className="rounded-[7px]" />
-          <span className="font-bold text-[16px]">Tape</span>
+          <span className="font-bold text-[16px]">Tradr Studio</span>
         </Link>
         {NAV.map(item)}
         <div className="px-2.5 pt-5 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-[#77776f]">Tools</div>

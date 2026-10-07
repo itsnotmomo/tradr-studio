@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import { Icon } from "@/components/icons";
-import { ConfirmButton, PublishAll, PublishControls, copyText } from "@/components/publish";
+import { ConfirmButton, PublishAll, PublishControls, copyText, slotTimeLabel } from "@/components/publish";
 import { Spinner, StatusPill, Warn } from "@/components/ui";
 import { useToast } from "@/components/toast";
 import { api, fetcher } from "@/lib/client/api";
@@ -15,6 +15,7 @@ import { buildCaption, charCount, hashtagCount } from "@/lib/caption";
 import { CAPTION_MAX, HASHTAG_MAX } from "@/lib/rules";
 import { displayStatus, isLocked } from "@/lib/status";
 import { LANGS, isLang } from "@/lib/langs";
+import { SLOTS, slotTimes } from "@/lib/slots";
 import type { Inspo, Lang, Post, Slide } from "@/lib/types";
 
 export default function PostPage({ params }: { params: Promise<{ id: string }> }) {
@@ -82,9 +83,12 @@ function Editor({ post, data, k, setK }: { post: Post; data: AppState; k: Lang; 
           <label className="label" htmlFor="p_date">Date</label>
           <input id="p_date" type="date" className="field !bg-[var(--panel)]" value={post.date || ""} onChange={(e) => save(post.id, { date: e.target.value || null })} />
         </div>
-        <div className="w-[110px]">
-          <label className="label" htmlFor="p_time">Time</label>
-          <input id="p_time" type="time" className="field !bg-[var(--panel)]" value={post.time} onChange={(e) => e.target.value && save(post.id, { time: e.target.value })} />
+        <div className="w-[130px]">
+          <label className="label" htmlFor="p_slot">Slot</label>
+          <select id="p_slot" className="field !bg-[var(--panel)]" value={post.slot} onChange={(e) => save(post.id, { slot: e.target.value as "morning" | "afternoon" })}
+            title={slotTimes(data.settings, post.slot)}>
+            {SLOTS.map((x) => <option key={x.k} value={x.k}>{x.name}</option>)}
+          </select>
         </div>
         <div className="flex items-center gap-2 self-center pt-4">
           <span className="text-[12px] muted w-[52px]" aria-live="polite">{saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved" : saveState === "error" ? <span style={{ color: "var(--danger)" }}>Not saved</span> : ""}</span>
@@ -126,7 +130,10 @@ function LangEditor({ post, k, data, save }: { post: Post; k: Lang; data: AppSta
       </section>
       <section className="flex flex-col gap-4">
         <div className="card p-3 md:p-4">
-          <h2 className="font-bold text-[13px] mb-2.5">Publish to {LANGS.find((l) => l.k === k)!.handle}</h2>
+          <h2 className="font-bold text-[13px] mb-2.5">
+            Publish to {LANGS.find((l) => l.k === k)!.handle}
+            {post.date && <span className="muted font-medium"> · {slotTimeLabel(data.settings, k, post)}</span>}
+          </h2>
           <PublishControls post={post} k={k} data={data} />
         </div>
         <div className="card p-3 md:p-4">

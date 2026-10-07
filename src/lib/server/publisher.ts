@@ -7,6 +7,7 @@ import { findPublished, mediaInsights, publishCarousel, publishingQuota } from "
 import { preflight } from "../preflight";
 import { buildCaption } from "../caption";
 import { langInfo } from "../langs";
+import { publishAt } from "../slots";
 import type { Lang, Post, Variant } from "../types";
 
 const MAX_ATTEMPTS = 3;
@@ -24,11 +25,18 @@ export async function publishVariant(postId: string, k: Lang): Promise<PublishOu
   const now = Date.now();
   let claimed = false;
   let post: Post;
+  const settings0 = await getSettings();
   try {
     post = await mutatePost(postId, (p) => {
       const v = p.variants[k];
+      if (v.state !== "scheduled") return;
+      // Slot posts: resolve the real time again now, in case slot times or the day changed since scheduling.
+      if (!v.postNow && !v.nextAttemptAt && p.date) {
+        const at = publishAt(settings0, k, p.date, p.slot);
+        if (Math.abs(at - (v.scheduledAt ?? 0)) > 30_000) v.scheduledAt = at;
+      }
       const due = v.nextAttemptAt ?? v.scheduledAt ?? Infinity;
-      if (v.state !== "scheduled" || due > now + 5000) return;
+      if (due > now + 5000) return;
       v.state = "publishing";
       v.attempts += 1;
       v.attemptStartedAt = now;
@@ -42,7 +50,8 @@ export async function publishVariant(postId: string, k: Lang): Promise<PublishOu
   if (!claimed) return { lang: k, postId, result: "skipped" };
 
   const v = post.variants[k];
-  const [settings, conn] = await Promise.all([getSettings(), getConnection()]);
+  const settings = settings0;
+  const conn = await getConnection();
   const acct = conn.accounts[k];
   const ls = settings.langs[k];
 
@@ -61,6 +70,7 @@ export async function publishVariant(postId: string, k: Lang): Promise<PublishOu
       } else {
         x.state = "failed";
         x.nextAttemptAt = null;
+        x.postNow = false;
         log(x, `Failed: ${err.message}`);
       }
     });
@@ -112,6 +122,7 @@ async function markPosted(postId: string, k: Lang, mediaId: string, permalink: s
   await mutatePost(postId, (p) => {
     const v = p.variants[k];
     v.state = "posted";
+    v.postNow = false;
     v.igMediaId = mediaId;
     v.permalink = permalink;
     v.publishedAt = Date.now();

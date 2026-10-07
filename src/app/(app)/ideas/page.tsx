@@ -7,7 +7,8 @@ import { PageHeader, LangDots, Spinner } from "@/components/ui";
 import { Icon } from "@/components/icons";
 import { useToast } from "@/components/toast";
 import { createPost, patchPost, useAppState } from "@/lib/client/state";
-import { ymd } from "@/lib/time";
+import { freeSlot, slotName } from "@/lib/slots";
+import { fmtDate, ymd } from "@/lib/time";
 
 export default function IdeasPage() {
   const { data } = useAppState();
@@ -31,9 +32,15 @@ export default function IdeasPage() {
     }
   };
   const plan = async (id: string, date: string) => {
+    const slot = freeSlot(data.posts, date, id);
+    const day = fmtDate(date, { weekday: "short", day: "numeric", month: "short" });
+    if (!slot) {
+      toast(`Both slots on ${day} are taken. Pick another day.`, { tone: "error" });
+      return;
+    }
     try {
-      await patchPost(id, { date });
-      toast("Moved to the planner.");
+      await patchPost(id, { date, slot });
+      toast(`Planned for ${day}, ${slotName(slot)}.`);
     } catch (err) {
       toast((err as Error).message, { tone: "error" });
     }

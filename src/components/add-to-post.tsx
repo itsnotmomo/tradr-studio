@@ -8,10 +8,11 @@ import { createPost, patchPost, useAppState } from "@/lib/client/state";
 import { uploadSlide } from "@/lib/client/upload";
 import { isLocked } from "@/lib/status";
 import { LANGS, LK } from "@/lib/langs";
+import { SLOTS, slotName } from "@/lib/slots";
 import { fmtDate, ymd } from "@/lib/time";
-import type { Lang, Post, Slide } from "@/lib/types";
+import type { Lang, Post, Slide, Slot } from "@/lib/types";
 
-const label = (p: Post) => `${p.date ? `${fmtDate(p.date, { weekday: "short", day: "numeric", month: "short" })} ${p.time}` : "Idea"} · ${p.title || "Untitled"}`;
+const label = (p: Post) => `${p.date ? `${fmtDate(p.date, { weekday: "short", day: "numeric", month: "short" })} ${slotName(p.slot)}` : "Idea"} · ${p.title || "Untitled"}`;
 
 /**
  * Sends images from a tool into a post: each language's image goes into that
@@ -29,12 +30,13 @@ export function AddToPost({ open, onClose, render, available, defaultLangs, targ
   const today = ymd(new Date());
   const upcoming = useMemo(
     () => (data?.posts || []).filter((p) => !p.date || p.date >= today).filter((p) => LK.some((k) => !isLocked(p.variants[k])))
-      .sort((a, b) => (a.date || "9999").localeCompare(b.date || "9999") || a.time.localeCompare(b.time)),
+      .sort((a, b) => (a.date || "9999").localeCompare(b.date || "9999") || a.slot.localeCompare(b.slot) * -1),
     [data?.posts, today],
   );
   const [sel, setSel] = useState<string>("__new");
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(today);
+  const [slot, setSlot] = useState<Slot | "">("");
   const [langs, setLangs] = useState<Lang[]>([]);
   const [previews, setPreviews] = useState<Partial<Record<Lang, string>>>({});
   const [busy, setBusy] = useState(false);
@@ -70,7 +72,7 @@ export function AddToPost({ open, onClose, render, available, defaultLangs, targ
       for (const k of langs) uploaded[k] = await uploadSlide(await render(k));
       let post: Post;
       if (sel === "__new") {
-        post = await createPost({ title, date: date || null, slides: Object.fromEntries(langs.map((k) => [k, [uploaded[k]]])) });
+        post = await createPost({ title, date: date || null, slot: slot || undefined, slides: Object.fromEntries(langs.map((k) => [k, [uploaded[k]]])) });
       } else {
         post = data!.posts.find((p) => p.id === sel)!;
         const skipped = langs.filter((k) => isLocked(post.variants[k]));
@@ -114,12 +116,18 @@ export function AddToPost({ open, onClose, render, available, defaultLangs, targ
             {upcoming.map((p) => <option key={p.id} value={p.id}>{label(p)}</option>)}
           </select>
         </div>
-        {sel === "__new" && (
-          <div className="grid grid-cols-[2fr_1fr] gap-2">
+        {sel === "__new" && (<>
+          <div className="grid grid-cols-[1.6fr_1fr_1fr] gap-2">
             <div><label className="label" htmlFor="s_title">Title</label><input id="s_title" className="field" value={title} onChange={(e) => setTitle(e.target.value)} /></div>
-            <div><label className="label" htmlFor="s_date">Date</label><input id="s_date" type="date" className="field" value={date} onChange={(e) => setDate(e.target.value)} /></div>
+            <div><label className="label" htmlFor="s_date">Day</label><input id="s_date" type="date" className="field" value={date} onChange={(e) => setDate(e.target.value)} /></div>
+            <div><label className="label" htmlFor="s_slot">Slot</label>
+              <select id="s_slot" className="field" value={slot} onChange={(e) => setSlot(e.target.value as Slot | "")}>
+                <option value="">First free</option>
+                {SLOTS.map((x) => <option key={x.k} value={x.k}>{x.name}</option>)}
+              </select></div>
           </div>
-        )}
+          <p className="text-[12px] muted -mt-2">Clear the day to save it to Ideas.</p>
+        </>)}
         <p className="text-[12px] muted -mt-1">Each language goes into its own version, after the existing slides and before the Tradr slide.</p>
         <div className="flex justify-end gap-2">
           <button className="btn" onClick={onClose}>Cancel</button>

@@ -6,12 +6,13 @@ import { AddToPost } from "@/components/add-to-post";
 import { ToolFonts } from "@/components/tool-fonts";
 import { useToast } from "@/components/toast";
 import { Spinner } from "@/components/ui";
+import { api } from "@/lib/client/api";
 import { useAppState } from "@/lib/client/state";
 import { canvasBlob, downloadBlob, loadImage, stamp, useToolState } from "@/lib/client/tools";
 import { uploadBlob } from "@/lib/client/upload";
 import { drawTweet, TWEET_DEFAULTS, TWEET_WIDTH, font, type TweetAssets, type TweetState } from "@/lib/tools/tweet";
 import { LANGS } from "@/lib/langs";
-import type { Lang } from "@/lib/types";
+import type { Lang, PlanItem } from "@/lib/types";
 
 export default function TweetPage() {
   return <Suspense><Tweet /></Suspense>;
@@ -20,6 +21,7 @@ export default function TweetPage() {
 function Tweet() {
   const params = useSearchParams();
   const postId = params.get("post");
+  const planId = params.get("plan");
   const { data } = useAppState();
   const target = data?.posts.find((p) => p.id === postId);
   const toast = useToast();
@@ -31,6 +33,19 @@ function Tweet() {
   const [assetsVer, setAssetsVer] = useState(0);
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState<string | null>(null);
+  const prefilled = useRef(false);
+
+  // Opened from a plan idea: start from its slide text in all three languages.
+  useEffect(() => {
+    if (!planId || !loaded || prefilled.current) return;
+    prefilled.current = true;
+    api<{ plans: PlanItem[] }>("/api/plans")
+      .then(({ plans }) => {
+        const p = plans.find((x) => x.id === planId);
+        if (p) update((s) => ({ ...s, texts: { ...p.texts }, active: "en" }));
+      })
+      .catch(() => {});
+  }, [planId, loaded, update]);
 
   // Load images and custom fonts whenever their URLs change.
   useEffect(() => {

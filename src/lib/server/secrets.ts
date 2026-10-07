@@ -1,8 +1,8 @@
 import "server-only";
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 
-// Meta tokens are stored encrypted (AES-256-GCM) with a key derived from TAPE_SECRET.
-const key = () => createHash("sha256").update(`${process.env.TAPE_SECRET}|tokens`).digest();
+// Meta tokens are stored encrypted (AES-256-GCM) with a key derived from STUDIO_SECRET.
+const key = () => createHash("sha256").update(`${process.env.STUDIO_SECRET}|tokens`).digest();
 
 export function encrypt(plain: string) {
   const iv = randomBytes(12);

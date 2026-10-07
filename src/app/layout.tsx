@@ -5,9 +5,9 @@ import "./globals.css";
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Tape",
-  description: "Instagram planner for Tradr",
-  appleWebApp: { capable: true, title: "Tape", statusBarStyle: "default" },
+  title: "Tradr Studio",
+  description: "Instagram studio for Tradr",
+  appleWebApp: { capable: true, title: "Tradr Studio", statusBarStyle: "default" },
   robots: { index: false, follow: false },
 };
 

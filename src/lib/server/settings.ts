@@ -1,23 +1,31 @@
 import "server-only";
 import { getKv, mutateKv } from "./store";
 import { LK } from "../langs";
+import { DEFAULT_SCHEDULE } from "../slots";
 import type { Account, AccountPublic, Lang, Settings } from "../types";
 
 export const defaultSettings = (): Settings => ({
   timezone: "Europe/Rome",
-  defaultTime: "18:00",
   langs: Object.fromEntries(LK.map((k) => [k, { tradrSlide: null, tradr: "", hashtags: "" }])) as Settings["langs"],
+  schedule: structuredClone(DEFAULT_SCHEDULE),
 });
 
-export async function getSettings(): Promise<Settings & { rev: number }> {
-  const s = await getKv<Settings>("settings", defaultSettings);
+/** Fills anything missing (older documents) with defaults. */
+function complete<T extends Settings>(s: T): T {
   const d = defaultSettings();
-  return { ...d, ...s, langs: Object.fromEntries(LK.map((k) => [k, { ...d.langs[k], ...(s.langs?.[k] || {}) }])) as Settings["langs"] };
+  s.langs = Object.fromEntries(LK.map((k) => [k, { ...d.langs[k], ...(s.langs?.[k] || {}) }])) as Settings["langs"];
+  s.schedule = Object.fromEntries(LK.map((k) => [k, { ...d.schedule[k], ...(s.schedule?.[k] || {}) }])) as Settings["schedule"];
+  s.timezone ||= d.timezone;
+  delete (s as { defaultTime?: string }).defaultTime;
+  return s;
+}
+
+export async function getSettings(): Promise<Settings & { rev: number }> {
+  return complete(await getKv<Settings>("settings", defaultSettings));
 }
 export const mutateSettings = (fn: (s: Settings & { rev: number }) => void) =>
   mutateKv<Settings>("settings", defaultSettings, (s) => {
-    const d = defaultSettings();
-    s.langs = Object.fromEntries(LK.map((k) => [k, { ...d.langs[k], ...(s.langs?.[k] || {}) }])) as Settings["langs"];
+    complete(s);
     fn(s);
   });
 
@@ -25,7 +33,7 @@ export const mutateSettings = (fn: (s: Settings & { rev: number }) => void) =>
 
 export type MetaConnection = {
   accounts: Partial<Record<Lang, Account>>;
-  /** Long-lived Facebook user token (for Business Discovery). */
+  /** Long-lived Facebook user token the Page tokens came from. */
   userTokenEnc: string | null;
   userTokenExpiresAt: number | null;
   /** Instagram accounts the token can see that didn't match a language. */

@@ -48,3 +48,4 @@ next-env.d.ts
 /.agents/
 /.claude/
 /skills-lock.json
+/inspo-seed.md
