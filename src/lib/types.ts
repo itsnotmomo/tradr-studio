@@ -5,7 +5,9 @@ export type Slide = { id: string; url: string; w: number; h: number };
 
 /** idle = not queued (draft or ready, see `ready`). */
 export type VariantState = "idle" | "scheduled" | "publishing" | "posted" | "failed";
-export type DisplayStatus = "draft" | "ready" | "scheduled" | "publishing" | "posted" | "failed";
+export type DisplayStatus = "draft" | "ready" | "scheduled" | "publishing" | "posted" | "failed" | "missed";
+/** Set by hand: draft → ready → scheduled in Instagram → posted. */
+export type PostStatus = "draft" | "ready" | "scheduled" | "posted";
 
 export type PublishError = {
   message: string;
@@ -31,6 +33,9 @@ export type Variant = {
   hashtags: string;
   slides: Slide[];
   ready: boolean;
+  /** Manual posting status (what's shown while auto-publishing is off). */
+  status: PostStatus;
+  /** Auto-publishing state (Meta API); unused while AUTO_PUBLISH is off. */
   state: VariantState;
   /** When the variant is queued to publish (ms). Resolved from the post's date + slot in this account's zone. */
   scheduledAt: number | null;
@@ -72,9 +77,12 @@ export type LangSettings = {
 
 export type LangSchedule = { zone: string; morning: string; afternoon: string };
 
+export type NotifySettings = { weekly: boolean; slots: boolean; missed: boolean; weeklyTime: string };
+
 export type Settings = {
-  /** Your own zone, for "today" when posting from Ideas. */
+  /** Your own zone: "today", and the weekly batch notification time. */
   timezone: string;
+  notify: NotifySettings;
   langs: Record<Lang, LangSettings>;
   /** Per account: its time zone and the local HH:MM of each slot. */
   schedule: Record<Lang, LangSchedule>;

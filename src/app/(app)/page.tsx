@@ -7,12 +7,15 @@ import Link from "next/link";
 import { DndContext, DragOverlay, MouseSensor, TouchSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
 import { PostCard, PostCardView, canMove, firstSlide } from "@/components/post-card";
 import { PublishControls } from "@/components/publish";
+import { StatusSetter } from "@/components/status";
+import { useNamed } from "@/components/name-prompt";
+import { AUTO_PUBLISH } from "@/lib/features";
 import { Icon } from "@/components/icons";
 import { LangDots, Spinner, StatusPill } from "@/components/ui";
 import { useToast } from "@/components/toast";
 import { createPost, patchPost, useAppState, type AppState } from "@/lib/client/state";
 import { buildCaption } from "@/lib/caption";
-import { displayStatus, STATUS_LABEL } from "@/lib/status";
+import { STATUS_LABEL, statusOf } from "@/lib/status";
 import { LANGS, LK } from "@/lib/langs";
 import { SLOTS, slotName, slotTaken, slotTimes } from "@/lib/slots";
 import { addDays, fmtDate, parseYmd, weekStart, ymd } from "@/lib/time";
@@ -63,6 +66,7 @@ export default function PlannerPage() {
   const { data, error } = useAppState();
   const router = useRouter();
   const toast = useToast();
+  const named = useNamed();
   const [view, setView] = usePersisted<View>("studio.view", "week");
   const [filter, setFilter] = usePersisted<Filter>("studio.filter", "all");
   const [cursor, setCursor] = useState(() => new Date());
@@ -93,8 +97,9 @@ export default function PlannerPage() {
 
   const newPost = async (date: string | null, slot?: Slot) => {
     try {
-      const p = await createPost({ date, slot });
-      router.push(`/posts/${p.id}`);
+      // Anything on the planner needs a name; Ideas can stay untitled.
+      const p = await named((title) => createPost({ date, slot, title }));
+      if (p) router.push(`/posts/${p.id}`);
     } catch (e) {
       toast((e as Error).message, { tone: "error" });
     }
@@ -123,7 +128,8 @@ export default function PlannerPage() {
       return;
     }
     try {
-      const r = await patchPost(id, { date, slot });
+      const r = await named((title) => patchPost(id, { date, slot, ...(title ? { title } : {}) }));
+      if (!r) return;
       const note = r.notes.join(" ");
       toast(date ? `Moved to ${slotName(slot)}, ${fmtDate(date, { weekday: "short", day: "numeric", month: "short" })}. ${note}` : `Moved to Ideas. ${note}`);
     } catch (err) {
@@ -144,10 +150,10 @@ export default function PlannerPage() {
       <div onClickCapture={swallowClick}>
         <Toolbar view={view} setView={setView} filter={filter} setFilter={setFilter} cursor={cursor} shift={shift}
           today={() => setCursor(new Date())} label={rangeLabel(view, cursor)} onNew={() => newPost(view === "day" ? ymd(cursor) : ymd(new Date()))}
-          summary={<Summary posts={shown} filter={filter} />} />
+          summary={<Summary posts={shown} filter={filter} settings={data.settings} />} />
         <div className={view === "day" ? "" : "lg:grid lg:grid-cols-[1fr_250px]"}>
           <div className="px-3 md:px-6 pb-10 pt-1 min-w-0">
-            {view === "month" && <Month cursor={cursor} byDay={byDay} filter={filter} onNew={newPost} onPick={(d) => { setCursor(parseYmd(d)); setView("day"); }} />}
+            {view === "month" && <Month cursor={cursor} byDay={byDay} filter={filter} settings={data.settings} onNew={newPost} onPick={(d) => { setCursor(parseYmd(d)); setView("day"); }} />}
             {view === "week" && <Week cursor={cursor} byDay={byDay} filter={filter} onNew={newPost} settings={data.settings} />}
             {view === "day" && <Day date={ymd(cursor)} posts={byDay.get(ymd(cursor)) || []} filter={filter} data={data} onNew={newPost} />}
           </div>
@@ -212,17 +218,17 @@ function Toolbar(p: {
   );
 }
 
-function Summary({ posts, filter }: { posts: Post[]; filter: Filter }) {
+function Summary({ posts, filter, settings }: { posts: Post[]; filter: Filter; settings: Settings }) {
   const ks = filter === "all" ? LK : [filter];
   const c: Partial<Record<DisplayStatus, number>> = {};
   for (const p of posts) for (const k of ks) {
-    const s = displayStatus(p.variants[k]);
+    const s = statusOf(p, k, settings);
     c[s] = (c[s] || 0) + 1;
   }
   return (
     <div className="flex items-center gap-3 text-[12px] muted">
       <span>{posts.length} post{posts.length === 1 ? "" : "s"}</span>
-      {(["draft", "ready", "scheduled", "posted", "failed"] as DisplayStatus[]).filter((s) => c[s]).map((s) => (
+      {(["draft", "ready", "scheduled", "posted", "missed", "failed"] as DisplayStatus[]).filter((s) => c[s]).map((s) => (
         <span key={s} className="inline-flex items-center gap-1.5"><i className={`dot s-${s}`} />{c[s]} {STATUS_LABEL[s].toLowerCase()}</span>
       ))}
     </div>
@@ -279,7 +285,7 @@ function Week({ cursor, byDay, filter, onNew, settings }: { cursor: Date; byDay:
   );
 }
 
-function Month({ cursor, byDay, filter, onNew, onPick }: { cursor: Date; byDay: Map<string, Post[]>; filter: Filter; onNew: (d: string, s?: Slot) => void; onPick: (d: string) => void }) {
+function Month({ cursor, byDay, filter, settings, onNew, onPick }: { cursor: Date; byDay: Map<string, Post[]>; filter: Filter; settings: Settings; onNew: (d: string, s?: Slot) => void; onPick: (d: string) => void }) {
   const first = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
   const start = weekStart(first);
   const last = new Date(first.getFullYear(), first.getMonth() + 1, 0);
@@ -318,7 +324,7 @@ function Month({ cursor, byDay, filter, onNew, onPick }: { cursor: Date; byDay: 
                 <button className="w-full h-full flex flex-col gap-[3px] px-0.5 text-left" onClick={() => onPick(k)} aria-label={`${list.length} posts`}>
                   {SLOTS.map(({ k: slot }) => (
                     <span key={slot} className="flex gap-[3px] items-center h-[7px]">
-                      {inSlot(list, slot).flatMap((p) => ks.map((kk) => <i key={p.id + kk} className={`dot s-${displayStatus(p.variants[kk])}`} style={{ width: 7, height: 7 }} />))}
+                      {inSlot(list, slot).flatMap((p) => ks.map((kk) => <i key={p.id + kk} className={`dot s-${statusOf(p, kk, settings)}`} style={{ width: 7, height: 7 }} />))}
                     </span>
                   ))}
                 </button>
@@ -394,7 +400,7 @@ function DayLang({ post, k, data }: { post: Post; k: Lang; data: AppState }) {
       <div className="flex items-center gap-2">
         <span className="font-bold text-[13px]">{l.name}</span>
         <span className="text-[12px] muted flex-1 truncate">{l.handle}</span>
-        <StatusPill s={displayStatus(v)} />
+        <StatusPill s={statusOf(post, k, data.settings)} />
       </div>
       <div className="flex gap-1.5 scroll-x">
         {v.slides.map((s, i) => (
@@ -407,7 +413,12 @@ function DayLang({ post, k, data }: { post: Post; k: Lang; data: AppState }) {
           : <div className="w-14 aspect-[4/5] rounded flex-none flex items-center justify-center text-[9px] text-center text-[#888] p-1" style={{ background: "#1a1a1a" }}>Tradr slide missing</div>}
       </div>
       <div className="text-[12px] whitespace-pre-wrap max-h-[88px] overflow-hidden" style={{ color: "var(--ink-2)" }}>{cap || <span className="muted">No caption yet.</span>}</div>
-      <PublishControls post={post} k={k} data={data} compact />
+      {AUTO_PUBLISH ? <PublishControls post={post} k={k} data={data} compact /> : (
+        <div className="flex flex-col gap-2">
+          <StatusSetter post={post} k={k} />
+          <Link href={`/go/${post.id}/${k}`} className="btn small">Post this ({l.code}) <Icon name="right" size={14} /></Link>
+        </div>
+      )}
     </div>
   );
 }

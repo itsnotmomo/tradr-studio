@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Sheet, Spinner } from "./ui";
 import { useToast } from "./toast";
+import { useNamed } from "./name-prompt";
 import { createPost, patchPost, useAppState } from "@/lib/client/state";
 import { uploadSlide } from "@/lib/client/upload";
 import { isLocked } from "@/lib/status";
@@ -27,6 +28,7 @@ export function AddToPost({ open, onClose, render, available, defaultLangs, targ
   const { data } = useAppState();
   const router = useRouter();
   const toast = useToast();
+  const named = useNamed();
   const today = ymd(new Date());
   const upcoming = useMemo(
     () => (data?.posts || []).filter((p) => !p.date || p.date >= today).filter((p) => LK.some((k) => !isLocked(p.variants[k])))
@@ -72,7 +74,9 @@ export function AddToPost({ open, onClose, render, available, defaultLangs, targ
       for (const k of langs) uploaded[k] = await uploadSlide(await render(k));
       let post: Post;
       if (sel === "__new") {
-        post = await createPost({ title, date: date || null, slot: slot || undefined, slides: Object.fromEntries(langs.map((k) => [k, [uploaded[k]]])) });
+        const created = await named((t) => createPost({ title: t || title, date: date || null, slot: slot || undefined, slides: Object.fromEntries(langs.map((k) => [k, [uploaded[k]]])) }));
+        if (!created) return;
+        post = created;
       } else {
         post = data!.posts.find((p) => p.id === sel)!;
         const skipped = langs.filter((k) => isLocked(post.variants[k]));

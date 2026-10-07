@@ -38,6 +38,7 @@ function Settings_() {
           <div className="grid md:grid-cols-3 gap-3">{LANGS.map((l) => <LangColumn key={l.k} k={l.k} data={data} />)}</div>
         </section>
         <General data={data} />
+        <Notifications data={data} />
         <Scheduler data={data} />
         <Security />
       </div>
@@ -75,13 +76,13 @@ function Accounts({ data }: { data: AppState }) {
   return (
     <section id="accounts" className="card p-4 flex flex-col gap-3 scroll-mt-4">
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="font-bold text-[15px] flex-1">Instagram accounts</h2>
+        <h2 className="font-bold text-[15px] flex-1">Instagram accounts <span className="muted font-medium text-[13px]">· for stats</span></h2>
         {m.configured && <a className="btn primary" href="/api/meta/connect">{Object.keys(m.accounts).length ? "Reconnect with Facebook" : "Connect with Facebook"}</a>}
       </div>
       {ok && <div className="text-[13px]" style={{ color: "var(--s-posted)" }}>Connected {ok.split(",").map((k) => LANGS.find((l) => l.k === k)?.handle).join(", ")}.</div>}
       {err && <ErrorBox title="Couldn’t connect">{err}</ErrorBox>}
       {!m.configured && (
-        <Warn>The Meta app isn’t set up yet, so posting and numbers are off. Everything else works. Once META_APP_ID and META_APP_SECRET are set, a “Connect with Facebook” button appears here.</Warn>
+        <Warn>You post from the Instagram app, so the Meta connection is only for the numbers on the Posted page. It’s not set up yet. Once META_APP_ID and META_APP_SECRET are set, a “Connect with Facebook” button appears here.</Warn>
       )}
       <div className="grid md:grid-cols-3 gap-2">
         {LANGS.map((l) => {
@@ -258,6 +259,53 @@ function General({ data }: { data: AppState }) {
   );
 }
 
+function Notifications({ data }: { data: AppState }) {
+  const toast = useToast();
+  const n = data.settings.notify;
+  const [sending, setSending] = useState(false);
+  const save = async (notify: Record<string, unknown>) => {
+    try {
+      await patchSettings({ notify });
+    } catch (e) {
+      toast((e as Error).message, { tone: "error" });
+    }
+  };
+  const test = async () => {
+    setSending(true);
+    try {
+      await api("/api/notify/test", { method: "POST" });
+      toast("Sent. It should arrive on your phone in a few seconds.");
+    } catch (e) {
+      toast((e as Error).message, { tone: "error" });
+    } finally {
+      setSending(false);
+    }
+  };
+  const row = (key: "weekly" | "slots" | "missed", label: string, hint: string) => (
+    <label className="flex items-start gap-3 py-2 cursor-pointer">
+      <input type="checkbox" className="chk mt-0.5" checked={n[key]} onChange={(e) => save({ [key]: e.target.checked })} />
+      <span><span className="font-semibold text-[13.5px]">{label}</span><span className="block text-[12.5px] muted">{hint}</span></span>
+    </label>
+  );
+  return (
+    <section id="notifications" className="card p-4 flex flex-col gap-1 scroll-mt-4">
+      <h2 className="font-bold text-[15px]">Notifications</h2>
+      <p className="text-[12.5px] muted mb-1">Sent through ntfy to your phone. Tapping one opens the right screen here.</p>
+      {row("weekly", "Weekly batch", "Mondays: how many posts this week and how many aren’t scheduled yet. Opens Batch.")}
+      {n.weekly && (
+        <div className="flex items-center gap-2 pl-7 pb-1 text-[13px]">
+          <span className="muted">Mondays at</span>
+          <input type="time" className="field !w-[110px] !min-h-[32px] !py-1" defaultValue={n.weeklyTime} onBlur={(e) => e.target.value && e.target.value !== n.weeklyTime && save({ weeklyTime: e.target.value })} />
+          <span className="muted">{data.settings.timezone}</span>
+        </div>
+      )}
+      {row("slots", "Slot reminders", "One per account at its local slot time: “post it now”, or “goes live now” if it’s scheduled in Instagram.")}
+      {row("missed", "Missed", "One follow-up if a slot is 2 hours past and still not scheduled or posted.")}
+      <div className="pt-2"><button className="btn" onClick={test} disabled={sending}>{sending ? <Spinner /> : null} Send test notification</button></div>
+    </section>
+  );
+}
+
 function Scheduler({ data }: { data: AppState }) {
   const last = data.health.lastTickAt;
   const healthy = !!last && data.now - last < 3 * 60_000;
@@ -274,7 +322,7 @@ function Scheduler({ data }: { data: AppState }) {
         <i className={`dot ${healthy ? "s-posted" : "s-failed"}`} />
         {last ? <>Last ran {relTime(last, data.now)}{result.summary ? ` · ${result.summary}` : ""}</> : "Has never run."}
       </div>
-      <p className="text-[12.5px] muted">Instagram has no scheduling of its own, so Tradr Studio checks every minute for posts that are due. cron-job.org calls it every minute; Vercel calls it once a day as a backstop.</p>
+      <p className="text-[12.5px] muted">Runs every minute (cron-job.org) and sends the reminders. Vercel also calls it once a day as a backstop.</p>
     </section>
   );
 }

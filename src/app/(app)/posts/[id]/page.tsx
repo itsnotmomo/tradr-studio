@@ -13,7 +13,11 @@ import { dropPost, patchPost, useAppState, type AppState } from "@/lib/client/st
 import { downloadUrl, imageFiles, uploadSlides } from "@/lib/client/upload";
 import { buildCaption, charCount, hashtagCount } from "@/lib/caption";
 import { CAPTION_MAX, HASHTAG_MAX } from "@/lib/rules";
-import { displayStatus, isLocked } from "@/lib/status";
+import { isLocked, statusOf } from "@/lib/status";
+import { AUTO_PUBLISH } from "@/lib/features";
+import { StatusSetter } from "@/components/status";
+import { useAskName } from "@/components/name-prompt";
+import { ApiError } from "@/lib/client/api";
 import { LANGS, isLang } from "@/lib/langs";
 import { SLOTS, slotTimes } from "@/lib/slots";
 import type { Inspo, Lang, Post, Slide } from "@/lib/types";
@@ -31,28 +35,43 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
   return <Editor key={post.id} post={post} data={data} k={k} setK={setK} />;
 }
 
-function useSaver() {
+function useSaver(onNamed?: (title: string) => void) {
   const toast = useToast();
+  const askName = useAskName();
   const [state, setState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const save = useCallback(async (id: string, patch: Parameters<typeof patchPost>[1]) => {
+    // Clearing the name of a planned post isn't allowed; just don't save the empty name.
+    if (patch.title !== undefined && !patch.title.trim() && Object.keys(patch).length === 1) return;
     setState("saving");
     try {
-      const r = await patchPost(id, patch);
+      let r;
+      try {
+        r = await patchPost(id, patch);
+      } catch (e) {
+        if (!(e instanceof ApiError) || e.status !== 422) throw e;
+        const title = await askName();
+        if (!title) {
+          setState("idle");
+          return;
+        }
+        r = await patchPost(id, { ...patch, title });
+        onNamed?.(title);
+      }
       setState("saved");
       if (r.notes.length) toast(r.notes.join(" "));
     } catch (e) {
       setState("error");
       toast(`Not saved: ${(e as Error).message}`, { tone: "error" });
     }
-  }, [toast]);
+  }, [toast, askName, onNamed]);
   return { state, save };
 }
 
 function Editor({ post, data, k, setK }: { post: Post; data: AppState; k: Lang; setK: (k: Lang) => void }) {
   const router = useRouter();
   const toast = useToast();
-  const { state: saveState, save } = useSaver();
   const [title, setTitle] = useState(post.title);
+  const { state: saveState, save } = useSaver(setTitle);
   const titleT = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const del = async () => {
@@ -98,7 +117,7 @@ function Editor({ post, data, k, setK }: { post: Post; data: AppState; k: Lang; 
       </div>
 
       <div className="px-3 md:px-6 pt-4 flex flex-col gap-4 max-w-[1280px]">
-        <PublishAll post={post} data={data} />
+        {AUTO_PUBLISH && <PublishAll post={post} data={data} />}
 
         <div className="flex gap-1.5 scroll-x" role="tablist" aria-label="Language">
           {LANGS.map((l) => (
@@ -107,7 +126,7 @@ function Editor({ post, data, k, setK }: { post: Post; data: AppState; k: Lang; 
               style={{ background: "var(--panel)", borderColor: k === l.k ? "var(--ink)" : "var(--line)", boxShadow: k === l.k ? "inset 0 0 0 1px var(--ink)" : undefined }}>
               <span className="font-bold text-[13.5px]">{l.name}</span>
               <span className="text-[12px] muted hidden sm:inline">{l.handle}</span>
-              <StatusPill s={displayStatus(post.variants[l.k])} />
+              <StatusPill s={statusOf(post, l.k, data.settings)} />
             </button>
           ))}
         </div>
@@ -131,10 +150,15 @@ function LangEditor({ post, k, data, save }: { post: Post; k: Lang; data: AppSta
       <section className="flex flex-col gap-4">
         <div className="card p-3 md:p-4">
           <h2 className="font-bold text-[13px] mb-2.5">
-            Publish to {LANGS.find((l) => l.k === k)!.handle}
+            {AUTO_PUBLISH ? "Publish to" : "Post to"} {LANGS.find((l) => l.k === k)!.handle}
             {post.date && <span className="muted font-medium"> · {slotTimeLabel(data.settings, k, post)}</span>}
           </h2>
-          <PublishControls post={post} k={k} data={data} />
+          {AUTO_PUBLISH ? <PublishControls post={post} k={k} data={data} /> : (
+            <div className="flex flex-col gap-2.5">
+              <StatusSetter post={post} k={k} />
+              <Link href={`/go/${post.id}/${k}`} className="btn primary">Open posting screen</Link>
+            </div>
+          )}
         </div>
         <div className="card p-3 md:p-4">
           <Caption post={post} k={k} data={data} locked={locked} save={save} />

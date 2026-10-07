@@ -9,9 +9,11 @@ import { useAppState } from "@/lib/client/state";
 import { api } from "@/lib/client/api";
 import { LANGS, LK } from "@/lib/langs";
 import { relTime } from "@/lib/time";
+import { AUTO_PUBLISH } from "@/lib/features";
 
 const NAV: { href: string; label: string; icon: IconName }[] = [
   { href: "/", label: "Planner", icon: "planner" },
+  { href: "/batch", label: "Batch", icon: "batch" },
   { href: "/ideas", label: "Ideas", icon: "ideas" },
   { href: "/inspo", label: "Inspo", icon: "inspo" },
   { href: "/posted", label: "Posted", icon: "posted" },
@@ -59,7 +61,7 @@ export function Shell({ children }: { children: ReactNode }) {
       </main>
 
       <nav aria-label="Sections" className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t safe-b" style={{ background: "var(--panel)", borderColor: "var(--line)" }}>
-        <div className="grid grid-cols-5">
+        <div className="grid grid-cols-6">
           {NAV.map((n) => (
             <Link key={n.href} href={n.href} aria-current={active(path, n.href) ? "page" : undefined}
               className="flex flex-col items-center gap-0.5 pt-2 pb-1.5 text-[10.5px] font-semibold text-[var(--muted)] aria-[current=page]:text-[var(--ink)]">
@@ -92,11 +94,13 @@ export function Shell({ children }: { children: ReactNode }) {
 function Banners() {
   const { data } = useAppState();
   if (!data) return null;
-  const failed = data.posts.flatMap((p) => LK.filter((k) => p.variants[k].state === "failed").map((k) => ({ p, k })));
-  const scheduled = data.posts.some((p) => LK.some((k) => p.variants[k].state === "scheduled"));
+  const failed = AUTO_PUBLISH ? data.posts.flatMap((p) => LK.filter((k) => p.variants[k].state === "failed").map((k) => ({ p, k }))) : [];
+  // Reminders depend on the every-minute scheduler.
+  const n = data.settings.notify;
+  const needsCron = AUTO_PUBLISH ? data.posts.some((p) => LK.some((k) => p.variants[k].state === "scheduled")) : n.slots || n.missed || n.weekly;
   const last = data.health.lastTickAt;
-  const stalled = scheduled && (!last || data.now - last > 5 * 60_000);
-  const brokenAccounts = LK.filter((k) => data.meta.accounts[k]?.lastError);
+  const stalled = needsCron && (!last || data.now - last > 10 * 60_000);
+  const brokenAccounts = AUTO_PUBLISH ? LK.filter((k) => data.meta.accounts[k]?.lastError) : [];
   if (!failed.length && !stalled && !brokenAccounts.length) return null;
   const bar = "flex flex-wrap items-center gap-x-3 gap-y-1 px-4 md:px-6 py-2.5 text-[13px] font-medium text-white";
   return (
@@ -114,7 +118,7 @@ function Banners() {
       {stalled && (
         <div role="alert" className={bar} style={{ background: "#b45309" }}>
           <span className="flex-1">
-            The scheduler {last ? `last ran ${relTime(last, data.now)}` : "has never run"}. Scheduled posts won’t go out until it’s running.
+            The scheduler {last ? `last ran ${relTime(last, data.now)}` : "has never run"}. {AUTO_PUBLISH ? "Scheduled posts won’t go out until it’s running." : "Reminders are paused until it’s running."}
           </span>
           <Link href="/settings#scheduler" className="underline underline-offset-2 font-bold">Check</Link>
         </div>

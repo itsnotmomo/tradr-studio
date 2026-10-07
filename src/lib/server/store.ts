@@ -110,7 +110,7 @@ export const uid = () => crypto.randomUUID();
 
 export function blankVariant(s: Settings, k: Lang): Variant {
   return {
-    comment: "", tradr: s.langs[k].tradr, hashtags: s.langs[k].hashtags, slides: [], ready: false,
+    comment: "", tradr: s.langs[k].tradr, hashtags: s.langs[k].hashtags, slides: [], ready: false, status: "draft",
     state: "idle", scheduledAt: null, nextAttemptAt: null, attempts: 0, attemptStartedAt: null, stage: null,
     error: null, log: [], igMediaId: null, permalink: null, publishedAt: null, metrics: null, metricsError: null,
   };
@@ -120,6 +120,10 @@ export function blankVariant(s: Settings, k: Lang): Variant {
 function normalizePost(p: Post & { time?: string }): Post {
   if (!p.slot) p.slot = slotFromTime(p.time);
   delete p.time;
+  for (const k of LK) {
+    const v = p.variants[k];
+    if (!v.status) v.status = v.state === "posted" ? "posted" : v.ready ? "ready" : "draft";
+  }
   return p;
 }
 

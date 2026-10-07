@@ -10,6 +10,8 @@ import { describeGraphError } from "./meta/graph";
 import { decrypt } from "./secrets";
 import { LK } from "../langs";
 import { utcToZoned } from "../time";
+import { AUTO_PUBLISH } from "../features";
+import { runNotifications } from "./notify";
 import type { Lang } from "../types";
 
 const HEARTBEAT = "sched:last";
@@ -26,19 +28,27 @@ export async function schedulerHealth() {
 export async function tick() {
   const now = Date.now();
   await redis().set(HEARTBEAT, String(now));
-  const out: { published: PublishOutcome[]; recovered: number; metrics: number; daily: string | null } = {
-    published: [], recovered: 0, metrics: 0, daily: null,
+  const out: { published: PublishOutcome[]; recovered: number; metrics: number; daily: string | null; notified: string[] } = {
+    published: [], recovered: 0, metrics: 0, daily: null, notified: [],
   };
 
-  // 1. Attempts that started >10 minutes ago and never finished.
-  for (const [id, k] of await stuckVariants(now - 10 * 60_000)) {
-    await recoverStuck(id, k);
-    out.recovered++;
+  // 0. Reminders (ntfy). Never let a notification problem stop the rest of the run.
+  try {
+    out.notified = await runNotifications(now);
+  } catch (e) {
+    console.error("notifications failed", e);
   }
 
-  // 2. Everything due now. Different accounts publish in parallel.
-  const due = await dueVariants(now, 12);
-  out.published = await Promise.all(due.map(([id, k]) => publishVariant(id, k)));
+  if (AUTO_PUBLISH) {
+    // 1. Attempts that started >10 minutes ago and never finished.
+    for (const [id, k] of await stuckVariants(now - 10 * 60_000)) {
+      await recoverStuck(id, k);
+      out.recovered++;
+    }
+    // 2. Everything due now. Different accounts publish in parallel.
+    const due = await dueVariants(now, 12);
+    out.published = await Promise.all(due.map(([id, k]) => publishVariant(id, k)));
+  }
 
   // 3. Numbers, every 15 minutes at most.
   if (await redis().set("job:metrics", "1", { nx: true, ex: 14 * 60 })) {
@@ -58,7 +68,7 @@ export async function tick() {
     out.daily = await daily(today).catch((e) => `daily failed: ${(e as Error).message}`);
   }
 
-  const summary = out.published.filter((x) => x.result !== "skipped").map((x) => `${x.lang}:${x.result}`).join(" ");
+  const summary = [...out.published.filter((x) => x.result !== "skipped").map((x) => `${x.lang}:${x.result}`), ...(out.notified.length ? [`${out.notified.length} notification${out.notified.length === 1 ? "" : "s"}`] : [])].join(" ");
   await redis().set("sched:result", JSON.stringify({ at: now, summary, recovered: out.recovered, metrics: out.metrics }));
   return out;
 }

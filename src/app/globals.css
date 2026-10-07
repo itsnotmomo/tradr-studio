@@ -18,6 +18,7 @@
   --s-publishing: #7c3aed;
   --s-posted: #15803d;
   --s-failed: #dc2626;
+  --s-missed: #c2410c;
   --danger: #b42318;
   --danger-bg: #fef2f2;
   --danger-line: #fecaca;
@@ -46,6 +47,7 @@
     --s-publishing: #a78bfa;
     --s-posted: #4ade80;
     --s-failed: #f87171;
+    --s-missed: #fb923c;
     --danger: #f87171;
     --danger-bg: #2a1212;
     --danger-line: #5c1f1f;
@@ -108,6 +110,8 @@ textarea.field { resize: vertical; line-height: 1.5; }
 .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--s-draft); }
 .s-draft { --s: var(--s-draft); } .s-ready { --s: var(--s-ready); } .s-scheduled { --s: var(--s-scheduled); }
 .s-publishing { --s: var(--s-publishing); } .s-posted { --s: var(--s-posted); } .s-failed { --s: var(--s-failed); }
+.s-missed { --s: var(--s-missed); }
+.dot.s-missed { background: transparent; box-shadow: inset 0 0 0 2px var(--s); }
 .dot[class*="s-"] { background: var(--s); }
 .s-publishing.dot { animation: pulse 1.2s ease-in-out infinite; }
 .pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; letter-spacing: .02em; padding: 2px 7px 2px 6px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--s) 35%, transparent); color: var(--s); background: color-mix(in srgb, var(--s) 10%, transparent); white-space: nowrap; }

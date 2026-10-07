@@ -12,5 +12,5 @@ export async function GET(req: Request) {
   const ok = want.length >= 16 && got.length === want.length && timingSafeEqual(Buffer.from(got), Buffer.from(want));
   if (!ok) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const out = await tick();
-  return NextResponse.json({ ok: true, published: out.published.filter((x) => x.result !== "skipped"), recovered: out.recovered, metrics: out.metrics, daily: out.daily });
+  return NextResponse.json({ ok: true, published: out.published.filter((x) => x.result !== "skipped"), recovered: out.recovered, metrics: out.metrics, daily: out.daily, notified: out.notified });
 }

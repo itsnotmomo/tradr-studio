@@ -1,7 +1,7 @@
 import { body, route } from "@/lib/server/api";
 import { createPost, listPosts, mutateInspo, UserError } from "@/lib/server/store";
 import { getSettings } from "@/lib/server/settings";
-import { cleanSlides, slotConflictMessage } from "@/lib/server/posts";
+import { cleanSlides, NAME_REQUIRED, slotConflictMessage } from "@/lib/server/posts";
 import { mutatePlan } from "@/lib/server/store";
 import { isLang } from "@/lib/langs";
 import { freeSlot, isSlot, slotTaken } from "@/lib/slots";
@@ -11,6 +11,7 @@ import type { Lang, Slot, Variant } from "@/lib/types";
 export const POST = route(async (req) => {
   const b = await body<{ title?: string; date?: string | null; slot?: string; inspoId?: string; planId?: string; slides?: Record<string, unknown> }>(req);
   if (b.date && !isValidYmd(b.date)) throw new UserError("Invalid date");
+  if (b.date && !String(b.title || "").trim()) throw new UserError(NAME_REQUIRED, 422);
   const [s, posts] = await Promise.all([getSettings(), listPosts()]);
   let slot: Slot = isSlot(b.slot) ? b.slot : "morning";
   if (b.date) {

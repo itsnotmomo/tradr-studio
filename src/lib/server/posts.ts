@@ -4,7 +4,15 @@ import { isLang, LK, langInfo } from "../langs";
 import { isLocked } from "../status";
 import { isSlot, publishAt, slotName, slotTaken, zoneLabel } from "../slots";
 import { fmtDate, isValidYmd } from "../time";
-import type { Lang, Post, Settings, Slide, Slot } from "../types";
+import type { Lang, Post, PostStatus, Settings, Slide, Slot } from "../types";
+
+const STATUSES: PostStatus[] = ["draft", "ready", "scheduled", "posted"];
+export const NAME_REQUIRED = "Give this post a name first. Names are used in reminders.";
+
+/** Anything on the planner, or past draft, needs a real name (notifications use it). */
+export function needsName(p: Post) {
+  return !p.title.trim() && (!!p.date || LK.some((k) => p.variants[k].status !== "draft"));
+}
 
 const BLOB_HOST = /\.public\.blob\.vercel-storage\.com$/;
 
@@ -25,7 +33,7 @@ export function cleanSlides(raw: unknown): Slide[] {
 
 export type PostPatch = {
   title?: string; notes?: string; date?: string | null; slot?: Slot; inspoId?: string | null;
-  variants?: Partial<Record<string, { comment?: string; tradr?: string; hashtags?: string; slides?: unknown; ready?: boolean }>>;
+  variants?: Partial<Record<string, { comment?: string; tradr?: string; hashtags?: string; slides?: unknown; ready?: boolean; status?: string }>>;
 };
 
 const day = (d: string) => fmtDate(d, { weekday: "short", day: "numeric", month: "short" });
@@ -93,6 +101,12 @@ export function applyPatch(p: Post, patch: PostPatch, s: Settings, others: Post[
     if (vp.hashtags !== undefined) v.hashtags = String(vp.hashtags);
     if (vp.slides !== undefined) v.slides = cleanSlides(vp.slides);
     if (vp.ready !== undefined) v.ready = !!vp.ready;
+    if (vp.status !== undefined) {
+      if (!STATUSES.includes(vp.status as PostStatus)) throw new UserError("Invalid status");
+      v.status = vp.status as PostStatus;
+      v.ready = v.status !== "draft";
+    }
   }
+  if (needsName(p)) throw new UserError(NAME_REQUIRED, 422);
   return notes;
 }

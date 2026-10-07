@@ -26,9 +26,9 @@ export default function PostedPage() {
 
   const posted = useMemo(() => {
     const ks = filter === "all" ? LK : [filter];
-    const list = (data?.posts || []).filter((p) => ks.some((k) => p.variants[k].state === "posted"));
+    const list = (data?.posts || []).filter((p) => ks.some((k) => p.variants[k].status === "posted"));
     const val = (p: Post) => {
-      if (sort === "date") return Math.max(...ks.map((k) => p.variants[k].publishedAt || 0));
+      if (sort === "date") return Math.max(...ks.map((k) => p.variants[k].publishedAt || (p.date ? Date.parse(p.date) : 0)));
       return ks.reduce((s, k) => s + ((p.variants[k].metrics?.[sort] as number | null) || 0), 0);
     };
     return list.sort((a, b) => val(b) - val(a));
@@ -62,7 +62,7 @@ export default function PostedPage() {
 
   return (
     <div>
-      <PageHeader title="Posted" sub="What went out, and how it’s doing. Numbers update hourly at first, then daily for 60 days.">
+      <PageHeader title="Posted" sub="Everything marked Posted. Likes, reach and saves appear here once the Meta connection is set up.">
         <button className="btn" onClick={refresh} disabled={busy}>{busy ? <Spinner /> : <Icon name="refresh" size={15} />} Refresh followers</button>
       </PageHeader>
       <div className="px-4 md:px-6 grid sm:grid-cols-3 gap-3">
@@ -121,7 +121,7 @@ export default function PostedPage() {
                   return (
                     <div key={k} className="rounded-lg px-2.5 py-2" style={{ background: "var(--soft)" }}>
                       <div className="text-[11px] font-bold muted mb-1">{LANGS.find((l) => l.k === k)!.code}</div>
-                      {v.state === "posted" ? (
+                      {v.status === "posted" ? (
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-2 gap-y-0.5 text-[12px]">
                           {METRICS.map(([m, label]) => (
                             <div key={m}><b className="tabular-nums text-[13px]">{n(v.metrics?.[m] as number | null)}</b> <span className="muted">{label}</span></div>

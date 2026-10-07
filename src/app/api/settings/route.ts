@@ -11,6 +11,7 @@ type SettingsPatch = {
   langs?: Partial<Record<string, { tradr?: string; hashtags?: string; tradrSlide?: unknown }>>;
   schedule?: Partial<Record<string, { zone?: string; morning?: string; afternoon?: string }>>;
   applyDefaultsTo?: string;
+  notify?: { weekly?: boolean; slots?: boolean; missed?: boolean; weeklyTime?: string };
 };
 
 const validZone = (z: string) => {
@@ -31,8 +32,13 @@ export const PATCH = route(async (req) => {
     if (sp?.zone && !validZone(sp.zone)) throw new UserError("Unknown time zone");
     for (const t of [sp?.morning, sp?.afternoon]) if (t !== undefined && !isValidHm(t)) throw new UserError("Times look like 10:00");
   }
+  if (b.notify?.weeklyTime !== undefined && !isValidHm(b.notify.weeklyTime)) throw new UserError("Times look like 09:00");
   const s = await mutateSettings((s) => {
     if (b.timezone) s.timezone = b.timezone;
+    if (b.notify) {
+      for (const f of ["weekly", "slots", "missed"] as const) if (b.notify[f] !== undefined) s.notify[f] = !!b.notify[f];
+      if (b.notify.weeklyTime) s.notify.weeklyTime = b.notify.weeklyTime;
+    }
     for (const [k, lp] of Object.entries(b.langs || {})) {
       if (!isLang(k) || !lp) continue;
       if (lp.tradr !== undefined) s.langs[k].tradr = String(lp.tradr);
@@ -69,7 +75,7 @@ export const PATCH = route(async (req) => {
   if (b.applyDefaultsTo && isLang(b.applyDefaultsTo)) {
     const k = b.applyDefaultsTo;
     for (const p of await listPosts()) {
-      if (["posted", "publishing"].includes(p.variants[k].state)) continue;
+      if (["posted", "publishing"].includes(p.variants[k].state) || p.variants[k].status === "posted") continue;
       await mutatePost(p.id, (x) => {
         x.variants[k].tradr = s.langs[k].tradr;
         x.variants[k].hashtags = s.langs[k].hashtags;

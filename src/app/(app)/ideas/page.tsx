@@ -6,6 +6,7 @@ import { firstSlide } from "@/components/post-card";
 import { PageHeader, LangDots, Spinner } from "@/components/ui";
 import { Icon } from "@/components/icons";
 import { useToast } from "@/components/toast";
+import { useNamed } from "@/components/name-prompt";
 import { createPost, patchPost, useAppState } from "@/lib/client/state";
 import { freeSlot, slotName } from "@/lib/slots";
 import { fmtDate, ymd } from "@/lib/time";
@@ -13,6 +14,7 @@ import { fmtDate, ymd } from "@/lib/time";
 export default function IdeasPage() {
   const { data } = useAppState();
   const toast = useToast();
+  const named = useNamed();
   const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false);
   if (!data) return <div className="p-6 flex items-center gap-2 muted"><Spinner /> Loading…</div>;
@@ -39,8 +41,8 @@ export default function IdeasPage() {
       return;
     }
     try {
-      await patchPost(id, { date, slot });
-      toast(`Planned for ${day}, ${slotName(slot)}.`);
+      const r = await named((title) => patchPost(id, { date, slot, ...(title ? { title } : {}) }));
+      if (r) toast(`Planned for ${day}, ${slotName(slot)}.`);
     } catch (err) {
       toast((err as Error).message, { tone: "error" });
     }

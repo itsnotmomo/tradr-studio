@@ -8,6 +8,7 @@ export const defaultSettings = (): Settings => ({
   timezone: "Europe/Rome",
   langs: Object.fromEntries(LK.map((k) => [k, { tradrSlide: null, tradr: "", hashtags: "" }])) as Settings["langs"],
   schedule: structuredClone(DEFAULT_SCHEDULE),
+  notify: { weekly: true, slots: true, missed: true, weeklyTime: "09:00" },
 });
 
 /** Fills anything missing (older documents) with defaults. */
@@ -16,6 +17,7 @@ function complete<T extends Settings>(s: T): T {
   s.langs = Object.fromEntries(LK.map((k) => [k, { ...d.langs[k], ...(s.langs?.[k] || {}) }])) as Settings["langs"];
   s.schedule = Object.fromEntries(LK.map((k) => [k, { ...d.schedule[k], ...(s.schedule?.[k] || {}) }])) as Settings["schedule"];
   s.timezone ||= d.timezone;
+  s.notify = { ...d.notify, ...(s.notify || {}) };
   delete (s as { defaultTime?: string }).defaultTime;
   return s;
 }

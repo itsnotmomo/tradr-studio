@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, type ReactNode } from "react";
-import { displayStatus, STATUS_LABEL } from "@/lib/status";
+import { STATUS_LABEL, statusOf } from "@/lib/status";
+import { useAppState } from "@/lib/client/state";
 import { LANGS } from "@/lib/langs";
 import type { DisplayStatus, Lang, Post } from "@/lib/types";
 
@@ -10,11 +11,12 @@ export function StatusPill({ s }: { s: DisplayStatus }) {
 }
 
 /** Three tiny "EN ● ES ● IT ●" markers. */
-export function LangDots({ post, langs = ["en", "es", "it"], labels = true }: { post: Post; langs?: Lang[]; labels?: boolean }) {
+export function LangDots({ post, langs = ["it", "es", "en"], labels = true }: { post: Post; langs?: Lang[]; labels?: boolean }) {
+  const { data } = useAppState();
   return (
     <span className="inline-flex items-center gap-2">
       {langs.map((k) => {
-        const s = displayStatus(post.variants[k]);
+        const s = statusOf(post, k, data?.settings);
         const code = LANGS.find((l) => l.k === k)!.code;
         return (
           <span key={k} className="lp" title={`${code}: ${STATUS_LABEL[s]}`}>
