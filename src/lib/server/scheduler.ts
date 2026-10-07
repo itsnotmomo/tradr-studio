@@ -13,7 +13,7 @@ import { utcToZoned } from "../time";
 import { AUTO_PUBLISH } from "../features";
 import { runNotifications } from "./notify";
 import { noteRecovery } from "./watchdog";
-import { cleanupPostedVideos } from "./videos";
+import { cleanupPostedVideos, sweepOrphanVideos } from "./videos";
 import type { Lang } from "../types";
 
 const HEARTBEAT = "sched:last";
@@ -115,6 +115,7 @@ export async function snapshotFollowers(dateKey: string) {
 
 async function daily(today: string) {
   await snapshotFollowers(today);
+  await sweepOrphanVideos().catch((e) => console.error("orphan sweep failed", e));
   // Token health: a broken token should show up in Settings long before a scheduled post hits it.
   const conn = await getConnection();
   if (conn.userTokenEnc && process.env.META_APP_ID) {

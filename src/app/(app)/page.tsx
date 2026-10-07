@@ -17,6 +17,7 @@ import { useToast } from "@/components/toast";
 import { createPost, patchPost, useAppState, type AppState } from "@/lib/client/state";
 import { buildCaption } from "@/lib/caption";
 import { STATUS_LABEL, statusOf } from "@/lib/status";
+import { fmtDuration } from "@/lib/client/upload";
 import { LANGS, LK } from "@/lib/langs";
 import { ALL_SLOTS, SLOT_ORDER, SLOTS, slotName, slotTaken, slotTimes } from "@/lib/slots";
 import { addDays, fmtDate, parseYmd, weekStart, ymd } from "@/lib/time";
@@ -412,7 +413,7 @@ function DayLang({ post, k, data }: { post: Post; k: Lang; data: AppState }) {
           {thumbOf(post, k)
             ? <PreviewImg post={post} lang={k} index={0} src={thumbOf(post, k)!.url} alt="Reel" className="w-16 aspect-[9/16] object-cover rounded flex-none" />
             : <div className="w-16 aspect-[9/16] rounded flex-none flex items-center justify-center text-[9px] text-center text-[#888] p-1" style={{ background: "#1a1a1a" }}>No video yet</div>}
-          <span className="text-[12px] muted">{v.video ? `▶ ${Math.round(v.video.duration)}s video` : v.videoRemovedAt ? "Video removed after posting" : "No video yet"}</span>
+          <span className="text-[12px] muted">{v.video ? `▶ ${v.video.w} × ${v.video.h} · ${(v.video.size / 1e6).toFixed(0)} MB · ${fmtDuration(v.video.duration)}` : v.videoRemovedAt ? "Video removed after posting" : "No video yet"}</span>
         </div>
       ) : (
       <div className="flex gap-1.5 scroll-x">

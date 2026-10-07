@@ -75,7 +75,7 @@ export async function downloadUrl(url: string, filename: string) {
 export const isVideoFile = (f: File) => /^video\/(mp4|quicktime)$/.test(f.type) || /\.(mp4|mov)$/i.test(f.name);
 
 /** Size and duration, plus a JPEG frame (about 1 s in) for the planner card. Read from the local file. */
-export async function probeVideo(file: File): Promise<{ w: number; h: number; duration: number; frame: Blob | null }> {
+export async function probeVideo(file: File, opts?: { sizeOnly?: boolean }): Promise<{ w: number; h: number; duration: number; frame: Blob | null }> {
   const url = URL.createObjectURL(file);
   try {
     const v = document.createElement("video");
@@ -83,11 +83,18 @@ export async function probeVideo(file: File): Promise<{ w: number; h: number; du
     v.playsInline = true;
     v.preload = "auto";
     v.src = url;
+    // Size comes from the metadata alone; no need to decode anything for the check.
     await new Promise<void>((res, rej) => {
-      v.onloadeddata = () => res();
-      v.onerror = () => rej(new Error("This video can't be read in the browser."));
+      v.onloadedmetadata = () => res();
+      v.onerror = () => rej(new Error("This browser can't read the video. Export it from CapCut as MP4 and try again."));
     });
     const w = v.videoWidth, h = v.videoHeight, duration = v.duration || 0;
+    if (opts?.sizeOnly) return { w, h, duration, frame: null };
+    await new Promise<void>((res) => {
+      if (v.readyState >= 2) return res();
+      v.onloadeddata = () => res();
+      setTimeout(res, 4000);
+    });
     await new Promise<void>((res) => {
       v.onseeked = () => res();
       v.currentTime = Math.min(1, duration / 2 || 0);
@@ -123,3 +130,23 @@ export async function uploadVideo(file: File, onProgress: (pct: number) => void)
   });
   return r.url;
 }
+
+// ---------- 1080 × 1920 rule (also enforced on the server) ----------
+
+export const REEL_W = 1080, REEL_H = 1920;
+
+export function reelSizeProblem(kind: "video" | "cover", w: number, h: number) {
+  if (w === REEL_W && h === REEL_H) return null;
+  const shape = w > h ? "horizontal" : w === h ? "square" : "vertical, but the wrong size";
+  const fix = kind === "video" ? "in CapCut set Resolution 1080p, ratio 9:16." : "export the cover at 1080 × 1920.";
+  return `This ${kind} is ${w} × ${h} (${shape}). Reels need 1080 × 1920 — ${fix}`;
+}
+
+export async function imageSize(file: Blob) {
+  const bmp = await createImageBitmap(file);
+  const out = { w: bmp.width, h: bmp.height };
+  bmp.close();
+  return out;
+}
+
+export const fmtDuration = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`;

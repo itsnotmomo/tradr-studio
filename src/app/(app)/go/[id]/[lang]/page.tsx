@@ -11,7 +11,7 @@ import { useNamed } from "@/components/name-prompt";
 import { useToast } from "@/components/toast";
 import { Spinner, StatusPill } from "@/components/ui";
 import { patchPost, useAppState } from "@/lib/client/state";
-import { downloadUrl } from "@/lib/client/upload";
+import { downloadUrl, fmtDuration } from "@/lib/client/upload";
 import { defaultRange, nextAfter, rangeQuery, type Range } from "@/lib/client/sequence";
 import { buildCaption } from "@/lib/caption";
 import { LANGS, isLang } from "@/lib/langs";
@@ -187,7 +187,7 @@ function Go({ id, k }: { id: string; k: Lang }) {
             ? <PreviewImg post={post} lang={k} index={0} hover={false} src={(v.cover || v.frame)!.url} alt="Reel" className="h-[180px] aspect-[9/16] object-cover rounded-lg flex-none" />
             : <div className="h-[180px] aspect-[9/16] rounded-lg flex-none flex items-center justify-center text-[12px] muted" style={{ background: "var(--soft)" }}>No video</div>}
           <div className="text-[13px] muted pt-1">
-            {v.video ? <>▶ {Math.round(v.video.duration)}s · {(v.video.size / 1e6).toFixed(0)} MB<br />Tap the picture to watch it.</> : v.videoRemovedAt ? "Video removed after posting." : <>No video yet. <Link className="underline" href={`/posts/${post.id}?lang=${k}`}>Add it</Link></>}
+            {v.video ? <>▶ {v.video.w} × {v.video.h} · {(v.video.size / 1e6).toFixed(0)} MB · {fmtDuration(v.video.duration)}<br />Tap the picture to watch it.</> : v.videoRemovedAt ? "Video removed after posting." : <>No video yet. <Link className="underline" href={`/posts/${post.id}?lang=${k}`}>Add it</Link></>}
           </div>
         </div>
       ) : <>

@@ -2,7 +2,7 @@ import { body, route } from "@/lib/server/api";
 import { deletePost, getPost, listPosts, mutatePost, NotFoundError, UserError } from "@/lib/server/store";
 import { getSettings } from "@/lib/server/settings";
 import { applyPatch, type PostPatch } from "@/lib/server/posts";
-import { deleteVideoFiles, videoUrls } from "@/lib/server/videos";
+import { checkReelMedia, deleteVideoFiles, videoUrls } from "@/lib/server/videos";
 import { LK } from "@/lib/langs";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -16,6 +16,7 @@ export const GET = route<Ctx>(async (_req, { params }) => {
 export const PATCH = route<Ctx>(async (req, { params }) => {
   const { id } = await params;
   const patch = await body<PostPatch>(req);
+  await checkReelMedia(patch);
   const [s, others] = await Promise.all([getSettings(), patch.date !== undefined || patch.slot !== undefined ? listPosts() : Promise.resolve([])]);
   let notes: string[] = [];
   let before: string[] = [];
@@ -38,3 +39,4 @@ export const DELETE = route<Ctx>(async (_req, { params }) => {
   await deleteVideoFiles(videoUrls(p)).catch((e) => console.error("video delete failed", e));
   return { ok: true };
 });
+

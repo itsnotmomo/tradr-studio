@@ -10,7 +10,7 @@ import { Spinner, StatusPill, Warn } from "@/components/ui";
 import { useToast } from "@/components/toast";
 import { api, fetcher } from "@/lib/client/api";
 import { dropPost, patchPost, useAppState, type AppState } from "@/lib/client/state";
-import { downloadUrl, imageFiles, isVideoFile, probeVideo, uploadSlide, uploadSlides, uploadVideo } from "@/lib/client/upload";
+import { downloadUrl, fmtDuration, imageFiles, imageSize, isVideoFile, probeVideo, reelSizeProblem, uploadSlide, uploadSlides, uploadVideo } from "@/lib/client/upload";
 import { buildCaption, charCount, hashtagCount } from "@/lib/caption";
 import { CAPTION_MAX, HASHTAG_MAX } from "@/lib/rules";
 import { isLocked, statusOf } from "@/lib/status";
@@ -397,9 +397,17 @@ function ReelMedia({ post, k, save }: { post: Post; k: Lang; save: (id: string, 
   const addVideo = async (file: File | undefined) => {
     if (!file) return;
     if (!isVideoFile(file)) return toast("Use an MP4 or MOV file.", { tone: "error" });
+    // Check the size before anything is uploaded.
+    let meta: Awaited<ReturnType<typeof probeVideo>>;
+    try {
+      meta = await probeVideo(file);
+    } catch (e) {
+      return toast((e as Error).message, { tone: "error" });
+    }
+    const problem = reelSizeProblem("video", meta.w, meta.h);
+    if (problem) return toast(problem, { tone: "error", ms: 12000 });
     setPct(0);
     try {
-      const meta = await probeVideo(file).catch(() => ({ w: 0, h: 0, duration: 0, frame: null as Blob | null }));
       const url = await uploadVideo(file, setPct);
       const frame = meta.frame ? await uploadSlide(meta.frame, "frames") : null;
       await save(post.id, { variants: { [k]: { video: { url, size: file.size, name: file.name, w: meta.w, h: meta.h, duration: meta.duration }, frame } } });
@@ -411,6 +419,9 @@ function ReelMedia({ post, k, save }: { post: Post; k: Lang; save: (id: string, 
   };
   const setCover = async (file: File | undefined) => {
     if (!file) return;
+    const dims = await imageSize(file).catch(() => null);
+    const problem = dims ? reelSizeProblem("cover", dims.w, dims.h) : "That image can't be read.";
+    if (problem) return toast(problem, { tone: "error", ms: 12000 });
     setCoverBusy(true);
     try {
       await save(post.id, { variants: { [k]: { cover: await uploadSlide(file, "covers") } } });
@@ -426,7 +437,7 @@ function ReelMedia({ post, k, save }: { post: Post; k: Lang; save: (id: string, 
     <>
       <div className="flex items-center justify-between gap-2">
         <h2 className="font-bold text-[13px]">Video <span className="muted font-medium">· {code}</span></h2>
-        {v.video && <span className="text-[12px] muted">{(v.video.size / 1e6).toFixed(0)} MB · {Math.round(v.video.duration)}s</span>}
+        {v.video && <span className="text-[12px] muted tabular-nums">{v.video.w} × {v.video.h} · {(v.video.size / 1e6).toFixed(0)} MB · {fmtDuration(v.video.duration)}</span>}
       </div>
       {pct !== null ? (
         <div className="rounded-xl border p-5 flex flex-col gap-2" style={{ borderColor: "var(--line)" }}>
@@ -447,7 +458,7 @@ function ReelMedia({ post, k, save }: { post: Post; k: Lang; save: (id: string, 
           onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); addVideo(e.dataTransfer.files[0]); }}>
           <Icon name="plus" size={22} />
           <span className="font-semibold" style={{ color: "var(--ink)" }}>Add the {code} video</span>
-          MP4 or MOV, exported from CapCut
+          MP4 or MOV from CapCut, exactly 1080 × 1920 (1080p, 9:16)
           <input type="file" accept="video/mp4,video/quicktime,.mp4,.mov" className="hidden" onChange={(e) => { addVideo(e.target.files?.[0]); e.target.value = ""; }} />
         </label>
       )}
@@ -459,7 +470,7 @@ function ReelMedia({ post, k, save }: { post: Post; k: Lang; save: (id: string, 
       )}
 
       <div className="pt-2 flex flex-col gap-2">
-        <h3 className="font-bold text-[13px]">Cover <span className="muted font-medium">· optional, the grid thumbnail</span></h3>
+        <h3 className="font-bold text-[13px]">Cover <span className="muted font-medium">· optional, the grid thumbnail, 1080 × 1920</span></h3>
         <div className="flex items-end gap-3">
           {v.cover
             // eslint-disable-next-line @next/next/no-img-element
