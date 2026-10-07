@@ -101,7 +101,9 @@ function Banners() {
   const last = data.health.lastTickAt;
   const stalled = needsCron && (!last || data.now - last > 10 * 60_000);
   const brokenAccounts = AUTO_PUBLISH ? LK.filter((k) => data.meta.accounts[k]?.lastError) : [];
-  if (!failed.length && !stalled && !brokenAccounts.length) return null;
+  // Reminders use the post name, so planned posts must have one.
+  const unnamed = data.posts.filter((p) => p.date && !p.title.trim()).sort((a, b) => a.date!.localeCompare(b.date!));
+  if (!failed.length && !stalled && !brokenAccounts.length && !unnamed.length) return null;
   const bar = "flex flex-wrap items-center gap-x-3 gap-y-1 px-4 md:px-6 py-2.5 text-[13px] font-medium text-white";
   return (
     <div className="sticky top-0 z-30">
@@ -121,6 +123,12 @@ function Banners() {
             The scheduler {last ? `last ran ${relTime(last, data.now)}` : "has never run"}. {AUTO_PUBLISH ? "Scheduled posts won’t go out until it’s running." : "Reminders are paused until it’s running."}
           </span>
           <Link href="/settings#scheduler" className="underline underline-offset-2 font-bold">Check</Link>
+        </div>
+      )}
+      {unnamed.length > 0 && (
+        <div role="status" className={bar} style={{ background: "#475569" }}>
+          <span className="flex-1">{unnamed.length === 1 ? "1 planned post has" : `${unnamed.length} planned posts have`} no name yet. Reminders use the name.</span>
+          <Link href={`/posts/${unnamed[0].id}`} className="underline underline-offset-2 font-bold">Name it</Link>
         </div>
       )}
       {brokenAccounts.length > 0 && (
