@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AddToPost } from "@/components/add-to-post";
 import { ToolFonts } from "@/components/tool-fonts";
@@ -25,7 +25,25 @@ function Tweet() {
   const { data } = useAppState();
   const target = data?.posts.find((p) => p.id === postId);
   const toast = useToast();
-  const { state: S, update, loaded } = useToolState<TweetState>("tweet", TWEET_DEFAULTS);
+  const { state: saved, update, loaded } = useToolState<TweetState>("tweet", TWEET_DEFAULTS);
+  // Default images live server-side, apart from the card state. "Remove" only hides them on this card.
+  const [defaults, setDefaults] = useState<{ avatar: string | null; grok: string | null }>({ avatar: null, grok: null });
+  const [removed, setRemoved] = useState({ avatar: false, grok: false });
+  useEffect(() => {
+    api<{ avatar?: string | null; grok?: string | null }>("/api/tools/tweet-defaults")
+      .then((d) => setDefaults({ avatar: d.avatar ?? null, grok: d.grok ?? null }))
+      .catch(() => toast("Couldn't load the default images.", { tone: "error" }));
+  }, [toast]);
+  const S = useMemo<TweetState>(
+    () => ({ ...saved, avatar: removed.avatar ? null : defaults.avatar, grok: removed.grok ? null : defaults.grok }),
+    [saved, defaults, removed],
+  );
+  const saveDefault = async (key: "avatar" | "grok", url: string) => {
+    const next = { ...defaults, [key]: url };
+    await api("/api/tools/tweet-defaults", { method: "PUT", body: next });
+    setDefaults(next);
+    setRemoved((r) => ({ ...r, [key]: false }));
+  };
   const canvas = useRef<HTMLCanvasElement>(null);
   const assets = useRef<TweetAssets>({ avatar: null, grok: null, customReg: false, customBold: false });
   const faces = useRef<{ reg?: FontFace; bold?: FontFace }>({});
@@ -114,7 +132,8 @@ function Tweet() {
     try {
       const isFont = key.startsWith("font");
       const url = await uploadBlob(f, `${isFont ? "fonts" : "tools"}/${crypto.randomUUID()}-${f.name.replace(/[^\w.-]/g, "")}`);
-      update((s) => ({ ...s, [key]: url, ...(isFont ? { [key + "Name"]: f.name } : {}) }));
+      if (key === "avatar" || key === "grok") await saveDefault(key, url); // a new upload becomes the default
+      else update((s) => ({ ...s, [key]: url, [key + "Name"]: f.name }));
     } catch (e) {
       toast((e as Error).message, { tone: "error" });
     } finally {
@@ -130,7 +149,10 @@ function Tweet() {
       <div className="flex items-center gap-2">
         <label className="btn small cursor-pointer">{uploading === key ? <Spinner /> : "Upload"}<input type="file" accept={accept} className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) uploadAsset(key, f); }} /></label>
         <span className="text-[12px] muted truncate flex-1">{name}</span>
-        {S[key] && <button className="btn small ghost" onClick={() => set(key, null)}>Remove</button>}
+        {(key === "avatar" || key === "grok") ? <>
+          {S[key] && <button className="btn small ghost" onClick={() => setRemoved((r) => ({ ...r, [key]: true }))}>Remove</button>}
+          {removed[key] && defaults[key] && <button className="btn small ghost" onClick={() => setRemoved((r) => ({ ...r, [key]: false }))}>Reset to default</button>}
+        </> : S[key] && <button className="btn small ghost" onClick={() => set(key, null)}>Remove</button>}
       </div>
     </div>
   );
@@ -160,8 +182,8 @@ function Tweet() {
         </fieldset>
         <fieldset className="flex flex-col gap-3">
           <legend className="font-semibold text-[13px] mb-2">Images</legend>
-          {fileRow("avatar", "Profile picture", "image/*", S.avatar ? "Uploaded" : "None")}
-          {fileRow("grok", "Top-right icon (next to the three dots)", "image/*", S.grok ? "Uploaded" : "None")}
+          {fileRow("avatar", "Profile picture", "image/*", S.avatar ? "Default" : removed.avatar ? "Removed from this card" : "None")}
+          {fileRow("grok", "Top-right icon (next to the three dots)", "image/*", S.grok ? "Default" : removed.grok ? "Removed from this card" : "None")}
           <div className="text-[12px] muted">Use a PNG with a transparent background. If empty, the spot stays blank in the export.</div>
         </fieldset>
         <fieldset className="flex flex-col gap-2">

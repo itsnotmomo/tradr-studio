@@ -3,7 +3,9 @@ import { redis } from "@/lib/server/redis";
 import { UserError } from "@/lib/server/store";
 
 // Tool settings (tweet card account details, fonts, texts) follow you between phone and desktop.
-const NAMES = new Set(["tweet", "editor"]);
+// "tweet-defaults" holds the tweet card's default images; only uploads and resets write it, so a
+// device that loaded the tool earlier can never wipe them while saving other edits.
+const NAMES = new Set(["tweet", "tweet-defaults", "editor"]);
 type Ctx = { params: Promise<{ name: string }> };
 
 export const GET = route<Ctx>(async (_req, { params }) => {

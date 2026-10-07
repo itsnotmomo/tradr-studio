@@ -98,22 +98,33 @@ function wrap(ctx: CanvasRenderingContext2D, text: string, maxW: number) {
   return out;
 }
 
+/**
+ * Header + text + action row form one block. Short tweets keep the reference positions;
+ * once the block's centre drops below the canvas centre, the whole block moves up so it
+ * stays centred. Spacing inside the block never changes.
+ */
 function layoutBody(ctx: CanvasRenderingContext2D, S: TweetState, a: TweetAssets, text: string, H: number) {
-  const dy = (H - L.refH) / 2;
+  const base = (H - L.refH) / 2;
   const n = text.replace(/\s+/g, " ").trim().length;
   const t = Math.min(1, Math.max(0, (n - L.shrinkFrom) / (L.shrinkTo - L.shrinkFrom)));
   const max = Number(S.maxSize) || 34, min = Number(S.minSize) || 26;
   let size = max - t * (max - min);
-  let lines: string[], lh: number, first: number, actionsCy: number, forced = false;
+  let lines: string[], lh: number, first: number, actionsCy: number, dy: number, forced = false;
   const maxW = L.bookmarkRight - L.x;
   for (;;) {
     ctx.font = font(a, "body", size);
     lines = wrap(ctx, text, maxW);
     lh = size * L.lineHeight;
-    first = L.headerCy + dy + L.bodyTopGap + lh / 2;
-    const last = first + (lines.length - 1) * lh;
-    actionsCy = last + lh / 2 + L.actionsGap;
-    if (actionsCy + L.iconBox / 2 <= H - L.bottomSafe || size <= 16) break;
+    // Block at the reference position.
+    const top = Math.min(L.avatarCy - L.avatarR, L.headerCy - L.headerSize / 2) + base;
+    const firstRef = L.headerCy + base + L.bodyTopGap + lh / 2;
+    const bottom = firstRef + (lines.length - 1) * lh + lh / 2 + L.actionsGap + L.iconBox / 2;
+    const shift = Math.min(0, H / 2 - (top + bottom) / 2); // only ever moves up
+    dy = base + shift;
+    first = firstRef + shift;
+    actionsCy = first + (lines.length - 1) * lh + lh / 2 + L.actionsGap;
+    const fits = top + shift >= L.bottomSafe && bottom + shift <= H - L.bottomSafe;
+    if (fits || size <= 16) break;
     size -= 0.5;
     forced = true;
   }
