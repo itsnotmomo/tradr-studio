@@ -1,0 +1,30 @@
+import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
+
+const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
+
+export const metadata: Metadata = {
+  title: "Tape",
+  description: "Instagram planner for Tradr",
+  appleWebApp: { capable: true, title: "Tape", statusBarStyle: "default" },
+  robots: { index: false, follow: false },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f3f3f0" },
+    { media: "(prefers-color-scheme: dark)", color: "#0e0e0d" },
+  ],
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en" className={inter.variable}>
+      <body>{children}</body>
+    </html>
+  );
+}
