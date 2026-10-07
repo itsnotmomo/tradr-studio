@@ -1,5 +1,5 @@
 import "server-only";
-import { redis } from "./redis";
+import { hashToObject, redis } from "./redis";
 import { LK } from "../langs";
 import type { Inspo, Lang, Post, Settings, Variant } from "../types";
 
@@ -51,8 +51,9 @@ async function readAll<T>(coll: Coll): Promise<T[]> {
   const p = redis().pipeline();
   p.hgetall(coll);
   p.hgetall(coll + ":rev");
-  const [docs, revs] = (await p.exec()) as [Record<string, string> | null, Record<string, string> | null];
-  return Object.entries(docs || {}).map(([id, json]) => ({ ...JSON.parse(json), rev: Number(revs?.[id] || 0) }));
+  const [rawDocs, rawRevs] = await p.exec();
+  const docs = hashToObject(rawDocs), revs = hashToObject(rawRevs);
+  return Object.entries(docs).map(([id, json]) => ({ ...JSON.parse(json), rev: Number(revs[id] || 0) }));
 }
 
 async function readOne<T>(coll: Coll, id: string): Promise<T | null> {

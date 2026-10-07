@@ -1,6 +1,6 @@
 import "server-only";
 import { put, list, del } from "@vercel/blob";
-import { redis } from "./redis";
+import { hashToObject, redis } from "./redis";
 import { dueVariants, listInspo, listPosts, stuckVariants } from "./store";
 import { getConnection, getSettings, mutateConnection } from "./settings";
 import { metricsDue, publishVariant, recoverStuck, refreshMetrics, type PublishOutcome } from "./publisher";
@@ -119,7 +119,7 @@ async function daily(today: string) {
 export async function backup(today: string) {
   const [posts, inspo, settings] = await Promise.all([listPosts(), listInspo(), getSettings()]);
   const followers: Record<string, Record<string, string>> = {};
-  for (const k of LK) followers[k] = ((await redis().hgetall(`followers:${k}`)) as Record<string, string>) || {};
+  for (const k of LK) followers[k] = hashToObject(await redis().hgetall(`followers:${k}`));
   const body = JSON.stringify({ app: "tape", version: 1, exportedAt: new Date().toISOString(), settings, posts, inspo, followers });
   await put(`backups/tape-${today}.json`, body, { access: "public", contentType: "application/json", addRandomSuffix: true });
   const { blobs } = await list({ prefix: "backups/" });

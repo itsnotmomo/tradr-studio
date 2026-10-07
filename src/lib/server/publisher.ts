@@ -129,22 +129,25 @@ export async function recoverStuck(postId: string, k: Lang) {
   if (!post || !v || v.state !== "publishing") return;
   const conn = await getConnection();
   const acct = conn.accounts[k];
-  if (acct && v.stage === "publishing") {
-    try {
-      const found = await findPublished(acct.igUserId, decrypt(acct.tokenEnc), buildCaption(v), v.attemptStartedAt || 0);
-      if (found) return markPosted(postId, k, found.id, found.permalink || null);
-    } catch {
-      /* fall through */
+  // Before the final publish call nothing can be live; after it, ask Instagram.
+  let message = "Publishing was interrupted before the final step, so nothing went live. Retry when ready.";
+  if (v.stage === "publishing") {
+    message = "Publishing was interrupted during the final step and Instagram couldn't be checked. Look at the account before retrying.";
+    if (acct) {
+      try {
+        const found = await findPublished(acct.igUserId, decrypt(acct.tokenEnc), buildCaption(v), v.attemptStartedAt || 0);
+        if (found) return markPosted(postId, k, found.id, found.permalink || null);
+        message = "Publishing was interrupted during the final step. Checked Instagram: it isn't live. Retry when ready.";
+      } catch {
+        /* keep the cautious message */
+      }
     }
   }
   await mutatePost(postId, (p) => {
     const x = p.variants[k];
     if (x.state !== "publishing") return;
     x.state = "failed";
-    x.error = {
-      message: "Publishing was interrupted before it finished. Checked Instagram: it isn't live. Retry when ready.",
-      stage: x.stage || undefined, at: Date.now(),
-    };
+    x.error = { message, stage: x.stage || undefined, at: Date.now() };
     log(x, "Interrupted");
   });
 }
