@@ -69,9 +69,9 @@ function InspoView() {
   return (
     <div>
       <PageHeader title="Inspo" sub="Screenshots and reference posts. Mark each one: to do, no, or done.">
-        <div className="seg" role="tablist" aria-label="Section">
+        <div className="seg" role="group" aria-label="Section">
           {([["library", "Library"], ["plan", "Plan"], ["notes", "Notes"]] as [Tab, string][]).map(([t, l]) => (
-            <button key={t} role="tab" aria-pressed={tab === t} aria-selected={tab === t} onClick={() => go({ tab: t === "library" ? null : t })}>{l}</button>
+            <button key={t} aria-pressed={tab === t} onClick={() => go({ tab: t === "library" ? null : t })}>{l}</button>
           ))}
         </div>
       </PageHeader>
@@ -216,15 +216,16 @@ function Library({ items, notes, plansFor, onOpen, setStatus }: {
         {shown.map((it) => {
           const inPlans = plansFor(it.id);
           return (
-            <article key={it.id} className="card overflow-hidden flex flex-col">
-              <button className="text-left flex-1 flex flex-col" onClick={() => onOpen(it.id)}>
+            <article key={it.id} className="card overflow-hidden flex flex-col relative">
+              {/* The card opens the original post; details live behind the small button. No link: the card opens details. */}
+              <CardBody href={it.url} onOpen={() => onOpen(it.id)} label={it.url ? `Open @${it.username || "post"} on Instagram` : "Open details"}>
                 {it.images[0] ? (
                   <div className="thumb aspect-[4/5] relative" style={{ backgroundImage: `url("${it.images[0].url}")` }}>
                     {it.images.length > 1 && <span className="absolute top-1.5 right-1.5 text-[10.5px] font-bold text-white bg-black/60 rounded px-1.5">1/{it.images.length}</span>}
                   </div>
                 ) : (
                   <div className="aspect-[4/5] p-3 flex flex-col justify-between text-white" style={{ background: "#121212" }}>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#8a8a85]">{it.format || "Reference"}</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#8a8a85] pl-9 pt-2">{it.format || "Reference"}</span>
                     <p className="text-[13px] leading-snug line-clamp-6 font-medium">{it.description || it.notes || it.url}</p>
                     <span className="text-[11px] text-[#8a8a85]">No screenshot yet</span>
                   </div>
@@ -239,6 +240,10 @@ function Library({ items, notes, plansFor, onOpen, setStatus }: {
                     {inPlans.map((p) => <span key={p.id} className="text-[10.5px] font-bold rounded px-1.5" style={{ background: "var(--soft)" }}>Plan #{p.number}</span>)}
                   </div>
                 </div>
+              </CardBody>
+              <button onClick={() => onOpen(it.id)} aria-label="Details and edit" title="Details and edit"
+                className="absolute top-1.5 left-1.5 z-10 w-8 h-8 rounded-full flex items-center justify-center bg-black/65 text-white hover:bg-black/80 backdrop-blur-sm">
+                <Icon name="more" size={18} />
               </button>
               <div className="px-2.5 pb-2.5 pt-1.5">
                 <div className="seg w-full" role="group" aria-label="Status">
@@ -255,6 +260,13 @@ function Library({ items, notes, plansFor, onOpen, setStatus }: {
       {items && !shown.length && <div className="muted text-center py-10">Nothing here{status !== "all" ? ` marked “${STATUSES.find((s) => s[0] === status)?.[1]}”` : ""}.</div>}
     </div>
   );
+}
+
+function CardBody({ href, onOpen, label, children }: { href: string | null; onOpen: () => void; label: string; children: React.ReactNode }) {
+  const cls = "text-left flex-1 flex flex-col";
+  return href
+    ? <a href={href} target="_blank" rel="noreferrer" className={cls} aria-label={label}>{children}</a>
+    : <button className={cls} onClick={onOpen} aria-label={label}>{children}</button>;
 }
 
 // ---------------- Detail ----------------
