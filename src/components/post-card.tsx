@@ -19,7 +19,8 @@ export function PostCard({ post, lang, variant = "card", dragged }: { post: Post
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: post.id, disabled: !canMove(post) });
   const langs = lang === "all" ? LK : [lang];
   const slide = firstSlide(post, lang === "all" ? "en" : lang);
-  const style = { opacity: isDragging && !dragged ? 0.35 : 1, touchAction: canMove(post) ? ("manipulation" as const) : undefined };
+  // No iOS link preview on long press: that gesture starts a drag here.
+  const style = { opacity: isDragging && !dragged ? 0.35 : 1, WebkitTouchCallout: "none" as const, WebkitUserSelect: "none" as const, userSelect: "none" as const };
   const common = { ref: setNodeRef, ...listeners, ...attributes, style, href: `/posts/${post.id}${lang !== "all" ? `?lang=${lang}` : ""}` };
 
   if (variant === "chip") {

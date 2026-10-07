@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { DndContext, DragOverlay, PointerSensor, TouchSensor, useDroppable, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
+import { DndContext, DragOverlay, MouseSensor, TouchSensor, useDroppable, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
 import { PostCard, firstSlide } from "@/components/post-card";
 import { PublishControls } from "@/components/publish";
 import { Icon } from "@/components/icons";
@@ -53,8 +53,9 @@ export default function PlannerPage() {
   const [dragId, setDragId] = useState<string | null>(null);
   const justDragged = useRef(0);
 
+  // Mouse drags after 6 px; touch needs a long press so swiping still scrolls.
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 280, tolerance: 8 } }),
   );
 
