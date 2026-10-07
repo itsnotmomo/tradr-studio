@@ -3,7 +3,7 @@ import { SESSION_COOKIE, verifySession } from "@/lib/session";
 
 // Everything is private except the login page, the login endpoint and the
 // scheduler endpoint (which checks its own bearer secret).
-const PUBLIC = [/^\/login$/, /^\/api\/auth\/login$/, /^\/api\/cron\//];
+const PUBLIC = [/^\/login$/, /^\/api\/auth\/login$/, /^\/api\/cron\//, /^\/api\/ingest$/];
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
