@@ -43,8 +43,6 @@ export function Shell({ children }: { children: ReactNode }) {
     <div className="min-h-dvh md:flex">
       <nav aria-label="Sections" className="hidden md:flex w-[208px] flex-none flex-col gap-0.5 px-3 py-4 text-white sticky top-0 h-dvh" style={{ background: "var(--rail)" }}>
         <Link href="/" className="flex items-center gap-2.5 px-2 pb-5">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icon.png" alt="" width={26} height={26} className="rounded-[7px]" />
           <span className="font-bold text-[16px]">Tradr Studio</span>
         </Link>
         {NAV.map(item)}
@@ -95,11 +93,9 @@ function Banners() {
   const { data } = useAppState();
   if (!data) return null;
   const failed = AUTO_PUBLISH ? data.posts.flatMap((p) => LK.filter((k) => p.variants[k].state === "failed").map((k) => ({ p, k }))) : [];
-  // Reminders depend on the every-minute scheduler.
-  const n = data.settings.notify;
-  const needsCron = AUTO_PUBLISH ? data.posts.some((p) => LK.some((k) => p.variants[k].state === "scheduled")) : n.slots || n.missed || n.weekly;
+  // Scheduler health lives in Settings → Scheduler, plus a one-time ntfy alert (see lib/server/watchdog).
   const last = data.health.lastTickAt;
-  const stalled = needsCron && (!last || data.now - last > 10 * 60_000);
+  const stalled = AUTO_PUBLISH && data.posts.some((p) => LK.some((k) => p.variants[k].state === "scheduled")) && (!last || data.now - last > 10 * 60_000);
   const brokenAccounts = AUTO_PUBLISH ? LK.filter((k) => data.meta.accounts[k]?.lastError) : [];
   // Reminders use the post name, so planned posts must have one.
   const unnamed = data.posts.filter((p) => p.date && !p.title.trim()).sort((a, b) => a.date!.localeCompare(b.date!));
@@ -120,7 +116,7 @@ function Banners() {
       {stalled && (
         <div role="alert" className={bar} style={{ background: "#b45309" }}>
           <span className="flex-1">
-            The scheduler {last ? `last ran ${relTime(last, data.now)}` : "has never run"}. {AUTO_PUBLISH ? "Scheduled posts won’t go out until it’s running." : "Reminders are paused until it’s running."}
+            The scheduler {last ? `last ran ${relTime(last, data.now)}` : "has never run"}. Scheduled posts won’t go out until it’s running.
           </span>
           <Link href="/settings#scheduler" className="underline underline-offset-2 font-bold">Check</Link>
         </div>

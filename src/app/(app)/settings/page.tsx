@@ -308,7 +308,7 @@ function Notifications({ data }: { data: AppState }) {
 
 function Scheduler({ data }: { data: AppState }) {
   const last = data.health.lastTickAt;
-  const healthy = !!last && data.now - last < 3 * 60_000;
+  const healthy = !!last && data.now - last < 5 * 60_000;
   let result: { summary?: string } = {};
   try {
     result = data.health.lastResult ? JSON.parse(data.health.lastResult) : {};
@@ -322,7 +322,7 @@ function Scheduler({ data }: { data: AppState }) {
         <i className={`dot ${healthy ? "s-posted" : "s-failed"}`} />
         {last ? <>Last ran {relTime(last, data.now)}{result.summary ? ` · ${result.summary}` : ""}</> : "Has never run."}
       </div>
-      <p className="text-[12.5px] muted">Runs every minute (cron-job.org) and sends the reminders. Vercel also calls it once a day as a backstop.</p>
+      <p className="text-[12.5px] muted">Runs every minute (cron-job.org) and sends the reminders. A separate check every 30 minutes sends one ntfy alert if it stops, and one when it’s running again.</p>
     </section>
   );
 }

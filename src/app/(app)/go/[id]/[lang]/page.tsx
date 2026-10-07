@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Icon } from "@/components/icons";
 import { copyText, slotTimeLabel } from "@/components/publish";
 import { StatusSetter } from "@/components/status";
+import { PreviewImg } from "@/components/slide-viewer";
 import { useNamed } from "@/components/name-prompt";
 import { useToast } from "@/components/toast";
 import { Spinner, StatusPill } from "@/components/ui";
@@ -120,8 +121,7 @@ function Go({ id, k }: { id: string; k: Lang }) {
 
       <div className="flex gap-1.5 scroll-x -mx-4 px-4">
         {slides.map((s, i) => (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img key={s.id + i} src={s.url} alt={`Slide ${i + 1}`} className="h-[150px] aspect-[4/5] object-cover rounded-lg flex-none" style={i === slides.length - 1 && !missingEnd ? { outline: "2px solid var(--s-posted)", outlineOffset: -2 } : undefined} />
+          <PreviewImg key={s.id + i} post={post} lang={k} index={i} hover={false} src={s.url} alt={`Slide ${i + 1}`} className="h-[150px] aspect-[4/5] object-cover rounded-lg flex-none" style={i === slides.length - 1 && !missingEnd ? { outline: "2px solid var(--s-posted)", outlineOffset: -2 } : undefined} />
         ))}
         {!slides.length && <div className="text-[14px] muted py-6">No slides yet. <Link className="underline" href={`/posts/${post.id}?lang=${k}`}>Add them</Link></div>}
       </div>

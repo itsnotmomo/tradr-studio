@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { firstSlide } from "@/components/post-card";
+import { PreviewThumb } from "@/components/slide-viewer";
 import { PageHeader, LangDots, Spinner } from "@/components/ui";
 import { Icon } from "@/components/icons";
 import { useToast } from "@/components/toast";
@@ -57,11 +57,10 @@ export default function IdeasPage() {
       </form>
       <ul className="px-4 md:px-6 py-4 flex flex-col gap-2">
         {ideas.map((p) => {
-          const s = firstSlide(p);
           return (
             <li key={p.id} className="card flex items-center gap-3 p-2 pr-3">
               <Link href={`/posts/${p.id}`} className="flex items-center gap-3 flex-1 min-w-0">
-                <div className="thumb w-12 aspect-[4/5] rounded-md flex-none" style={s ? { backgroundImage: `url("${s.url}")` } : undefined} />
+                <PreviewThumb post={p} lang={"all"} className="w-12" />
                 <div className="min-w-0">
                   <div className="font-semibold truncate">{p.title || "Untitled"}</div>
                   <div className="text-[12px] muted flex items-center gap-2 mt-0.5">

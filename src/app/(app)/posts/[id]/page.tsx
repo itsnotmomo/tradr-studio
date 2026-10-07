@@ -16,6 +16,7 @@ import { CAPTION_MAX, HASHTAG_MAX } from "@/lib/rules";
 import { isLocked, statusOf } from "@/lib/status";
 import { AUTO_PUBLISH } from "@/lib/features";
 import { StatusSetter } from "@/components/status";
+import { PreviewImg } from "@/components/slide-viewer";
 import { useAskName } from "@/components/name-prompt";
 import { ApiError } from "@/lib/client/api";
 import { LANGS, isLang } from "@/lib/langs";
@@ -246,7 +247,7 @@ function Slides({ post, k, data, locked, save }: { post: Post; k: Lang; data: Ap
         {v.slides.map((s, i) => (
           <div key={s.id + i} className="group relative rounded-lg overflow-hidden aspect-[4/5]" style={{ background: "#1a1a1a" }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={s.url} alt={`Slide ${i + 1}`} className="w-full h-full object-cover" />
+            <PreviewImg post={post} lang={k} index={i} hover={false} src={s.url} alt={`Slide ${i + 1}`} className="w-full h-full object-cover" />
             <span className="absolute top-1.5 left-1.5 text-[11px] font-bold text-white bg-black/65 rounded px-1.5">{i + 1}</span>
             {!locked && (
               <div className="absolute bottom-1.5 inset-x-1.5 flex justify-center gap-1 md:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
@@ -272,7 +273,7 @@ function Slides({ post, k, data, locked, save }: { post: Post; k: Lang; data: Ap
         <div className="relative rounded-lg overflow-hidden aspect-[4/5] ring-2 ring-[var(--s-posted)] ring-inset" style={{ background: "#1a1a1a" }} title="The Tradr slide is always last">
           {end
             // eslint-disable-next-line @next/next/no-img-element
-            ? <img src={end.url} alt="Tradr slide" className="w-full h-full object-cover" />
+            ? <PreviewImg post={post} lang={k} index={v.slides.length} hover={false} src={end.url} alt="Tradr slide" className="w-full h-full object-cover" />
             : <Link href="/settings" className="flex h-full items-center justify-center text-center text-[12px] text-[#bbb] p-2">Tradr slide not set. Add it in Settings.</Link>}
           <span className="absolute top-1.5 left-1.5 text-[11px] font-bold text-white rounded px-1.5 flex items-center gap-1" style={{ background: "var(--s-posted)" }}>
             <Icon name="lock" size={11} /> {v.slides.length + 1} · Tradr

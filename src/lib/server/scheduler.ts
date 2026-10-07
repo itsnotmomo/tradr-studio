@@ -12,6 +12,7 @@ import { LK } from "../langs";
 import { utcToZoned } from "../time";
 import { AUTO_PUBLISH } from "../features";
 import { runNotifications } from "./notify";
+import { noteRecovery } from "./watchdog";
 import type { Lang } from "../types";
 
 const HEARTBEAT = "sched:last";
@@ -28,6 +29,7 @@ export async function schedulerHealth() {
 export async function tick() {
   const now = Date.now();
   await redis().set(HEARTBEAT, String(now));
+  await noteRecovery().catch(() => {});
   const out: { published: PublishOutcome[]; recovered: number; metrics: number; daily: string | null; notified: string[] } = {
     published: [], recovered: 0, metrics: 0, daily: null, notified: [],
   };

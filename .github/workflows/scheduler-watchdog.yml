@@ -1,0 +1,16 @@
+# Independent check that the every-minute scheduler (cron-job.org → /api/cron/tick) is alive.
+# Sends one ntfy alert if it's been silent for 30+ minutes; see src/lib/server/watchdog.ts.
+name: scheduler-watchdog
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: >
+          curl -fsS --max-time 30
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+          https://tradr-studio.vercel.app/api/cron/watchdog

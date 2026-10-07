@@ -4,7 +4,7 @@ import { Suspense, useMemo } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Icon } from "@/components/icons";
-import { firstSlide } from "@/components/post-card";
+import { PreviewThumb } from "@/components/slide-viewer";
 import { slotTimeLabel } from "@/components/publish";
 import { PageHeader, Spinner, StatusPill } from "@/components/ui";
 import { useAppState } from "@/lib/client/state";
@@ -76,11 +76,10 @@ function Batch() {
           <section key={d} className="flex flex-col gap-2">
             <h2 className="font-bold text-[14px] pt-2">{fmtDate(d, { weekday: "long", day: "numeric", month: "short" })}{d === today && <span className="muted font-medium"> · today</span>}</h2>
             {list.map((p) => {
-              const s = firstSlide(p, "it");
               return (
                 <article key={p.id} className="card overflow-hidden">
                   <header className="flex items-center gap-3 p-2.5 pr-3">
-                    <div className="thumb w-10 aspect-[4/5] rounded-md flex-none" style={s ? { backgroundImage: `url("${s.url}")` } : undefined} />
+                    <PreviewThumb post={p} lang={"it"} className="w-10" />
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold truncate">{p.title || "Untitled"}</div>
                       <div className="text-[12px] muted">{slotName(p.slot)}</div>

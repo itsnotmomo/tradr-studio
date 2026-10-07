@@ -9,6 +9,7 @@ import { PostCard, PostCardView, canMove, firstSlide } from "@/components/post-c
 import { PublishControls } from "@/components/publish";
 import { StatusSetter } from "@/components/status";
 import { useNamed } from "@/components/name-prompt";
+import { PreviewImg, usePreview } from "@/components/slide-viewer";
 import { AUTO_PUBLISH } from "@/lib/features";
 import { Icon } from "@/components/icons";
 import { LangDots, Spinner, StatusPill } from "@/components/ui";
@@ -357,7 +358,7 @@ function Day({ date, posts, filter, data, onNew }: { date: string; posts: Post[]
             {here.map((p) => (
               <section key={p.id} className="card p-3 md:p-4">
                 <header className="flex items-center gap-3 mb-3">
-                  <DayHandle post={p} />
+                  <DayHandle post={p} lang={filter} />
                   <Link href={`/posts/${p.id}`} className="btn">Edit</Link>
                 </header>
                 <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
@@ -373,15 +374,16 @@ function Day({ date, posts, filter, data, onNew }: { date: string; posts: Post[]
 }
 
 /** Day view header: thumbnail + title. Drag it to another slot, day or Ideas. */
-function DayHandle({ post }: { post: Post }) {
+function DayHandle({ post, lang }: { post: Post; lang: Filter }) {
   const movable = canMove(post);
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: post.id, disabled: !movable });
-  const s = firstSlide(post);
+  const s = firstSlide(post, lang === "all" ? "en" : lang);
+  const preview = usePreview(post, lang);
   return (
     <div ref={setNodeRef} {...listeners} {...attributes} className={`flex items-center gap-3 flex-1 min-w-0 ${movable ? "cursor-grab" : ""}`}
       style={{ opacity: isDragging ? 0.35 : 1, WebkitTouchCallout: "none", userSelect: "none", touchAction: "manipulation" }}
       title={movable ? "Drag to another slot or day" : undefined}>
-      <div className="thumb w-10 aspect-[4/5] rounded-md flex-none" style={s ? { backgroundImage: `url("${s.url}")` } : undefined} />
+      <div {...(s ? preview : {})} className={`thumb w-10 aspect-[4/5] rounded-md flex-none ${s ? "cursor-zoom-in" : ""}`} style={s ? { backgroundImage: `url("${s.url}")` } : undefined} />
       <div className="flex-1 min-w-0">
         <h3 className="font-bold text-[15px] truncate">{post.title || "Untitled"}</h3>
         <LangDots post={post} />
@@ -404,12 +406,10 @@ function DayLang({ post, k, data }: { post: Post; k: Lang; data: AppState }) {
       </div>
       <div className="flex gap-1.5 scroll-x">
         {v.slides.map((s, i) => (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img key={s.id} src={s.url} alt={`Slide ${i + 1}`} className="w-14 aspect-[4/5] object-cover rounded flex-none" />
+          <PreviewImg key={s.id} post={post} lang={k} index={i} src={s.url} alt={`Slide ${i + 1}`} className="w-14 aspect-[4/5] object-cover rounded flex-none" />
         ))}
         {end
-          // eslint-disable-next-line @next/next/no-img-element
-          ? <img src={end.url} alt="Tradr slide" className="w-14 aspect-[4/5] object-cover rounded flex-none ring-2 ring-[var(--s-posted)]" />
+          ? <PreviewImg post={post} lang={k} index={v.slides.length} src={end.url} alt="Tradr slide" className="w-14 aspect-[4/5] object-cover rounded flex-none ring-2 ring-[var(--s-posted)]" />
           : <div className="w-14 aspect-[4/5] rounded flex-none flex items-center justify-center text-[9px] text-center text-[#888] p-1" style={{ background: "#1a1a1a" }}>Tradr slide missing</div>}
       </div>
       <div className="text-[12px] whitespace-pre-wrap max-h-[88px] overflow-hidden" style={{ color: "var(--ink-2)" }}>{cap || <span className="muted">No caption yet.</span>}</div>
