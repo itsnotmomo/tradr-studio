@@ -71,6 +71,8 @@ Between accounts: **wait 10 minutes**, then switch:
 3. Click **Switch accounts**.
 4. Pick the account. Then **confirm the name on the profile page** before doing anything.
 
+**Known quirk (seen twice on 2026-10-09):** switching *away from* @tradr.social to another account gives "Something went wrong" (URL `#reactivated`) and logs @tradr.social out of the browser. The order English → Italian → Spanish leaves Spanish last for scheduling. At the end of the run, check Spanish's Scheduled content **first**, while it's still the active account, and only then switch to Italian and English. If @tradr.social has dropped out of the switcher, tell the owner so they can log it back in before the next run.
+
 **Never log into an account yourself.** If an account isn't in the switcher, stop and ask the owner to log it in.
 
 **Generic page errors are not a stop.** For "Something went wrong" or "Page couldn't load": do **one** hard reload (Cmd+Shift+R), wait, confirm the active account, and continue.
@@ -83,7 +85,7 @@ Don't retry quickly.
 
 ## 3. End of run, in one pass
 
-1. For each account, open **Scheduled content** (Profile → ⋯ / Dashboard → Scheduled content, or the "View scheduled content" link). Check that every item is there with the right date and time.
+1. For each account, open **Scheduled content** (`instagram.com/scheduled_content/`, weekly view; use › for the next week; read each item's day column and time). Start with the account that's currently active (Profile → ⋯ / Dashboard → Scheduled content, or the "View scheduled content" link). Check that every item is there with the right date and time.
 2. Write each confirmed item as `<postId> <lang>` into `.schedule/<range>/confirmed.txt`. List only items you actually saw.
 3. Mark them and send the summary:
 
