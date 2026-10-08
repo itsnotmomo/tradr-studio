@@ -16,6 +16,7 @@ import { listPosts } from "@/lib/server/store";
 import { getSettings } from "@/lib/server/settings";
 import { buildCaption, charCount, hashtagCount } from "@/lib/caption";
 import { collabOf } from "@/lib/collab";
+import { reelMediaProblems } from "@/lib/reel";
 import { langInfo } from "@/lib/langs";
 import { CAPTION_MAX, HASHTAG_MAX } from "@/lib/rules";
 import { publishAt, SLOT_ORDER, slotName } from "@/lib/slots";
@@ -72,6 +73,7 @@ function problems(p: Post, k: Lang, s: Settings, now: number, at: number) {
   if (!p.title.trim()) out.push("no name");
   if (p.kind === "reel") {
     if (!v.video) out.push(v.videoRemovedAt ? "video was removed" : "no video");
+    out.push(...reelMediaProblems(v));
   } else {
     if (!v.slides.length) out.push("no slides");
     if (!s.langs[k].tradrSlide) out.push("Tradr slide not set in Settings");
@@ -163,7 +165,7 @@ async function main() {
   for (const k of RUN_ORDER) {
     lines.push(`${langInfo(k).code} ${langInfo(k).handle}`);
     for (const it of items.filter((x) => x.lang === k)) {
-      lines.push(`  TYPE ${it.schedulerDate} ${it.schedulerTime}  (Rome ${it.romeDate.slice(5)} ${it.romeTime})  ${slotName(it.slot).padEnd(9)} ${it.kind === "reel" ? "REEL" : `${it.files.length || "?"} slides`.padEnd(8)}  ${it.title}${it.collab ? `  [collab ${it.collab}]` : ""}   (${it.local})`);
+      lines.push(`  TYPE ${it.schedulerDate} ${it.schedulerTime}  (Rome ${it.romeDate.slice(5)} ${it.romeTime})  ${slotName(it.slot).padEnd(9)} ${it.kind === "reel" ? "REEL" : `${it.files.length || "?"} slides`.padEnd(8)}  ${it.title}${it.collab ? `  [collab ${it.collab}]` : ""}${it.kind === "reel" && !inRange.find((x) => x.id === it.postId)!.variants[it.lang].cover ? "  [no cover]" : ""}   (${it.local})`);
     }
     lines.push("");
   }

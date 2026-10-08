@@ -16,6 +16,14 @@ Before **every single item**, check that the account name shown in the Create di
 
 ## 1. Build the plan
 
+First re-check every reel's media against 1080 × 1920. Videos attached before the rule existed were never refused:
+
+```bash
+npx tsx --env-file=.env.local --conditions=react-server scripts/validate-reels.ts
+```
+
+The plan below also skips any reel whose saved size isn't 1080 × 1920, and marks reels with no cover as `[no cover]`.
+
 ```bash
 npx tsx --env-file=.env.local --conditions=react-server scripts/schedule-plan.ts --next-week
 # or: --from 2026-10-09 --to 2026-10-11
@@ -56,9 +64,22 @@ The plan script does the following:
 10. Click **Schedule** and wait for "Your post/reel has been scheduled". Reels take 30–60 s. Click **Done**.
 11. Add a line to `.schedule/<range>/run.log`, then pause a random **45–120 s** before the next item.
 
-Between accounts: **wait 10 minutes**, then switch (profile card → Switch) and confirm the new account name on screen.
+Between accounts: **wait 10 minutes**, then switch:
 
-**Stop immediately** and tell the owner if switching accounts fails (2026-10-09: "Something went wrong… re-open your browser window", URL `#reactivated`), if an account is missing from the Switch accounts list, or if Instagram shows any warning, captcha, "try again later", action block, or anything unexpected. Don't retry quickly.
+1. Move to the left sidebar so the menu shows.
+2. Click **More** (bottom left).
+3. Click **Switch accounts**.
+4. Pick the account. Then **confirm the name on the profile page** before doing anything.
+
+**Never log into an account yourself.** If an account isn't in the switcher, stop and ask the owner to log it in.
+
+**Generic page errors are not a stop.** For "Something went wrong" or "Page couldn't load": do **one** hard reload (Cmd+Shift+R), wait, confirm the active account, and continue.
+
+**Stop immediately** and tell the owner if:
+- the same error comes back right after that reload
+- anything is account-related: action blocked, "try again later", captcha, a login or verification challenge, or an account missing from the switcher
+
+Don't retry quickly.
 
 ## 3. End of run, in one pass
 

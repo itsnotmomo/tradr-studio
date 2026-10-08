@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import { Icon } from "@/components/icons";
 import { ConfirmButton, PublishAll, PublishControls, copyText, slotTimeLabel } from "@/components/publish";
-import { Spinner, StatusPill, Warn } from "@/components/ui";
+import { ErrorBox, Spinner, StatusPill, Warn } from "@/components/ui";
 import { useToast } from "@/components/toast";
 import { api, fetcher } from "@/lib/client/api";
 import { dropPost, patchPost, useAppState, type AppState } from "@/lib/client/state";
@@ -17,6 +17,7 @@ import { isLocked, statusOf } from "@/lib/status";
 import { AUTO_PUBLISH } from "@/lib/features";
 import { StatusSetter } from "@/components/status";
 import { COLLAB_HANDLE, collabDefault, collabOf } from "@/lib/collab";
+import { reelMediaProblems } from "@/lib/reel";
 import { PreviewImg } from "@/components/slide-viewer";
 import { useAskName } from "@/components/name-prompt";
 import { ApiError } from "@/lib/client/api";
@@ -476,6 +477,7 @@ function ReelMedia({ post, k, save }: { post: Post; k: Lang; save: (id: string, 
           <input type="file" accept="video/mp4,video/quicktime,.mp4,.mov" className="hidden" onChange={(e) => { addVideo(e.target.files?.[0]); e.target.value = ""; }} />
         </label>
       )}
+      {pct === null && reelMediaProblems(v).map((x) => <ErrorBox key={x} title="Wrong size">{x}</ErrorBox>)}
       {v.video && pct === null && (
         <div className="flex gap-2">
           <label className="btn small cursor-pointer">Replace video<input type="file" accept="video/mp4,video/quicktime,.mp4,.mov" className="hidden" onChange={(e) => { addVideo(e.target.files?.[0]); e.target.value = ""; }} /></label>

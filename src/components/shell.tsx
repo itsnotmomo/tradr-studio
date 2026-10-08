@@ -10,6 +10,7 @@ import { api } from "@/lib/client/api";
 import { LANGS, LK } from "@/lib/langs";
 import { relTime } from "@/lib/time";
 import { AUTO_PUBLISH } from "@/lib/features";
+import { reelMediaProblems } from "@/lib/reel";
 
 const NAV: { href: string; label: string; icon: IconName }[] = [
   { href: "/", label: "Planner", icon: "planner" },
@@ -102,7 +103,9 @@ function Banners() {
   const brokenAccounts = AUTO_PUBLISH ? LK.filter((k) => data.meta.accounts[k]?.lastError) : [];
   // Reminders use the post name, so planned posts must have one.
   const unnamed = data.posts.filter((p) => p.date && !p.title.trim()).sort((a, b) => a.date!.localeCompare(b.date!));
-  if (!failed.length && !stalled && !brokenAccounts.length && !unnamed.length) return null;
+  // Reels attached before the 1080 × 1920 rule were never refused, so flag any planned one that breaks it.
+  const badReels = data.posts.filter((p) => p.date && p.kind === "reel" && LK.some((k) => p.variants[k].status !== "posted" && reelMediaProblems(p.variants[k]).length)).sort((a, b) => a.date!.localeCompare(b.date!));
+  if (!failed.length && !stalled && !brokenAccounts.length && !unnamed.length && !badReels.length) return null;
   const bar = "flex flex-wrap items-center gap-x-3 gap-y-1 px-4 md:px-6 py-2.5 text-[13px] font-medium text-white";
   return (
     <div className="sticky top-0 z-30">
@@ -130,6 +133,15 @@ function Banners() {
           <Link href={`/posts/${unnamed[0].id}`} className="underline underline-offset-2 font-bold">Name it</Link>
         </div>
       )}
+      {badReels.length > 0 && (() => {
+        const p = badReels[0], k = LK.find((x) => reelMediaProblems(p.variants[x]).length)!;
+        return (
+          <div role="alert" className={bar} style={{ background: "var(--s-failed)" }}>
+            <span className="flex-1">{badReels.length === 1 ? `Reel “${p.title || "Untitled"}” (${LANGS.find((l) => l.k === k)!.code})` : `${badReels.length} planned reels`} {badReels.length === 1 ? "isn’t" : "aren’t"} 1080 × 1920.</span>
+            <Link href={`/posts/${p.id}?lang=${k}`} className="underline underline-offset-2 font-bold">Replace the video</Link>
+          </div>
+        );
+      })()}
       {brokenAccounts.length > 0 && (
         <div role="alert" className={bar} style={{ background: "#b45309" }}>
           <span className="flex-1">

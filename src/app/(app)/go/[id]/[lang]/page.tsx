@@ -15,6 +15,7 @@ import { downloadUrl, fmtDuration } from "@/lib/client/upload";
 import { defaultRange, nextAfter, rangeQuery, type Range } from "@/lib/client/sequence";
 import { buildCaption } from "@/lib/caption";
 import { collabOf } from "@/lib/collab";
+import { reelMediaProblems } from "@/lib/reel";
 import { LANGS, isLang } from "@/lib/langs";
 import { slotName } from "@/lib/slots";
 import { statusOf } from "@/lib/status";
@@ -217,6 +218,7 @@ function Go({ id, k }: { id: string; k: Lang }) {
       <button className={big} style={{ background: "var(--panel)", border: "1px solid var(--line-2)" }} onClick={copy} disabled={!caption}>
         <Icon name="copy" size={20} /> {copied ? "Caption copied" : caption ? "Copy caption" : "No caption yet"}
       </button>
+      {isReel && reelMediaProblems(v).map((x) => <div key={x} role="alert" className="rounded-xl px-3.5 py-2.5 text-[14px] font-semibold" style={{ background: "var(--danger-bg)", color: "var(--danger)" }}>{x}</div>)}
       {collabOf(post, k) && <div className="rounded-xl px-3.5 py-2.5 text-[14px]" style={{ background: "var(--soft)" }}>Add collaborator <b>{collabOf(post, k)}</b></div>}
       <a className="text-center text-[14px] font-semibold underline underline-offset-4 muted" href="instagram://camera">Open Instagram</a>
 
