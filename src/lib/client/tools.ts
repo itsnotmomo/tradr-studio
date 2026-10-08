@@ -2,27 +2,32 @@
 
 import { useEffect, useRef, useState } from "react";
 import { api } from "./api";
+import { useHistory } from "./history";
 
-/** Tool settings, saved to the server so phone and desktop share them. */
+/** Tool settings, saved to the server so phone and desktop share them. With undo/redo. */
 export function useToolState<T extends object>(name: string, defaults: T) {
-  const [state, setState] = useState<T>(defaults);
+  const h = useHistory<T>(defaults);
   const [loaded, setLoaded] = useState(false);
   const t = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const { reset } = h;
   useEffect(() => {
     api<Partial<T>>(`/api/tools/${name}`)
-      .then((s) => setState((d) => ({ ...d, ...s })))
+      .then((s) => reset({ ...defaults, ...s }))
       .catch(() => {})
       .finally(() => setLoaded(true));
-  }, [name]);
-  const update = (fn: (s: T) => T) => {
-    setState((s) => {
-      const n = fn(s);
-      clearTimeout(t.current);
-      t.current = setTimeout(() => api(`/api/tools/${name}`, { method: "PUT", body: n }).catch(() => {}), 800);
-      return n;
-    });
-  };
-  return { state, update, loaded };
+  }, [name]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Save a moment after any change, undo and redo included.
+  const first = useRef(true);
+  useEffect(() => {
+    if (!loaded) return;
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    clearTimeout(t.current);
+    t.current = setTimeout(() => api(`/api/tools/${name}`, { method: "PUT", body: h.state }).catch(() => {}), 800);
+  }, [h.state, loaded, name]);
+  return { state: h.state, update: h.set, loaded, undo: h.undo, redo: h.redo, canUndo: h.canUndo, canRedo: h.canRedo };
 }
 
 export function loadImage(src: string): Promise<HTMLImageElement> {

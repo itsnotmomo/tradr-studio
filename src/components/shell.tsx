@@ -14,10 +14,13 @@ import { AUTO_PUBLISH } from "@/lib/features";
 const NAV: { href: string; label: string; icon: IconName }[] = [
   { href: "/", label: "Planner", icon: "planner" },
   { href: "/batch", label: "Batch", icon: "batch" },
+  { href: "/captions", label: "Captions", icon: "captions" },
   { href: "/ideas", label: "Ideas", icon: "ideas" },
   { href: "/inspo", label: "Inspo", icon: "inspo" },
   { href: "/posted", label: "Posted", icon: "posted" },
 ];
+/** Not in the phone's bottom bar (no room); reached through More. */
+const PHONE_MORE = ["/captions"];
 const TOOLS: { href: string; label: string; icon: IconName }[] = [
   { href: "/tools/tweet", label: "Tweet card", icon: "tweet" },
   { href: "/tools/editor", label: "Text editor", icon: "editor" },
@@ -60,14 +63,14 @@ export function Shell({ children }: { children: ReactNode }) {
 
       <nav aria-label="Sections" className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t safe-b" style={{ background: "var(--panel)", borderColor: "var(--line)" }}>
         <div className="grid grid-cols-6">
-          {NAV.map((n) => (
+          {NAV.filter((n) => !PHONE_MORE.includes(n.href)).map((n) => (
             <Link key={n.href} href={n.href} aria-current={active(path, n.href) ? "page" : undefined}
               className="flex flex-col items-center gap-0.5 pt-2 pb-1.5 text-[10.5px] font-semibold text-[var(--muted)] aria-[current=page]:text-[var(--ink)]">
               <Icon name={n.icon} size={21} />
               {n.label}
             </Link>
           ))}
-          <button onClick={() => setMore(true)} aria-current={[...TOOLS, { href: "/settings" }].some((t) => active(path, t.href)) ? "page" : undefined}
+          <button onClick={() => setMore(true)} aria-current={[...TOOLS, ...PHONE_MORE.map((href) => ({ href })), { href: "/settings" }].some((t) => active(path, t.href)) ? "page" : undefined}
             className="flex flex-col items-center gap-0.5 pt-2 pb-1.5 text-[10.5px] font-semibold text-[var(--muted)] aria-[current=page]:text-[var(--ink)]">
             <Icon name="more" size={21} />
             More
@@ -76,7 +79,7 @@ export function Shell({ children }: { children: ReactNode }) {
       </nav>
       <Sheet open={more} onClose={() => setMore(false)} label="More">
         <div className="p-3 flex flex-col">
-          {[...TOOLS, { href: "/settings", label: "Settings", icon: "settings" as IconName }].map((t) => (
+          {[...NAV.filter((n) => PHONE_MORE.includes(n.href)), ...TOOLS, { href: "/settings", label: "Settings", icon: "settings" as IconName }].map((t) => (
             <Link key={t.href} href={t.href} onClick={() => setMore(false)} className="flex items-center gap-3 rounded-lg px-3 py-3 text-[15px] font-medium hover:bg-[var(--soft)]">
               <Icon name={t.icon} size={20} /> {t.label}
             </Link>

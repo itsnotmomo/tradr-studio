@@ -337,7 +337,7 @@ function Caption({ post, k, data, locked, save }: { post: Post; k: Lang; data: A
           <button className="text-[12px] font-medium" style={{ color: "var(--focus)" }} onClick={() => set(f, def)}>Use default</button>
         )}
       </div>
-      <textarea id={`c_${f}`} className="field" rows={rows} value={parts[f]} readOnly={locked} onBlur={flush} onChange={(e) => set(f, e.target.value)}
+      <textarea id={`c_${f}`} lang={k} spellCheck className="field" rows={rows} value={parts[f]} readOnly={locked} onBlur={flush} onChange={(e) => set(f, e.target.value)}
         placeholder={f === "comment" ? "Your take on this post" : def === "" ? "Set a default in Settings" : undefined} />
     </div>
   );

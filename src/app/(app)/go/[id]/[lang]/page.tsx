@@ -172,8 +172,8 @@ function Go({ id, k }: { id: string; k: Lang }) {
       <header className="flex items-center gap-2">
         <Link href={`/batch?${rangeQuery(range)}`} className="btn small ghost" aria-label="Back to Batch"><Icon name="back" size={18} /></Link>
         <div className="flex-1 min-w-0">
-          <div className="font-bold text-[17px] truncate">{post.title || "Untitled"}</div>
-          <div className="text-[13px] muted truncate">
+          <div className="font-bold text-[17px] break-words">{post.title || "Untitled"}</div>
+          <div className="text-[13px] muted">
             <b style={{ color: "var(--ink)" }}>{l.code}</b> · {l.handle}
             {post.date && <> · {fmtDate(post.date, { weekday: "short", day: "numeric", month: "short" })} · {slotName(post.slot)} {slotTimeLabel(data.settings, k, post)}</>}
           </div>

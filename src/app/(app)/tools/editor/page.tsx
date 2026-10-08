@@ -7,6 +7,8 @@ import { ToolFonts } from "@/components/tool-fonts";
 import { useToast } from "@/components/toast";
 import { useAppState } from "@/lib/client/state";
 import { canvasBlob, downloadBlob, loadImage, stamp } from "@/lib/client/tools";
+import { useHistory, useUndoKeys } from "@/lib/client/history";
+import { UndoButtons } from "@/components/undo-buttons";
 import { LANGS, LK, isLang } from "@/lib/langs";
 import type { Lang } from "@/lib/types";
 
@@ -14,6 +16,8 @@ type Style = { size: number; weight: number; color: string; align: CanvasTextAli
 type Block = Style & {
   id: number; x0: number; y0: number; x1: number; y1: number; baseline: number;
   bg: string; bgChanged: boolean; isNew: boolean;
+  /** Where the text was dragged to, relative to its box (image px). The cover stays over the old text. */
+  dx: number; dy: number;
   orig: Style & { text: string };
   /** The text per language. Starts as the original text everywhere. */
   texts: Record<Lang, string>;
@@ -30,7 +34,7 @@ const fit = (W: number, H: number, w: number, h: number) => {
   const s = Math.min(W / w, H / h);
   return { w: W, h: H, s, ox: (W - w * s) / 2, oy: (H - h * s) / 2 };
 };
-const edited = (b: Block, k: Lang) => b.isNew || b.bgChanged || b.texts[k] !== b.orig.text || styleKeys.some((s) => b[s] !== b.orig[s]);
+const edited = (b: Block, k: Lang) => b.isNew || b.bgChanged || !!b.dx || !!b.dy || b.texts[k] !== b.orig.text || styleKeys.some((s) => b[s] !== b.orig[s]);
 
 export default function EditorPage() {
   return <Suspense><Editor /></Suspense>;
@@ -49,7 +53,11 @@ function Editor() {
   const src = useRef<{ img: HTMLImageElement | HTMLCanvasElement; ctx: CanvasRenderingContext2D; w: number; h: number } | null>(null);
   const nextId = useRef(1);
   const [ver, setVer] = useState(0); // bumps when a new image loads
-  const [blocks, setBlocks] = useState<Block[]>([]);
+  // Every change to the boxes is an undo step; a new image starts a fresh history.
+  const hist = useHistory<Block[]>([]);
+  const blocks = hist.state;
+  const setBlocks = hist.set;
+  useUndoKeys(hist.undo, hist.redo);
   const [selId, setSelId] = useState<number | null>(null);
   const [lang, setLang] = useState<Lang>(isLang(q) ? q : "en");
   const [fontFamily, setFontFamily] = useState("Poppins");
@@ -98,8 +106,8 @@ function Editor() {
       ctx.fillStyle = b.color;
       ctx.textBaseline = "alphabetic";
       ctx.textAlign = b.align;
-      const ax = b.align === "left" ? b.x0 : b.align === "right" ? b.x1 : (b.x0 + b.x1) / 2;
-      text.split("\n").forEach((ln, i) => ctx.fillText(ln, ax, b.baseline + i * b.size * 1.25));
+      const ax = (b.align === "left" ? b.x0 : b.align === "right" ? b.x1 : (b.x0 + b.x1) / 2) + b.dx;
+      text.split("\n").forEach((ln, i) => ctx.fillText(ln, ax, b.baseline + b.dy + i * b.size * 1.25));
     }
     ctx.restore();
   }, [fill, fontStr]);
@@ -174,11 +182,12 @@ function Editor() {
     const baseline = isNew ? y0 + h * 0.8 : desc ? y1 - 0.21 * sz : y1;
     const align: CanvasTextAlign = Math.abs((x0 + x1) / 2 - s.w / 2) < s.w * 0.03 ? "center" : "left";
     const style: Style = { size: sz, weight: st.weight, color: st.color, align };
-    return { id: nextId.current++, x0, y0, x1, y1, baseline, bg: hex(bgArr), bgChanged: false, isNew, orig: { ...style, text }, ...style, texts: { en: text, es: text, it: text } };
+    return { id: nextId.current++, x0, y0, x1, y1, baseline, bg: hex(bgArr), bgChanged: false, isNew, dx: 0, dy: 0, orig: { ...style, text }, ...style, texts: { en: text, es: text, it: text } };
   };
 
   // ---------- Text detection ----------
-  const findText = async () => {
+  /** Finds the text in the image. On a new image it's the starting point; "Find text again" is an undoable step. */
+  const findText = async (fresh: boolean) => {
     const s = src.current;
     if (!s) return;
     setStatus("Loading text reader…");
@@ -227,7 +236,8 @@ function Editor() {
           out.push(makeBlock(x0, y0, x1, y1, g.map((w) => w.text).join(" ").trim(), false));
         }
       }
-      setBlocks(out);
+      if (fresh) hist.reset(out);
+      else setBlocks(() => out);
       setStatus(out.length ? `Found ${out.length} text${out.length === 1 ? "" : "s"}. Tap one to edit it.` : "No text found. Use “Draw a box” to mark it yourself.");
     } catch (e) {
       console.error(e);
@@ -246,11 +256,11 @@ function Editor() {
     src.current = { img: c, ctx, w: c.width, h: c.height };
     const px = [[2, 2], [c.width - 3, 2], [2, c.height - 3], [c.width - 3, c.height - 3]].map(([x, y]) => ctx.getImageData(x, y, 1, 1).data);
     setFill(hex([0, 1, 2].map((i) => px.reduce((a, d) => a + d[i], 0) / 4)));
-    setBlocks([]);
+    hist.reset([]);
     setSelId(null);
     setDims({ w: c.width, h: c.height });
     setVer((v) => v + 1);
-    await findText();
+    await findText(true);
   };
 
   const loadFile = async (file: File | Blob | null | undefined) => {
@@ -282,7 +292,33 @@ function Editor() {
 
   // ---------- Editing ----------
   const cur = blocks.find((b) => b.id === selId) || null;
-  const edit = (fn: (b: Block) => Partial<Block>) => setBlocks((bs) => bs.map((b) => (b.id === selId ? { ...b, ...fn(b) } : b)));
+  /** Changes the selected box. Changes with the same `key` in quick succession (typing, dragging a colour) are one undo step. */
+  const edit = (fn: (b: Block) => Partial<Block>, key?: string) =>
+    setBlocks((bs) => bs.map((b) => (b.id === selId ? { ...b, ...fn(b) } : b)), { key: key && `${selId}:${key}` });
+
+  // ---------- Move a box (drag it) ----------
+  const move = useRef<{ id: number; x: number; y: number; dx: number; dy: number; moved: boolean } | null>(null);
+  const onBoxDown = (e: React.PointerEvent, b: Block) => {
+    if (addMode) return;
+    e.stopPropagation();
+    setSelId(b.id);
+    move.current = { id: b.id, x: e.clientX, y: e.clientY, dx: b.dx, dy: b.dy, moved: false };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+  const onBoxMove = (e: React.PointerEvent) => {
+    const m = move.current;
+    if (!m) return;
+    if (!m.moved && Math.hypot(e.clientX - m.x, e.clientY - m.y) < 3) return;
+    const r = overlay.current!.getBoundingClientRect();
+    const k = frame.w / r.width / frame.s; // screen px → image px
+    const dx = Math.round(m.dx + (e.clientX - m.x) * k), dy = Math.round(m.dy + (e.clientY - m.y) * k);
+    // The whole drag is one undo step.
+    setBlocks((bs) => bs.map((x) => (x.id === m.id ? { ...x, dx, dy } : x)), { quiet: m.moved });
+    m.moved = true;
+  };
+  const onBoxUp = () => {
+    move.current = null;
+  };
 
   // ---------- Draw a box ----------
   const drag = useRef<{ ix: number; iy: number; cx: number; cy: number; el: HTMLDivElement } | null>(null);
@@ -360,7 +396,7 @@ function Editor() {
           <legend className="font-semibold text-[13px] mb-2">Image</legend>
           <div className="flex flex-wrap gap-1.5">
             <label className="btn cursor-pointer">Upload image<input type="file" accept="image/*" className="hidden" onChange={(e) => { loadFile(e.target.files?.[0]); e.target.value = ""; }} /></label>
-            <button className="btn" disabled={!hasImg} onClick={() => { setBlocks([]); setSelId(null); findText(); }}>Find text again</button>
+            <button className="btn" disabled={!hasImg} onClick={() => { setSelId(null); findText(false); }}>Find text again</button>
           </div>
           <div className="text-[12px] muted">You can also paste with ⌘V or drop a file onto the page.</div>
           {postSlides.length > 0 && (
@@ -392,31 +428,31 @@ function Editor() {
           {cur ? (
             <>
               <label className="label" htmlFor="t_text">Text ({lang.toUpperCase()})</label>
-              <textarea id="t_text" className="field" rows={3} value={cur.texts[lang]} onChange={(e) => edit((b) => ({ texts: { ...b.texts, [lang]: e.target.value } }))} />
+              <textarea id="t_text" className="field" rows={3} value={cur.texts[lang]} onChange={(e) => edit((b) => ({ texts: { ...b.texts, [lang]: e.target.value } }), `text:${lang}`)} />
               <div className="text-[12px] muted">{cur.isNew ? "New text" : `Original: “${cur.orig.text}”`}</div>
               <div className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
-                <div><label className="label" htmlFor="t_size">Size (px)</label><input id="t_size" type="number" className="field" step={0.5} min={4} value={cur.size} onChange={(e) => edit((b) => ({ size: Math.max(4, +e.target.value || b.size) }))} /></div>
+                <div><label className="label" htmlFor="t_size">Size (px)</label><input id="t_size" type="number" className="field" step={0.5} min={4} value={cur.size} onChange={(e) => edit((b) => ({ size: Math.max(4, +e.target.value || b.size) }), "size")} /></div>
                 <div><label className="label" htmlFor="t_weight">Weight</label>
                   <select id="t_weight" className="field" value={cur.weight} onChange={(e) => edit(() => ({ weight: +e.target.value }))}>
                     {[[300, "Light"], [400, "Regular"], [500, "Medium"], [600, "Semibold"], [700, "Bold"]].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                   </select></div>
-                <div><label className="label" htmlFor="t_color">Color</label><input id="t_color" type="color" className="w-11 h-9 rounded-md border p-0.5" style={{ borderColor: "var(--line)" }} value={cur.color} onChange={(e) => edit(() => ({ color: e.target.value }))} /></div>
+                <div><label className="label" htmlFor="t_color">Color</label><input id="t_color" type="color" className="w-11 h-9 rounded-md border p-0.5" style={{ borderColor: "var(--line)" }} value={cur.color} onChange={(e) => edit(() => ({ color: e.target.value }), "color")} /></div>
               </div>
               <span className="label">Alignment (where the text grows from)</span>
               <div className="seg self-start">
                 {(["left", "center", "right"] as CanvasTextAlign[]).map((a) => <button key={a} aria-pressed={cur.align === a} onClick={() => edit(() => ({ align: a }))}>{a[0].toUpperCase() + a.slice(1)}</button>)}
               </div>
               <div className="flex items-center gap-2">
-                <input type="color" aria-label="Cover color" className="w-11 h-9 rounded-md border p-0.5" style={{ borderColor: "var(--line)" }} value={cur.bg} onChange={(e) => edit(() => ({ bg: e.target.value, bgChanged: true }))} />
+                <input type="color" aria-label="Cover color" className="w-11 h-9 rounded-md border p-0.5" style={{ borderColor: "var(--line)" }} value={cur.bg} onChange={(e) => edit(() => ({ bg: e.target.value, bgChanged: true }), "bg")} />
                 <span className="text-[12px] muted">Cover color, painted over the old text. Picked from around it.</span>
               </div>
               <div className="flex flex-wrap gap-1.5">
-                <button className="btn small" onClick={() => edit((b) => ({ ...b.orig, texts: { ...b.texts, [lang]: b.orig.text }, bgChanged: false }))}>Undo changes</button>
+                <button className="btn small" onClick={() => edit((b) => ({ ...b.orig, texts: { ...b.texts, [lang]: b.orig.text }, bgChanged: false, dx: 0, dy: 0 }))}>Reset this box</button>
                 <button className="btn small" onClick={() => edit((b) => ({ texts: { ...b.texts, [lang]: "" } }))}>Erase text</button>
                 {cur.isNew && <button className="btn small danger" onClick={() => { setBlocks((bs) => bs.filter((b) => b.id !== selId)); setSelId(null); }}>Remove box</button>}
               </div>
             </>
-          ) : <div className="text-[13px] muted">Tap any text on the image to edit it.</div>}
+          ) : <div className="text-[13px] muted">Tap any text on the image to edit it. Drag a selected box to move its text.</div>}
         </fieldset>
 
         <fieldset className="flex flex-col gap-2">
@@ -476,11 +512,12 @@ function Editor() {
           <canvas ref={view} className="block w-full max-w-[460px] lg:max-w-none lg:w-auto lg:max-h-[calc(100dvh-150px)] h-auto shadow-[0_0_0_1px_rgba(0,0,0,.18)]" />
           <div ref={overlay} className={`absolute inset-0 touch-none ${addMode ? "cursor-crosshair" : ""}`} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp}>
             {blocks.map((b) => (
-              <button key={b.id} aria-label={`Edit text: ${b.orig.text || "new text"}`}
+              <button key={b.id} aria-label={`Edit text: ${b.orig.text || "new text"}`} title={b.id === selId ? "Drag to move" : undefined}
                 onClick={(e) => { if (addMode) return; e.stopPropagation(); setSelId(b.id); }}
-                className="absolute rounded-[2px] p-0"
+                onPointerDown={(e) => onBoxDown(e, b)} onPointerMove={onBoxMove} onPointerUp={onBoxUp} onPointerCancel={onBoxUp}
+                className={`absolute rounded-[2px] p-0 ${!addMode && b.id === selId ? "cursor-move" : ""}`}
                 style={{
-                  left: `${((f.ox + b.x0 * f.s) / f.w) * 100}%`, top: `${((f.oy + b.y0 * f.s) / f.h) * 100}%`,
+                  left: `${((f.ox + (b.x0 + b.dx) * f.s) / f.w) * 100}%`, top: `${((f.oy + (b.y0 + b.dy) * f.s) / f.h) * 100}%`,
                   width: `${((b.x1 - b.x0) * f.s / f.w) * 100}%`, height: `${((b.y1 - b.y0) * f.s / f.h) * 100}%`,
                   border: b.id === selId ? "2px solid var(--focus)" : showBoxes ? `1px dashed ${edited(b, lang) ? "rgba(46,204,113,.85)" : "rgba(29,155,240,.6)"}` : "1px solid transparent",
                   background: b.id === selId ? "rgba(29,155,240,.1)" : "transparent",
@@ -491,6 +528,7 @@ function Editor() {
         <div className="text-[12px] muted text-center min-h-[18px]" role="status">{status}</div>
         {hasImg && (
           <div className="flex flex-wrap gap-2 justify-center">
+            <UndoButtons undo={hist.undo} redo={hist.redo} canUndo={hist.canUndo} canRedo={hist.canRedo} />
             <button className="btn primary" onClick={() => setSending(true)}>{target ? `Add to “${target.title || "Untitled"}”` : "Add to a post"}</button>
             <button className="btn" onClick={async () => downloadBlob(await render(lang), `edited-${stamp()}-${lang}.png`)}>Download {lang.toUpperCase()}</button>
           </div>

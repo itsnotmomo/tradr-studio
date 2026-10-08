@@ -6,9 +6,9 @@ export const SLOTS: { k: Slot; name: string }[] = [
   { k: "morning", name: "Morning" },
   { k: "afternoon", name: "Afternoon" },
 ];
-/** Every planner row: the two post slots, then the optional reel. */
-export const ALL_SLOTS: { k: Slot; name: string }[] = [...SLOTS, { k: "reel", name: "Reel" }];
-export const SLOT_ORDER: Record<Slot, number> = { morning: 0, afternoon: 1, reel: 2 };
+/** Every planner row, in time order: Morning, the optional Reel, Afternoon. */
+export const ALL_SLOTS: { k: Slot; name: string }[] = [SLOTS[0], { k: "reel", name: "Reel" }, SLOTS[1]];
+export const SLOT_ORDER: Record<Slot, number> = { morning: 0, reel: 1, afternoon: 2 };
 export const slotName = (s: Slot) => (s === "morning" ? "Morning" : s === "afternoon" ? "Afternoon" : "Reel");
 export const isSlot = (v: unknown): v is Slot => v === "morning" || v === "afternoon" || v === "reel";
 export const isPostSlot = (v: unknown): v is Slot => v === "morning" || v === "afternoon";
@@ -16,7 +16,7 @@ export const isPostSlot = (v: unknown): v is Slot => v === "morning" || v === "a
 export const DEFAULT_SCHEDULE: Settings["schedule"] = {
   it: { zone: "Europe/Rome", morning: "10:00", afternoon: "14:00", reel: "12:00" },
   es: { zone: "America/Argentina/Buenos_Aires", morning: "10:00", afternoon: "14:00", reel: "12:00" },
-  en: { zone: "UTC", morning: "12:00", afternoon: "18:00", reel: "15:00" },
+  en: { zone: "Asia/Makassar", morning: "12:00", afternoon: "18:00", reel: "15:00" },
 };
 
 /** When this account publishes a post in this slot on this day (ms, UTC). DST-correct per zone. */

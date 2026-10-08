@@ -66,7 +66,7 @@ export function PostCardView({ post, lang, variant = "card", drag }: { post: Pos
       <Link {...common} className="flex items-center gap-3 rounded-xl border p-2 pr-3 min-w-0 hover:border-[var(--line-2)]" style={{ ...style, background: "var(--panel)", borderColor: "var(--line)" }}>
         <div {...(slide ? preview : {})} className={`thumb w-11 aspect-[4/5] rounded-md flex-none ${slide ? "cursor-zoom-in" : ""}`} style={slide ? { backgroundImage: `url("${slide.url}")` } : undefined} />
         <div className="flex-1 min-w-0">
-          <div className="truncate font-semibold text-[13.5px]">{post.kind === "reel" && <ReelBadge className="mr-1.5 align-[1px]" />}{post.title || "Untitled"}</div>
+          <div className="line-clamp-2 break-words font-semibold text-[13.5px] leading-snug">{post.kind === "reel" && <ReelBadge className="mr-1.5 align-[1px]" />}{post.title || "Untitled"}</div>
           <div className="flex items-center gap-2 mt-0.5 text-[12px] muted">
             {post.date && <span>{slotName(post.slot)}</span>}
             <LangDots post={post} langs={langs} />

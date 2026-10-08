@@ -264,11 +264,11 @@ function Week({ cursor, byDay, filter, onNew, settings }: { cursor: Date; byDay:
                 {d.toLocaleDateString("en-GB", { weekday: "short" })}
                 {isToday && <span className="ml-1.5 text-[10px] uppercase tracking-wider" style={{ color: "var(--ink)" }}>Today</span>}
               </header>
-              <div className="grid grid-cols-2 md:grid-cols-1 gap-1.5">
+              <div className="flex flex-col gap-1.5">
                 {ALL_SLOTS.map(({ k: slot, name }) => {
                   const here = inSlot(list, slot);
                   return (
-                    <SlotDrop key={slot} date={k} slot={slot} className={`group rounded-lg border border-dashed p-1.5 flex flex-col gap-1.5 min-w-0 ${slot === "reel" ? "col-span-2 md:col-span-1 md:min-h-[64px]" : "md:min-h-[200px]"}`} style={{ borderColor: "var(--line)", background: slot === "reel" ? "transparent" : "var(--soft)" }}>
+                    <SlotDrop key={slot} date={k} slot={slot} className={`group rounded-lg border border-dashed p-1.5 flex flex-col gap-1.5 min-w-0 ${slot === "reel" ? "md:min-h-[64px]" : "md:min-h-[200px]"}`} style={{ borderColor: "var(--line)", background: slot === "reel" ? "transparent" : "var(--soft)" }}>
                       <div className="flex items-center justify-between gap-1" title={slotTimes(settings, slot)}>
                         <span className="text-[11px] font-bold uppercase tracking-wide muted">{name}</span>
                         {!here.length && <button className="btn small ghost !min-h-[22px] !px-1 md:opacity-0 group-hover:opacity-100 focus:opacity-100" onClick={() => onNew(k, slot)} aria-label={`New post, ${name} ${k}`}><Icon name="plus" size={14} /></button>}
@@ -389,7 +389,7 @@ function DayHandle({ post, lang }: { post: Post; lang: Filter }) {
       title={movable ? "Drag to another slot or day" : undefined}>
       <div {...(s ? preview : {})} className={`thumb w-10 aspect-[4/5] rounded-md flex-none ${s ? "cursor-zoom-in" : ""}`} style={s ? { backgroundImage: `url("${s.url}")` } : undefined} />
       <div className="flex-1 min-w-0">
-        <h3 className="font-bold text-[15px] truncate">{post.title || "Untitled"}</h3>
+        <h3 className="font-bold text-[15px] break-words md:truncate">{post.title || "Untitled"}</h3>
         <LangDots post={post} />
       </div>
     </div>

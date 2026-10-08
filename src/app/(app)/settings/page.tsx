@@ -11,6 +11,7 @@ import { uploadSlide } from "@/lib/client/upload";
 import { hashtagCount } from "@/lib/caption";
 import { HASHTAG_MAX, RATIO_MAX, RATIO_MIN } from "@/lib/rules";
 import { LANGS } from "@/lib/langs";
+import { ALL_SLOTS } from "@/lib/slots";
 import { relTime } from "@/lib/time";
 import type { Lang } from "@/lib/types";
 
@@ -213,36 +214,32 @@ function General({ data }: { data: AppState }) {
     <section id="slots" className="card p-4 flex flex-col gap-3 scroll-mt-4">
       <div>
         <h2 className="font-bold text-[15px]">Posting slots</h2>
-        <p className="text-[12.5px] muted mt-0.5">Each day has a Morning and an Afternoon slot for posts, plus an optional Reel slot. Each account publishes at its own local time. Daylight saving is handled per zone.</p>
+        <p className="text-[12.5px] muted mt-0.5">Each day has a Morning and an Afternoon slot for posts, with an optional Reel slot in between. Each account publishes at its own local time. Daylight saving is handled per zone.</p>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-[13px] min-w-[620px]">
-          <thead>
-            <tr className="text-left text-[12px] muted"><th className="font-medium pb-1.5">Account</th><th className="font-medium pb-1.5">Time zone</th><th className="font-medium pb-1.5">Morning</th><th className="font-medium pb-1.5">Afternoon</th><th className="font-medium pb-1.5">Reel</th></tr>
-          </thead>
-          <tbody>
-            {ZONE_ORDER.map((k) => {
-              const l = LANGS.find((x) => x.k === k)!;
-              const sc = data.settings.schedule[k];
-              return (
-                <tr key={k} className="border-t" style={{ borderColor: "var(--line)" }}>
-                  <td className="py-2 pr-3"><b>{l.code}</b> <span className="muted">{l.handle}</span></td>
-                  <td className="py-2 pr-3">
-                    <select className="field !min-h-[32px] !py-1" value={sc.zone} onChange={(e) => save({ schedule: { [k]: { zone: e.target.value } } })} aria-label={`${l.code} time zone`}>
-                      {zones.map((z) => <option key={z} value={z}>{z}</option>)}
-                    </select>
-                  </td>
-                  {(["morning", "afternoon", "reel"] as const).map((slot) => (
-                    <td key={slot} className="py-2 pr-3">
-                      <input type="time" className="field !min-h-[32px] !py-1 !w-[110px]" defaultValue={sc[slot]} aria-label={`${l.code} ${slot}`}
-                        onBlur={(e) => e.target.value && e.target.value !== sc[slot] && save({ schedule: { [k]: { [slot]: e.target.value } } })} />
-                    </td>
-                  ))}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      {/* A table on desktop; one block per account on a phone. */}
+      <div className="flex flex-col">
+        <div className="hidden md:grid grid-cols-[170px_minmax(0,1fr)_repeat(3,110px)] gap-3 text-[12px] muted font-medium pb-1.5">
+          <span>Account</span><span>Time zone</span>{ALL_SLOTS.map((c) => <span key={c.k}>{c.name}</span>)}
+        </div>
+        {ZONE_ORDER.map((k) => {
+          const l = LANGS.find((x) => x.k === k)!;
+          const sc = data.settings.schedule[k];
+          return (
+            <div key={k} className="border-t py-2.5 grid grid-cols-3 md:grid-cols-[170px_minmax(0,1fr)_repeat(3,110px)] gap-x-3 gap-y-2 items-center text-[13px]" style={{ borderColor: "var(--line)" }}>
+              <div className="col-span-3 md:col-span-1 min-w-0 truncate"><b>{l.code}</b> <span className="muted">{l.handle}</span></div>
+              <select className="field !min-h-[32px] !py-1 col-span-3 md:col-span-1 min-w-0" value={sc.zone} onChange={(e) => save({ schedule: { [k]: { zone: e.target.value } } })} aria-label={`${l.code} time zone`}>
+                {zones.map((z) => <option key={z} value={z}>{z}</option>)}
+              </select>
+              {ALL_SLOTS.map(({ k: slot, name }) => (
+                <label key={slot} className="flex flex-col gap-0.5 min-w-0">
+                  <span className="md:hidden text-[11px] muted">{name}</span>
+                  <input type="time" className="field !min-h-[32px] !py-1 w-full" defaultValue={sc[slot]} aria-label={`${l.code} ${name}`}
+                    onBlur={(e) => e.target.value && e.target.value !== sc[slot] && save({ schedule: { [k]: { [slot]: e.target.value } } })} />
+                </label>
+              ))}
+            </div>
+          );
+        })}
       </div>
       <div className="max-w-[360px]">
         <label className="label" htmlFor="tz">Your time zone (for “today” when posting from Ideas)</label>

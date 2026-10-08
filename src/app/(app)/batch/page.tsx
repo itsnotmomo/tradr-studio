@@ -82,7 +82,7 @@ function Batch() {
                   <header className="flex items-center gap-3 p-2.5 pr-3">
                     <PreviewThumb post={p} lang={"it"} className="w-10" />
                     <div className="flex-1 min-w-0">
-                      <div className="font-semibold truncate">{p.title || "Untitled"}</div>
+                      <div className="font-semibold break-words md:truncate">{p.title || "Untitled"}</div>
                       <div className="text-[12px] muted">{p.kind === "reel" ? <ReelBadge /> : slotName(p.slot)}</div>
                     </div>
                     <Link href={`/posts/${p.id}`} className="btn small ghost">Edit</Link>
@@ -94,7 +94,7 @@ function Batch() {
                         <li key={k}>
                           <Link href={`/go/${p.id}/${k}?${rangeQuery(range)}`} className="flex items-center gap-3 px-3 py-3 border-b last:border-b-0 hover:bg-[var(--soft)] active:bg-[var(--soft)]" style={{ borderColor: "var(--line)" }}>
                             <b className="w-7 text-[13px]">{l.code}</b>
-                            <span className="flex-1 min-w-0 text-[13px] truncate">{slotTimeLabel(data.settings, k, p)}</span>
+                            <span className="flex-1 min-w-0 text-[13px]">{slotTimeLabel(data.settings, k, p)}</span>
                             <StatusPill s={statusOf(p, k, data.settings)} />
                             <Icon name="right" size={16} className="muted" />
                           </Link>

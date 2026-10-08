@@ -10,6 +10,8 @@ import { api } from "@/lib/client/api";
 import { useAppState } from "@/lib/client/state";
 import { canvasBlob, downloadBlob, loadImage, stamp, useToolState } from "@/lib/client/tools";
 import { uploadBlob } from "@/lib/client/upload";
+import { useUndoKeys } from "@/lib/client/history";
+import { UndoButtons } from "@/components/undo-buttons";
 import { drawTweet, TWEET_DEFAULTS, TWEET_WIDTH, font, type TweetAssets, type TweetState } from "@/lib/tools/tweet";
 import { LANGS } from "@/lib/langs";
 import type { Lang, PlanItem } from "@/lib/types";
@@ -25,7 +27,8 @@ function Tweet() {
   const { data } = useAppState();
   const target = data?.posts.find((p) => p.id === postId);
   const toast = useToast();
-  const { state: saved, update, loaded } = useToolState<TweetState>("tweet", TWEET_DEFAULTS);
+  const { state: saved, update, loaded, undo, redo, canUndo, canRedo } = useToolState<TweetState>("tweet", TWEET_DEFAULTS);
+  useUndoKeys(undo, redo);
   // Default images live server-side, apart from the card state. "Remove" only hides them on this card.
   const [defaults, setDefaults] = useState<{ avatar: string | null; grok: string | null }>({ avatar: null, grok: null });
   const [removed, setRemoved] = useState({ avatar: false, grok: false });
@@ -125,7 +128,10 @@ function Tweet() {
   }, [S, ensureFonts]);
 
   const withText = LANGS.map((l) => l.k).filter((k) => (S.texts[k] || "").trim());
-  const set = <K extends keyof TweetState>(k: K, v: TweetState[K]) => update((s) => ({ ...s, [k]: v }));
+  // Typing in one field is one undo step; switching the language tab isn't a step at all.
+  const TYPED: (keyof TweetState)[] = ["name", "handle", "time", "maxSize", "minSize"];
+  const set = <K extends keyof TweetState>(k: K, v: TweetState[K]) =>
+    update((s) => ({ ...s, [k]: v }), { quiet: k === "active", key: TYPED.includes(k) ? String(k) : undefined });
 
   const uploadAsset = async (key: "avatar" | "grok" | "fontReg" | "fontBold", f: File) => {
     setUploading(key);
@@ -167,7 +173,7 @@ function Tweet() {
           <div className="seg self-start" role="group" aria-label="Language">
             {LANGS.map((l) => <button key={l.k} type="button" aria-pressed={S.active === l.k} onClick={() => set("active", l.k)}>{l.code}{(S.texts[l.k] || "").trim() ? " •" : ""}</button>)}
           </div>
-          <textarea className="field" rows={7} value={S.texts[S.active] || ""} onChange={(e) => update((s) => ({ ...s, texts: { ...s.texts, [s.active]: e.target.value } }))} spellCheck />
+          <textarea className="field" rows={7} value={S.texts[S.active] || ""} onChange={(e) => update((s) => ({ ...s, texts: { ...s.texts, [s.active]: e.target.value } }), { key: `text:${S.active}` })} spellCheck />
           <div className="text-[12px] muted">{(S.texts[S.active] || "").length} characters</div>
         </fieldset>
         <fieldset className="flex flex-col gap-2">
@@ -190,7 +196,7 @@ function Tweet() {
           <legend className="font-semibold text-[13px] mb-2">Numbers</legend>
           <div className="grid grid-cols-4 gap-2">
             {([["reply", "Replies"], ["repost", "Reposts"], ["like", "Likes"], ["views", "Views"]] as const).map(([k, l]) => (
-              <div key={k}><label className="label" htmlFor={`c_${k}`}>{l}</label><input id={`c_${k}`} className="field" inputMode="decimal" value={S.counts[k]} onChange={(e) => update((s) => ({ ...s, counts: { ...s.counts, [k]: e.target.value } }))} /></div>
+              <div key={k}><label className="label" htmlFor={`c_${k}`}>{l}</label><input id={`c_${k}`} className="field" inputMode="decimal" value={S.counts[k]} onChange={(e) => update((s) => ({ ...s, counts: { ...s.counts, [k]: e.target.value } }), { key: `count:${k}` })} /></div>
             ))}
           </div>
           <div className="text-[12px] muted">Type the full number (27000, 806000). It’s shortened the way X does: 27k, 806k, 1.8M. Leave empty to show only the icon.</div>
@@ -223,6 +229,7 @@ function Tweet() {
       <main className="order-1 lg:order-2 lg:sticky lg:top-0 lg:h-dvh flex flex-col items-center justify-center gap-3 p-4 md:p-7">
         <canvas ref={canvas} width={TWEET_WIDTH} height={1350} aria-label="Preview" className="w-full max-w-[440px] lg:max-w-none lg:w-auto lg:max-h-[calc(100dvh-150px)] h-auto shadow-[0_0_0_1px_rgba(0,0,0,.18)]" />
         <div className="text-[12px] muted text-center min-h-[18px]">{info}</div>
+        <UndoButtons undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo} />
         <div className="flex flex-wrap gap-2 justify-center">
           <button className="btn primary" disabled={!withText.length} onClick={() => setSending(true)}>
             {target ? `Add to “${target.title || "Untitled"}”` : "Add to a post"}
