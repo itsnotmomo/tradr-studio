@@ -16,6 +16,7 @@ import { CAPTION_MAX, HASHTAG_MAX } from "@/lib/rules";
 import { isLocked, statusOf } from "@/lib/status";
 import { AUTO_PUBLISH } from "@/lib/features";
 import { StatusSetter } from "@/components/status";
+import { COLLAB_HANDLE, collabDefault, collabOf } from "@/lib/collab";
 import { PreviewImg } from "@/components/slide-viewer";
 import { useAskName } from "@/components/name-prompt";
 import { ApiError } from "@/lib/client/api";
@@ -145,6 +146,18 @@ function Editor({ post, data, k, setK }: { post: Post; data: AppState; k: Lang; 
   );
 }
 
+/** "Collab: range.fx", on by default for English Afternoon posts. */
+function CollabToggle({ post, k, save }: { post: Post; k: Lang; save: (id: string, patch: Parameters<typeof patchPost>[1]) => Promise<void> }) {
+  const on = !!collabOf(post, k), def = collabDefault(post, k), overridden = post.variants[k].collab != null && post.variants[k].collab !== def;
+  return (
+    <label className="flex items-center gap-2 text-[13px]">
+      <input type="checkbox" className="chk" checked={on} onChange={(e) => save(post.id, { variants: { [k]: { collab: e.target.checked === def ? null : e.target.checked } } })} />
+      <span>Collab: <b>{COLLAB_HANDLE}</b></span>
+      <span className="muted text-[12px]">{overridden ? "(changed from default)" : "(default)"}</span>
+    </label>
+  );
+}
+
 function LangEditor({ post, k, data, save }: { post: Post; k: Lang; data: AppState; save: (id: string, patch: Parameters<typeof patchPost>[1]) => Promise<void> }) {
   const v = post.variants[k];
   const locked = isLocked(v);
@@ -162,6 +175,7 @@ function LangEditor({ post, k, data, save }: { post: Post; k: Lang; data: AppSta
           {AUTO_PUBLISH ? <PublishControls post={post} k={k} data={data} /> : (
             <div className="flex flex-col gap-2.5">
               <StatusSetter post={post} k={k} />
+              <CollabToggle post={post} k={k} save={save} />
               <Link href={`/go/${post.id}/${k}`} className="btn primary">Open posting screen</Link>
             </div>
           )}

@@ -52,7 +52,7 @@ const upsert = (list: Post[], p: Post) => (list.some((x) => x.id === p.id) ? lis
 
 export type PostPatch = {
   title?: string; notes?: string; date?: string | null; slot?: Slot; inspoId?: string | null;
-  variants?: Partial<Record<Lang, Partial<Pick<Post["variants"]["en"], "comment" | "tradr" | "hashtags" | "slides" | "ready" | "status" | "video" | "cover" | "frame">>>>;
+  variants?: Partial<Record<Lang, Partial<Pick<Post["variants"]["en"], "comment" | "tradr" | "hashtags" | "slides" | "ready" | "status" | "video" | "cover" | "frame" | "collab">>>>;
 };
 
 /** Optimistic edit: the UI updates at once, rolls back if the server says no. */

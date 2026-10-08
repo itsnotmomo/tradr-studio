@@ -43,7 +43,7 @@ export function cleanVideo(raw: unknown): Video | null {
 export type PostPatch = {
   title?: string; notes?: string; date?: string | null; slot?: Slot; inspoId?: string | null;
   variants?: Partial<Record<string, {
-    comment?: string; tradr?: string; hashtags?: string; slides?: unknown; ready?: boolean; status?: string;
+    comment?: string; tradr?: string; hashtags?: string; slides?: unknown; ready?: boolean; status?: string; collab?: boolean | null;
     video?: unknown; cover?: unknown; frame?: unknown;
   }>>;
 };
@@ -116,6 +116,7 @@ export function applyPatch(p: Post, patch: PostPatch, s: Settings, others: Post[
     if (vp.hashtags !== undefined) v.hashtags = String(vp.hashtags);
     if (vp.slides !== undefined) v.slides = cleanSlides(vp.slides);
     if (vp.ready !== undefined) v.ready = !!vp.ready;
+    if (vp.collab !== undefined) v.collab = vp.collab === null ? null : !!vp.collab;
     if (vp.status !== undefined) {
       if (!STATUSES.includes(vp.status as PostStatus)) throw new UserError("Invalid status");
       if (vp.status !== v.status) v.markedPostedAt = vp.status === "posted" ? Date.now() : null;

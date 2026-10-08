@@ -37,6 +37,8 @@ export type Variant = {
   ready: boolean;
   /** Manual posting status (what's shown while auto-publishing is off). */
   status: PostStatus;
+  /** Add range.fx as collaborator. Unset = the default (on for English Afternoon posts), see lib/collab. */
+  collab?: boolean | null;
   /** When it was last marked Posted by hand (drives the 48 h video cleanup). */
   markedPostedAt?: number | null;
   /** Reels only: the video, an optional cover, and a frame taken from the video for the planner. */

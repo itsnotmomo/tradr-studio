@@ -49,3 +49,6 @@ next-env.d.ts
 /.claude/
 /skills-lock.json
 /inspo-seed.md
+
+# scheduling run files (scripts/schedule-plan.ts)
+/.schedule/
