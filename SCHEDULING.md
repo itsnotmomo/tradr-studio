@@ -14,6 +14,10 @@ Meta's API can't add music, so the owner adds the songs on the phone afterwards.
 
 Before **every single item**, check that the account name shown in the Create dialog matches the language. If it doesn't, stop and switch.
 
+## Reels are not part of this routine
+
+**Mohamed schedules every reel himself from his phone.** Skip reels in every run. Never upload, schedule, delete or re-do a reel. List them in the report under **"for Mohamed"** with day, Rome time and title. The plan script already skips them with the reason "reel — for Mohamed". The video-upload notes below are kept for reference only.
+
 ## 1. Build the plan
 
 First re-check every reel's media against 1080 × 1920. Videos attached before the rule existed were never refused:

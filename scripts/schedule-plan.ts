@@ -130,6 +130,11 @@ async function main() {
       const table = ownerTable(p.date!, k, p.slot);
       if (table && (table !== rome.time || rome.date !== p.date)) mismatches.push(`${label}: resolver says ${rome.date} ${rome.time} Rome, table says ${table}`);
 
+      // Reels are scheduled by the owner from the phone, never by this routine.
+      if (p.kind === "reel") {
+        skips.push({ lang: k, title: p.title || "Untitled", date: p.date!, slot: slotName(p.slot), reason: "reel — for Mohamed" });
+        continue;
+      }
       const why = problems(p, k, s, now, at);
       if (why.length) {
         skips.push({ lang: k, title: p.title || "Untitled", date: p.date!, slot: slotName(p.slot), reason: why.join("; ") });
