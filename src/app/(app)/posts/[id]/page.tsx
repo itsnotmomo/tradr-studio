@@ -474,6 +474,7 @@ function ReelMedia({ post, k, save }: { post: Post; k: Lang; save: (id: string, 
           <Icon name="plus" size={22} />
           <span className="font-semibold" style={{ color: "var(--ink)" }}>Add the {code} video</span>
           MP4 or MOV from CapCut, exactly 1080 × 1920 (1080p, 9:16)
+          <span className="text-[12px]">CapCut export: 1080p, 30 fps, H.264, bitrate Recommended or higher.</span>
           <input type="file" accept="video/mp4,video/quicktime,.mp4,.mov" className="hidden" onChange={(e) => { addVideo(e.target.files?.[0]); e.target.value = ""; }} />
         </label>
       )}

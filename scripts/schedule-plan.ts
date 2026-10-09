@@ -5,7 +5,7 @@
 // Usage:
 //   npx tsx --env-file=.env.local --conditions=react-server scripts/schedule-plan.ts --from 2026-10-09 --to 2026-10-11
 //   npx tsx --env-file=.env.local --conditions=react-server scripts/schedule-plan.ts --next-week
-// Flags: --no-download (plan only), --tz <zone> = the time zone Instagram's scheduler uses, i.e. the
+// Flags: --langs en,it (only these accounts), --no-download (plan only), --tz <zone> = the time zone Instagram's scheduler uses, i.e. the
 // browser's zone (check it first: Intl.DateTimeFormat().resolvedOptions().timeZone in the Instagram tab).
 // Default Asia/Makassar (the Mac was on Bali time on 2026-10-09). Rome times are always printed too.
 //
@@ -17,7 +17,7 @@ import { getSettings } from "@/lib/server/settings";
 import { buildCaption, charCount, hashtagCount } from "@/lib/caption";
 import { collabOf } from "@/lib/collab";
 import { reelMediaProblems } from "@/lib/reel";
-import { langInfo } from "@/lib/langs";
+import { isLang, langInfo } from "@/lib/langs";
 import { CAPTION_MAX, HASHTAG_MAX } from "@/lib/rules";
 import { publishAt, SLOT_ORDER, slotName } from "@/lib/slots";
 import { addDays, parseYmd, utcToZoned, weekStart, ymd } from "@/lib/time";
@@ -113,7 +113,10 @@ async function main() {
   const root = join(process.cwd(), ".schedule", `${from}_${to}`);
   const items: Item[] = [], skips: Skip[] = [], mismatches: string[] = [];
 
-  for (const k of RUN_ORDER) {
+  // --langs en (or en,it) limits the run to some accounts.
+  const only = arg("langs")?.split(",").filter(isLang);
+  const runLangs = only?.length ? RUN_ORDER.filter((k) => only.includes(k)) : RUN_ORDER;
+  for (const k of runLangs) {
     for (const p of inRange) {
       const sc = s.schedule[k];
       const local = sc[p.slot];
@@ -162,7 +165,7 @@ async function main() {
   await writeFile(join(root, "plan.json"), JSON.stringify({ from, to, schedulerZone: tz, generatedAt: new Date(now).toISOString(), mismatches, items, skips }, null, 2));
 
   const lines: string[] = [`Plan ${from} → ${to} (scheduler zone ${tz})`, ""];
-  for (const k of RUN_ORDER) {
+  for (const k of runLangs) {
     lines.push(`${langInfo(k).code} ${langInfo(k).handle}`);
     for (const it of items.filter((x) => x.lang === k)) {
       lines.push(`  TYPE ${it.schedulerDate} ${it.schedulerTime}  (Rome ${it.romeDate.slice(5)} ${it.romeTime})  ${slotName(it.slot).padEnd(9)} ${it.kind === "reel" ? "REEL" : `${it.files.length || "?"} slides`.padEnd(8)}  ${it.title}${it.collab ? `  [collab ${it.collab}]` : ""}${it.kind === "reel" && !inRange.find((x) => x.id === it.postId)!.variants[it.lang].cover ? "  [no cover]" : ""}   (${it.local})`);

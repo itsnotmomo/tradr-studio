@@ -39,12 +39,22 @@ The plan script does the following:
 
 **Time zone: check it, don't assume.** Instagram's web scheduler uses the browser's time zone. In the Instagram tab, run `Intl.DateTimeFormat().resolvedOptions().timeZone`, and confirm that the scheduler's default time is "now + about 20 min" in that zone. Pass it with `--tz` (the default is `Asia/Makassar`). On 2026-10-09 this Mac was on **Asia/Makassar (Bali)**, not Rome. Spanish Afternoon slots then land on the **next calendar day** in Bali time (14:00 Buenos Aires = 01:00 Bali).
 
-**Video size.** The Chrome upload tool accepts at most 10 MB per call. For a bigger video, make a `video-upload.mp4` copy with a two-pass x264 encode at the same resolution and the original audio, targeting about 9.4 MB. Instagram recompresses every reel well below that bitrate anyway. Upload the copy.
+**Never re-compress a video. Never resize or re-export any file.** Upload the exact file stored in Tradr Studio. If an original can't be uploaded as-is, stop and tell the owner. Never make a smaller copy. (On 2026-10-09 the Sunday reels were re-encoded to get under the 10 MB limit, and the owner saw the quality drop.)
+
+### Uploading files
+
+- Upload with the Chrome extension's file upload on the dialog's file input. The limit is **10 MB per call**.
+- **A video over 10 MB can't be uploaded untouched this way. Skip it and tell the owner.** Don't re-encode it.
+- A local relay was tried on 2026-10-09: the page fetched the bytes from `ws://localhost`. The permission system blocks it as exposing a local service, so it's not an option unless the owner explicitly allows it.
+- Other routes that need the owner:
+  - The owner uploads the big reels from the phone app.
+  - The owner allows raw CDP access (`DOM.setFileInputFiles`), which this setup doesn't have.
 
 ## 2. Schedule each item
 
+0. **Reels need the Chrome window visible**, on screen and not minimized. In the Instagram tab, `document.visibilityState` must be `"visible"`. When the window is hidden, Chrome doesn't decode video, and the upload sticks on "Drag photos and videos here". Photos work either way. If it's hidden, schedule the posts and leave the reels until the owner brings Chrome to the front.
 1. Click **Create**, then **Post** (the menu toggles, so click again if it doesn't open). For a reel, reload instagram.com first: video uploads sometimes hang on the first try.
-2. Find the dialog's file input and upload the item's files in order. Don't click "Select from computer", because that opens a native picker.
+2. Upload the item's files in order (see Uploading files above). Don't click "Select from computer", because that opens a native picker.
 3. **Crop**: open the crop menu (bottom left) and choose **Original**. The default is 1:1, which would crop the slides.
 4. **Next**, then **Next** (Edit; for a reel, leave Trim alone and keep the cover unless `cover.jpg` exists, in which case use Cover photo → Select from computer). Find the Next button by element, not by position, because the dialog changes width while it animates. A misclick outside it opens a "Discard post?" prompt; choose **Cancel**.
 5. On the last step the header button says **Share**. **Turn on "Schedule content" first**, before anything else, and check that the header now says **Schedule**.
