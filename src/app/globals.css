@@ -28,37 +28,6 @@
   --rail: #121212;
   color-scheme: light;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0e0e0d;
-    --panel: #171716;
-    --soft: #1e1e1c;
-    --ink: #ededea;
-    --ink-2: #cfcfca;
-    --muted: #9a9a93;
-    --line: #2b2b29;
-    --line-2: #3d3d3a;
-    --accent: #ededea;
-    --accent-ink: #121212;
-    --focus: #60a5fa;
-    --s-draft: #7a7a74;
-    --s-ready: #f0b429;
-    --s-scheduled: #60a5fa;
-    --s-publishing: #a78bfa;
-    --s-posted: #4ade80;
-    --s-failed: #f87171;
-    --s-missed: #fb923c;
-    --danger: #f87171;
-    --danger-bg: #2a1212;
-    --danger-line: #5c1f1f;
-    --warn: #f0b429;
-    --warn-bg: #2a2110;
-    --shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-    --rail: #0a0a0a;
-    color-scheme: dark;
-  }
-}
-
 @theme inline {
   --color-bg: var(--bg);
   --color-panel: var(--panel);
