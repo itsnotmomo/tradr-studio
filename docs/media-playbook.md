@@ -1,6 +1,6 @@
 # Tradr News — Media Playbook
 
-_Last updated: 13 Nov 2026 (§11 added the same evening). Built from a study of @polymarket's Instagram (788K followers, 1,863 posts at the time of the study): **~191 posts read** (metadata, caption, likes/comments/shares, slide count), **16 carousels stepped through slide by slide**, date range **11 May 2026 → 13 Nov 2026** (every post from 24 Oct to 13 Nov, then every 3rd, then every 6th post going back). Raw log and reference screenshots: `.news/pm-study/`._
+_Last updated: 13 Nov 2026 (§11 added the same evening; §12 "Built for reach" added later that night from a study of viral news & finance pages, raw log `.news/viral-study/`). Built from a study of @polymarket's Instagram (788K followers, 1,863 posts at the time of the study): **~191 posts read** (metadata, caption, likes/comments/shares, slide count), **16 carousels stepped through slide by slide**, date range **11 May 2026 → 13 Nov 2026** (every post from 24 Oct to 13 Nov, then every 3rd, then every 6th post going back). Raw log and reference screenshots: `.news/pm-study/`._
 
 This is decision-making guidance for whoever edits Tradr News, not a template. Where it says "Polymarket does X", that is evidence; where it says "we", that is the recommendation. `docs/news-style-guide.md` holds the production rules (fonts, sizes, Studio fields); where this playbook's evidence differs from it, the difference is called out in "Adapting to Tradr" for Mohamed to decide.
 
@@ -207,6 +207,180 @@ Never a forecast or a price target. Nothing on Tradr is advice.
 
 **Times on screenshots are US Eastern.** Every screenshot with a timestamp (Truth Social, X, articles, live blogs) shows US Eastern time (ET), the time most readers and the outlets use. `shot.ts` renders in America/New_York. Truth Social in Chrome shows the browser's time zone: before capturing, set the post's time to its `created_at` in ET (the same instant, written the way an Eastern reader sees it). If a screenshot can't be taken in ET, don't use it until it can.
 - _13 Nov: the two Truth Social screenshots already in News (Iran post, Tim Cook post) were captured in CET; on Mohamed's instruction the timestamp text was edited in the image to the same moment in ET (8:07 AM, 10:29 AM), matched to Truth Social's font (Inter, text cut). Truth Social had put up a "Verify you are human" check, which we never click._
+
+## 12. Built for reach (study of viral news & finance pages, 13 Nov 2026)
+
+Mohamed's read on our first posts: accurate but flat, they read like reports. This section is what the biggest news and finance pages do that we don't. **Sample:** ≈200 X posts with full numbers from @KobeissiLetter, @WatcherGuru, @unusual_whales, @DailyLoud, @Polymarket, @litcapital (Litquidity), @wallstreetbets, @Stocktwits, @zerohedge (top posts by `min_faves`, 2022 → 13 Nov 2026, weighted to 2025–26), plus Instagram @pubity, @watcher.guru, @barstoolsports, @unusualwhales (≈210 grid captions, 8 posts opened for counts and top comments). Raw log: `.news/viral-study/`. The facts rule doesn't change: **the hype lives in the framing, never in the facts.**
+
+### 12.1 The one finding that matters most: the angle beats the news
+
+On 12–13 Nov the same event (Jensen Huang resigns) ran everywhere:
+
+| Account | Framing | Likes | Comments |
+|---|---|---|---|
+| @watcher.guru IG | "NVIDIA CEO JENSEN HUANG OFFICIALLY RESIGNS" (face + logo) | 206 | 22 |
+| @WatcherGuru X | "BREAKING: Nvidia / $NVDA / CEO Jensen Huang resigns." | 52.1K | 2.2K |
+| @WatcherGuru X | "JUST IN: Nvidia $NVDA employees file a petition to bring back Jensen Huang as CEO." | 55.1K | 926 |
+| @zerohedge X | "Elon please hire Jensen" | 65.0K | 941 |
+| @pubity IG | **"MARK ZUCKERBERG IS BEING CALLED THE LAST FAITHFUL BILLIONAIRE STANDING"** | **337.9K** | **7K** |
+
+The wire headline is what everyone else already posted. The winners found **the second story inside the first**: a twist (employees want him back), a wish everyone shares (Elon, hire him), or a sideways frame that turns a scandal into a ranking people can argue about ("last faithful billionaire"). Our posts so far are the first row. **Rule: before writing a hook, write down the obvious headline, then find the angle nobody has posted yet.** The angle is still a true fact; it's just not the first one.
+
+### 12.2 The emotional angles that win (finance/markets audience)
+
+Ranked by what the evidence shows for money audiences:
+
+1. **"Someone knew."** Timing that looks like insider knowledge. The single biggest finance post in the sample: unusual_whales, "BREAKING: Just five minutes before Trump's announcement to halt the attacks on Iran, massive trades reportedly hit the market. In one move, $1.5 billion in S&P 500 (ES) futures was bought…" — **85.0K likes, 19.8K reposts, 35.4M views**. Same frame: "$430 million on a drop in crude prices just 15 minutes before…" (24.3K); politicians-beat-the-market report (41.7K, 18.9M views); "Ro Khanna's family sold Nvidia shares a day after their early-October all-time high" (Polymarket, 15K). Traders are obsessed with an unfair game; this is the story of their lives.
+2. **The money shock, made physical.** A record number, converted into a unit the brain can feel: "-$58 billion PER MINUTE" (Kobeissi, gold), "-$100 billion PER trading hour", "Elon Musk earns $16,700 per second", "$3 TRILLION wiped … more than Russia's entire annual GDP" (Polymarket), "first person in history to lose $200 Billion" (DailyLoud, 99.6K). Polymarket writes the zeros out: "$80,000,000,000.00 into the project" (Metaverse, 36.2K, 34M views).
+3. **Money that lands on "you".** The comment record holders are all payments to ordinary people: "$2,000 tariff dividend… Stimulus checks are officially back" (Kobeissi, **4.3K replies**), "$5,000 dividend to every adult" (4.2K replies), Trump Gold Card maths (unusual_whales, 4.1K replies). Also "America's $1.7 trillion auto loan market is headed for a crash" (31.5K), "more unemployed people than job openings for the first time since April 2021" (unusual_whales, **74.0K, 27M views**).
+4. **Contradiction on the record (the receipt).** "RFK Jr.: Beef has dropped by 1%. / Senator: Beef prices are up 20%." (62.6K). "Do you want the truthful answer or the political answer?… Absolutely." (40.2K). "Trump: 'You better go out and buy stocks now'" (24.6K). The person's own words against the number. No adjective needed.
+5. **Before/after (the fall).** "Justin Bieber purchased this Bored Ape NFT in January for $1.31 million. Today, it's worth $74,382." (WatcherGuru, **144K**). "After crashing -80% from its all-time high, Nike… will be removed from the S&P 100" (27K). Two numbers, one sentence, no comment needed.
+6. **Absurd contrast.** "Krispy Kreme officially outperforms NVIDIA over the last year" (Polymarket, 38.5K). "Akon says a Middle East family booked him for $1 million, but only 3 people showed up" (DailyLoud, 87.8K). "GTA VI could cost the US economy $1 billion in a single day" (unusual_whales 45.2K, DailyLoud 22.9K).
+7. **The good boss / the hero.** "Taylor Swift's Eras Tour generated $2 billion, and she rewarded her staff with $197 million in bonuses — dancers receiving $750,000 each (five times their annual salary)…" (DailyLoud, 89.2K). "Thousands of hourly Costco workers have over $1 million in their 401(k)" (29.6K). Specific person, specific number, a multiple ("five times their salary").
+8. **Shared enemy (the system, not a group).** "A man applied for a job at his own company using a fake name and was rejected within six minutes… because it said 'React' instead of 'React.js.'" (pubity, **300.3K**, top comment "Just let humans review resumes" 61.6K). The villain is a machine, a rule, a market — everyone can pile on safely.
+9. **Saga momentum.** Huang ran for a week on every account (Kobeissi "company-wide email about his relationship with a Chinese spy" 48.3K; Polymarket "second alleged mistress turns out to be… Nvidia's VP of healthcare" 25.7K). Each new beat is a new post (as §2 says).
+
+Fear alone performs less than fear + a number + a time: "Chinese stock market falls 10% at open" (51.1K), "Circuit breaker triggered on Taiwan stock exchange" (30.7K). Crash-day dark humour is the share engine: unusual_whales "Call your mom. Tell her you love her." (43.5K) and "Call EVERYONE." (29.4K) over a red chart.
+
+### 12.3 Hero / villain: how the big pages cast it
+
+- **They state the facts that make someone a villain and let the audience say the word.** Kobeissi's Trump-Iran post ends "What is happening here?" — the top replies (1.4K–1.6K likes each) say "insider trading" and "market manipulation". The account never does. That is how they stay credible *and* get the rage.
+- **Villains that work:** a timing coincidence (insiders), a contradiction (the official vs the number), a machine or a rule (AI filter, HR), a market itself ("the market 3 minutes after you buy"), a powerful person in their own words.
+- **Heroes that work:** the person who shares the money (Swift's bonuses), the ordinary worker who got rich slowly (Costco 401(k)), the one who saw it first ("He was in nuclear before the AI wave even started" — unusual_whales' hook form), the underdog who won against the odds.
+- **Two faces = a relationship = a story.** WatcherGuru's default image is two or more photos side by side (18 of its 34 top posts): the actor and the other party.
+- **Who they never cast as villain** in finance pages: the reader, or "retail". Jokes are about "hedge fund dudes" and institutions, never about the person losing money today.
+
+### 12.4 Hook writing
+
+Patterns behind the top first lines:
+
+| Pattern | Example (numbers) | Use when |
+|---|---|---|
+| **Tag + one sentence, subject-verb-number** | "BREAKING: The Supreme Court… ruled that President Trump's tariffs are illegal, in a 6-3 ruling." (34.5K) | Hard news. Kobeissi opens 17 of its 28 top posts with BREAKING; WatcherGuru ~21 of 34 with JUST IN |
+| **"This is absolutely insane:" + clock-stamped beats** | "At 7:04 AM ET… By 7:10 AM ET… 27 minutes later… By 8:00 AM ET… That's a $3 TRILLION swing in 56 minutes. What is happening here?" (26.1K, 9.2K reposts) | A move with a sequence. The times *are* the drama |
+| **The list of escalations** | "President Trump Has Now: 1. Called for a 10% cap on credit card interest rates 2. Banned institutional purchases of single family homes 3. …" (28.8K); "OpenAI now has: 1. $100B from Nvidia 2. 10% of AMD 3. $500B Stargate … How is OpenAI…" (20.7K, 14M views) | A pattern across separate news items; ends on a question |
+| **Two numbers, then and now** | "$1.31 million… Today, it's worth $74,382." (144K) | Any fall or rise |
+| **"First time since" / "ever" / "in history"** | "more unemployed people than job openings for the first time since April 2021" (74K) | Records, only when the source says so |
+| **The comparison unit** | "more than Russia's entire annual GDP"; "PER MINUTE"; "3 TIMES the second richest" | Any huge number |
+| **The quote against the fact** | "Beef has dropped by 1%." / "Beef prices are up 20%." | Contradictions |
+| **The withheld reveal** | "…he never knew his dad was secretly saving every payment." (pubity, 305K); "saved the best part for last 👀" | Story posts |
+| **One-line meme caption** | "The Gemini team seeing Google invest in their largest competitor" (52.8K); "Elon please hire Jensen" (65K) | Reaction slides, never slide 1 |
+
+Mechanics: hooks are **8–25 words**; the number is in the first line; present tense ("resigns", "falls", "surges"); ALL-CAPS on **one** word for weight ("REVENUE", "PER", "HALF", "FALLEN", "BY NAME") rather than the whole line on X; verbs that recur: *erased, wiped out, surges, crashes, resigns, bans, officially, just*. "Officially" and "just" appear in a large share of WatcherGuru/Polymarket hooks: they signal freshness and certainty. "This is insane" works only when the next line proves it with a number; Kobeissi never uses it on an opinion.
+
+### 12.5 Dramatising across slides (carousel/thread order)
+
+What the top multi-part posts share, translated to our 1080×1350 carousel:
+
+1. **Cold open = the most surprising true fact**, not the background. ("He applied to his own company and got rejected", not "AI hiring tools are growing".)
+2. **Stakes slide:** the number, with the unit that makes it hurt (per minute, × salary, vs a country's GDP).
+3. **Proof slide:** the person's own words / the screenshot / the chart (§5).
+4. **The turn:** the beat that flips the direction — Kobeissi's "27 minutes later, Iran completely denied…". Put it on its own slide, opened with the time or "Then:".
+5. **Reaction** (meme, §11).
+6. **The total / payoff:** "That's a $3 TRILLION swing in 56 minutes."
+7. **The twist (optional, the reveal slide):** the detail that recasts everything — the second mistress is a VP; the petition to bring him back; the dad saved every payment. Hold it until late. A slide before it can end with a cliffhanger line ("Then the email leaked.").
+8. **Best reaction last**, then the end slide.
+9. **The open question** goes in the caption's last line (see 12.6), not on a slide.
+
+Follow-ups use the "plot thickens" form (Kobeissi "The Venezuela plot thickens:", 21.8K): the new fact only, with a one-slide recap.
+
+### 12.6 What drives comments, shares, tags
+
+- **Comments come from stakes and from rankings, not from asking.** Kobeissi, WatcherGuru and unusual_whales almost never ask a question, yet hit 2–4K replies when the money reaches the reader (dividends) or a frame invites a verdict (pubity's "last faithful billionaire": 7K comments vs ~1.7K on its other top posts).
+- **Explicit questions work for ratio, not reach.** Barstool's quiz "Can you name the 9 countries…?" got 6.8% comments/likes but 4.1K likes; the stakes reel "One putt for a chance at $4 million…THE DREAM!!!" got 27.5K. watcher.guru IG's "How much are you down?" on a crash post: 59 comments. A question doesn't rescue a flat post.
+- **The open question that works is the story's own question**: "What is happening here?", "How is OpenAI…?" — a genuine unknown the reader feels qualified to answer.
+- **Shares = "send this to someone"**: crash-day dark humour ("Call your mom."), relatable money ("17 PTO days into 55 days off" pubity), spectacles ($2.8T erased, §8). Reposts on X peak on insider-timing and record numbers (9–20K).
+- **Tags:** only Pubity's giveaway collab asked for tags. None of the finance pages do "tag someone who". Skip it.
+- **Self-reference converts:** "F*CK. Unusual Whales was mentioned BY NAME in the US Congressional hearing…" (38K). When Tradr is genuinely in the news, say so plainly.
+
+### 12.7 Visual choices
+
+- **Face with emotion + the other party** (two-photo or inset), as §4. WatcherGuru: two or more photos on 18 of 34 top posts; country flags as emoji in the hook.
+- **Receipts:** screenshots of the post/email/filing, video of the person saying it (unusual_whales' top videos are all clips of officials saying the line quoted in the hook).
+- **Red heatmap** for crash days (watcher.guru, Polymarket, §6).
+- **Couple/relationship photo** for a relationship angle (pubity Zuckerberg + Priscilla).
+- **The number as the image** for before/after (two prices, one arrow).
+
+### 12.8 What NOT to copy (Tradr is the place nobody can lie)
+
+- **Unsourced viral stories.** Pubity's dad-charged-rent post hit 305K likes — and its top two comments are "Top 10 stories that never happened" (38.6K) and "Hey ChatGPT write me a fake story" (29.2K). Reach bought with credibility. **We run a story only with a named source we link in the caption.** "A man claimed…" without a name is out.
+- **"Reportedly" doing heavy lifting.** "Prince Andrew reportedly watched…, per The Mirror" (unusual_whales) — tabloid-sourced crime claims. We need a primary or tier-1 source for any claim about a named person.
+- **Insinuation by juxtaposition.** "Elizabeth Warren… annual salary of $193,000, she managed to increase her net worth to $73,000,000" (60K, 25M views) implies a crime without stating one. The "someone knew" angle (12.2) is fine **only** with the trade data and timing on the record, and without saying who.
+- **Parody presented as news** ("BREAKING: Nasdaqistan has been hit by 2 nuclear bombs, per Reuters" — Litquidity). Never a fake "BREAKING".
+- **Rounding up, as before** (§4, §10): "-$1.45B" stays -$1.45B. "PER MINUTE" maths must be ours, shown, and correct.
+- **Engagement farming:** "Like this tweet for a cool animation" (WatcherGuru, 36–47K), giveaways for tags, "watch till the end".
+- **Rage-bait about groups** (immigrants, generations as enemies, nationalities). The villain is a fact, a rule, a market or a person's own record — never a class of people.
+- **Comment-section scams.** Finance posts attract "WhatsApp for buy and sell points" bots (seen under unusual_whales IG). Clear them; the brand is anti-signal-seller.
+
+### 12.9 Story-post recipe (e.g. "a founder saved by a CEO")
+
+Use when the story is a person and a turn, not a price move.
+
+**Find the angle first.** Write the obvious headline ("CEO X invested in founder Y's company in 2009"). Then look for: the low point with a number (days of cash left, the bank balance), the turn (the email, the call, the cheque), the payoff measured now (what that stake or company is worth today), and the twist (the saver later needed saving; the founder paid it back 100×; they're rivals now).
+
+**Hook options** (pick the strongest true one; each needs a source):
+- Low point + number: "HE HAD 3 WEEKS OF CASH LEFT"
+- The object of the turn: "THE EMAIL THAT SAVED [COMPANY]"
+- Then/now: "$5M IN 2009. WORTH $40B TODAY."
+- The twist as the hook (saga follow-ups only): "NOW HE'S RETURNING THE FAVOUR"
+
+**Slide order** (10–12):
+1. Hook — the founder's face (tense, from the period if possible), the CEO as round inset, tag TRENDING.
+2. Stakes — the low point with the exact figure, date, source. ("In March 2009, [Co] had $X in the bank and N employees, [founder] told [outlet].")
+3. Proof — their own words (interview clip still, quote, letter).
+4. Reaction meme.
+5. **The turn** — what the CEO did, opened with the moment ("Then, on [date], [CEO] emailed back:"); the email or quote shown.
+6. What it cost / risked the CEO (makes the hero real).
+7. Reaction.
+8. **The payoff** — the number today, with source and date (market cap, stake value).
+9. **The twist** — the detail that recasts it. If there isn't a true one, skip the slide; never invent one.
+10. Market tie (§10): today's price move if listed.
+11. Best meme. 12. End slide.
+
+**Comment trigger:** the caption's last line is the story's real question, one the reader can answer from experience: "Would you have taken his money on those terms?" / "Loyalty or business — who was right?" Not "thoughts?", not "tag a friend". _Decided 13 Nov (Mohamed: every post is built for maximum reach):_ one genuine question line is allowed as the last line of the caption on story posts only; never a generic "thoughts?" or "tag a friend".
+
+### 12.10 Reach checklist (run before publishing any post)
+
+1. **Angle:** did I write the obvious headline, then find the angle nobody has posted? (12.1)
+2. **Emotion:** which one — someone knew / money shock / money to you / receipt / before-after / absurd / hero / shared enemy / saga beat? If none, it's a report: rework or drop.
+3. **Hook:** 8–25 words, number in it, present tense, one word in caps at most for weight; would it stop *my* thumb?
+4. **The unit:** is the big number converted into something felt (per minute, × salary, vs a country, then vs now)? Is my conversion maths written down and correct?
+5. **Faces:** the actor and the other party both visible (photo + inset)?
+6. **The turn** has its own slide, and the payoff number is on a later slide.
+7. **Twist/reveal** held late, if a true one exists.
+8. **Receipt:** at least one slide of the person's own words or the primary document.
+9. **Comment trigger:** stakes for the reader, a verdict to give, or the story's genuine question — not a generic "thoughts?".
+10. **Truth pass:** every number exact or honestly rounded down; every claim about a named person from a tier-1/primary source, named in the caption; no "reportedly" from a tabloid; nothing implied that isn't stated in the source; no group as villain; no fake BREAKING.
+11. **Freshness:** posted within hours of the event, or it's a new angle on it.
+
+### 12.11 Evidence: the top posts studied
+
+| # | Account | Date | Likes / reposts / replies (views) | Hook / first line | Format | Why it exploded |
+|---|---|---|---|---|---|---|
+| 1 | @pubity IG | 12 Nov 26 | 337.9K L / 7K C / 3.2K shares | "MARK ZUCKERBERG IS BEING CALLED THE LAST FAITHFUL BILLIONAIRE STANDING" | carousel | Sideways angle on the Huang saga; ranking = verdict in comments |
+| 2 | @pubity IG | 10 Nov 26 | 304.9K L / 1.7K C / 3K | "For 12 years, a father charged his son rent every month…" | carousel | Withheld reveal, money lesson — but top comments call it fake |
+| 3 | @pubity IG | 9 Nov 26 | 300.3K L / 1.8K C / 4K | "A man… applied for a job at his own company… rejected within six minutes" | 2 slides | Irony + shared enemy (the AI filter) |
+| 4 | @WatcherGuru | 17 Nov 22 | 144K / 13.3K / 5.1K | "Justin Bieber purchased this Bored Ape NFT… for $1.31 million. Today, it's worth $74,382." | image | Celebrity × before/after, two numbers |
+| 5 | @DailyLoud | 1 Jan 23 | 99.6K / 6.4K / 1.7K (18M) | "Elon Musk becomes the first person in history to lose $200 Billion" | image | Record + famous face |
+| 6 | @DailyLoud | 17 Dec 25 | 89.2K / 7.3K / 1.1K (11M) | "Taylor Swift's Eras Tour generated $2 billion, and she rewarded her staff with $197 million in bonuses…" | video | Hero + "five times their salary" |
+| 7 | @WatcherGuru | 1 Apr 25 | 89.0K / 15.8K / 2.7K | "Elon Musk says the US Government 'deleted a terabyte of financial data…' 'so we recovered it.'" | 2 images | Villain + hero, in his own words |
+| 8 | @DailyLoud | 13 Aug 26 | 87.8K / 4.6K / 839 | "Akon says a Middle East family booked him for $1 million, but only 3 people showed up" | image | Absurd money contrast |
+| 9 | @unusual_whales | 23 Mar 26 | **85.0K / 19.8K / 3.0K (35.4M)** | "BREAKING: Just five minutes before Trump's announcement to halt the attacks on Iran, massive trades reportedly hit the market…" | text | "Someone knew"; exact amounts and minutes |
+| 10 | @unusual_whales | 3 Sep 25 | 74.0K / 10.8K / 1.8K (27M) | "The US now has more unemployed people than job openings for the first time since April 2021" | text | Milestone + "first time since", affects you |
+| 11 | @zerohedge | 11 Nov 26 | 65.0K / 2.5K / 941 | "Elon please hire Jensen" | text | Shared wish inside a saga, four words |
+| 12 | @unusual_whales | 26 Apr 26 | 62.6K / 6.8K / 499 | "RFK Jr.: Beef has dropped by 1%. / Senator: Beef prices are up 20%." | video | The receipt: words vs number |
+| 13 | @Kobeissi | 3 Jan 26 | 55.8K / 11.2K / 2.8K (10M) | "This is absolutely insane: Venezuela… 303 billion barrels… worth $17.3 TRILLION" | text | Money shock with the maths shown |
+| 14 | @WatcherGuru | 13 Nov 26 | 55.1K / 4.9K / 926 | "JUST IN: Nvidia $NVDA employees file a petition to bring back Jensen Huang as CEO." | 2 images | Saga twist: the villain has defenders |
+| 15 | @Kobeissi | 8 Nov 26 | 48.3K / 7.0K / 1.5K (9M) | "BREAKING: Nvidia… Jensen Huang sends a company-wide email about his… relationship with a Chinese spy." | image | Saga beat + the document (the email) |
+| 16 | @Kobeissi | 9 Nov 25 | 21.1K / 5.3K / **4.3K** (7.5M) | "BREAKING: President Trump announces… a 'tariff dividend' of at least $2,000 per person. Stimulus checks are officially back." | image | Money to you → top reply count |
+| 17 | @Polymarket | 6 Nov 26 | 38.5K / 2.9K / 464 | "JUST IN: Krispy Kreme officially outperforms NVIDIA over the last year." | text | Absurd contrast, one line |
+| 18 | @unusual_whales | 10 Mar 25 | 43.5K / 2.8K / 751 | "Call your mom. Tell her you love her." (crash-day chart) | image | Dark humour = send to a friend |
+| 19 | @unusual_whales | 19 Nov 25 | 38.0K / 3.2K / 514 | "F*CK. Unusual Whales was mentioned BY NAME in the US Congressional hearing…" | video | Self-reference, real event |
+| 20 | @Kobeissi | 23 Mar 26 | 26.1K / 9.2K / 2.2K (5.9M) | "This is absolutely insane: At 7:04 AM ET… By 7:10 AM ET… 27 minutes later… What is happening here?" | image | Clock-stamped beats + reversal + open question |
+| 21 | @barstoolsports IG | 11 Nov 26 | 27.5K L / 335 C / 1.2K | "One putt for a chance at $4 million…THE DREAM!!!" | reel | Stakes + cliffhanger |
+| 22 | @watcher.guru IG | 12 Nov 26 | 206 L / 22 C | "NVIDIA CEO JENSEN HUANG OFFICIALLY RESIGNS" | carousel | **Counter-example:** the wire headline everyone already had |
+
+_13 Nov, first story post on this recipe: Serve Robotics/Jensen ("DAYS FROM BANKRUPTCY. THEN JENSEN CALLED."), 9 slides: hook (Jensen + founder inset) → stakes → the email → the one-line reply blown up → "6:00 AM. His phone rings." + his post → then/now tiles → Nasdaq bell clip → twist (founders posting Jensen stories the week he resigned) → meme; caption ends "Would you have hit send?". Check the numbers after 48 h._
 
 ## How to update
 
