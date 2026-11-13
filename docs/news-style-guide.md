@@ -29,6 +29,11 @@ _Written 13 Nov 2026 from @polymarket's live Instagram posts and Tradr's own bra
   - Numbers get real visuals: a price chart card (`chart`, real data, optional mark at the moment of the news) when something moves; bold red/green market tiles (`tiles`, `stat` with `tone`) for figures. Never a plain text box.
 - **Never say the same thing twice.** If the text says it, the image under it must add something new (the report's own paragraph, the chart, the post), not the same headline again.
 
+## Memes, collab, times (13 Nov 2026)
+- Memes on inside slides only, never slide 1: caption above, meme below (playbook §11).
+- One post a day is the @range.fx collab: `desk collab <draftId> <day>`; News shows a Collab pill.
+- Every screenshot timestamp in US Eastern time.
+
 ## Last slide
 - Fixed, chosen in Studio: "Don’t just watch the market, watch the traders." / "Join the first social media platform for traders." / tradr.me pill, on Tradr green like the tradr.me lander, with an iPhone 18 Pro showing the Tradr feed. The feed uses made-up traders and made-up trades only (never real users or their results). Never changed per post.
 

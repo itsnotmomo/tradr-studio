@@ -133,7 +133,7 @@ export function hookHtml(s: Hook) {
     : `<div class="full" data-cover="${s.zoom ?? 1}"${s.face ? ` data-face="${[s.face.x, s.face.y, s.face.w, s.face.h, s.faceSize ?? 0.5, ...(s.faceAt ?? [0.5, 0.34])].join(",")}"` : ""} style="${bgImg(s.photo!, 1, s.focusX ?? 0.5, s.focusY ?? 0.25)}"></div>`;
   const i = s.inset;
   const inset = i?.tile
-    ? `<div class="inset tile ${i.tile.down ? "dn" : "upx"}" style="left:${i.x ?? 640}px; top:${i.y ?? 200}px; width:${i.size ?? 300}px; height:${i.size ?? 300}px"><b>${esc(i.tile.label)}</b><span>${esc(i.tile.value)}</span></div>`
+    ? `<div class="inset tile ${i.tile.down ? "dn" : "upx"}" style="left:${i.x ?? 640}px; top:${i.y ?? 200}px; width:${i.size ?? 300}px; height:${i.size ?? 300}px"><b style="font-size:${Math.round((i.size ?? 300) * 0.13)}px">${esc(i.tile.label)}</b><span style="font-size:${Math.round((i.size ?? 300) * 0.25)}px">${esc(i.tile.value)}</span></div>`
     : i?.src
     ? `<div class="inset" data-cover="${i.zoom ?? 1}" style="left:${i.x ?? 640}px; top:${i.y ?? 200}px; width:${i.size ?? 360}px; height:${i.size ?? 360}px; background-color:${i.bg ?? "#fff"}; ${bgImg(i.src!, 1, i.focusX ?? 0.5, i.focusY ?? 0.3)}"></div>`
     : "";

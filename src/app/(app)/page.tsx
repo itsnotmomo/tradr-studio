@@ -156,8 +156,8 @@ export default function PlannerPage() {
         <Toolbar view={view} setView={setView} filter={filter} setFilter={setFilter} cursor={cursor} shift={shift}
           today={() => setCursor(new Date())} label={rangeLabel(view, cursor)} onNew={() => newPost(view === "day" ? ymd(cursor) : ymd(new Date()))}
           summary={<Summary posts={shown} filter={filter} settings={data.settings} />} />
-        <div className={view === "day" ? "" : "lg:grid lg:grid-cols-[1fr_250px]"}>
-          <div className="px-3 md:px-6 pb-10 pt-1 min-w-0">
+        <div className={view === "day" ? "" : "lg:grid lg:grid-cols-[1fr_210px] xl:grid-cols-[1fr_250px]"}>
+          <div className={`px-3 md:px-6 ${view === "day" ? "" : "lg:max-xl:px-3"} pb-10 pt-1 min-w-0`}>
             {view === "month" && <Month cursor={cursor} byDay={byDay} filter={filter} settings={data.settings} onNew={newPost} onPick={(d) => { setCursor(parseYmd(d)); setView("day"); }} />}
             {view === "week" && <Week cursor={cursor} byDay={byDay} filter={filter} onNew={newPost} settings={data.settings} />}
             {view === "day" && <Day date={ymd(cursor)} posts={byDay.get(ymd(cursor)) || []} filter={filter} data={data} onNew={newPost} />}
@@ -253,25 +253,25 @@ function Week({ cursor, byDay, filter, onNew, settings }: { cursor: Date; byDay:
   const desktop = useDesktop();
   return (
     <div className="mt-3">
-      <div className="grid grid-cols-1 md:grid-cols-7 gap-2">
+      <div className="grid grid-cols-1 md:grid-cols-7 gap-2 lg:max-xl:gap-1.5">
         {[...Array(7)].map((_, i) => {
           const d = addDays(s, i), k = ymd(d), list = byDay.get(k) || [];
           const isToday = k === t;
           return (
             <div key={k} className="rounded-xl border p-2 flex flex-col gap-1.5 min-w-0" style={{ background: "var(--panel)", borderColor: isToday ? "var(--ink)" : "var(--line)" }}>
-              <header className="text-[12px] font-semibold muted px-0.5">
+              <header className="text-[12px] font-semibold muted px-0.5 lg:max-xl:whitespace-nowrap">
                 <b className="text-[18px] mr-1" style={{ color: "var(--ink)" }}>{d.getDate()}</b>
                 {d.toLocaleDateString("en-GB", { weekday: "short" })}
-                {isToday && <span className="ml-1.5 text-[10px] uppercase tracking-wider" style={{ color: "var(--ink)" }}>Today</span>}
+                {isToday && <span className="ml-1.5 lg:max-xl:ml-1 text-[10px] uppercase tracking-wider lg:max-xl:tracking-normal" style={{ color: "var(--ink)" }}>Today</span>}
               </header>
               <div className="flex flex-col gap-1.5">
                 {ALL_SLOTS.map(({ k: slot, name }) => {
                   const here = inSlot(list, slot);
                   return (
                     <SlotDrop key={slot} date={k} slot={slot} className={`group rounded-lg border border-dashed p-1.5 flex flex-col gap-1.5 min-w-0 ${slot === "reel" ? "md:min-h-[64px]" : "md:min-h-[200px]"}`} style={{ borderColor: "var(--line)", background: slot === "reel" ? "transparent" : "var(--soft)" }}>
-                      <div className="flex items-center justify-between gap-1" title={slotTimes(settings, slot)}>
-                        <span className="text-[11px] font-bold uppercase tracking-wide muted">{name}</span>
-                        {!here.length && <button className="btn small ghost !h-[22px] !px-1 md:opacity-0 group-hover:opacity-100 focus:opacity-100" onClick={() => onNew(k, slot)} aria-label={`New post, ${name} ${k}`}><Icon name="plus" size={14} /></button>}
+                      <div className="relative flex items-center justify-between gap-1" title={slotTimes(settings, slot)}>
+                        <span className="text-[11px] font-bold uppercase tracking-wide lg:max-xl:tracking-normal muted">{name}</span>
+                        {!here.length && <button className="btn small ghost !h-[22px] !px-1 lg:max-xl:absolute lg:max-xl:right-0 lg:max-xl:top-1/2 lg:max-xl:-translate-y-1/2 md:opacity-0 group-hover:opacity-100 focus:opacity-100" onClick={() => onNew(k, slot)} aria-label={`New post, ${name} ${k}`}><Icon name="plus" size={14} /></button>}
                       </div>
                       <div className="text-[10px] muted -mt-1 truncate">{slotTimes(settings, slot, only)}</div>
                       <div className="flex flex-col gap-1.5">

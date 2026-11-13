@@ -108,6 +108,17 @@ async function main() {
     case "publish":
       await publish(args[0]);
       break;
+    case "collab": {
+      // collab <draftId> [YYYY-MM-DD] [handle]: the day's one collab post; any other draft marked for that day is cleared.
+      const [id, dayArg, handle = "range.fx"] = args;
+      const day = dayArg || new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Rome" });
+      for (const d of await listNews()) {
+        if (d.id !== id && d.collab?.day === day) await mutateNews(d.id, (x) => { x.collab = null; });
+      }
+      await mutateNews(id, (x) => { x.collab = { handle, day }; x.history.push({ at: Date.now(), what: `Marked as the ${day} collab with @${handle}` }); });
+      console.log(`collab: ${id} on ${day} with @${handle}`);
+      break;
+    }
     case "skip":
       await mutateSuggestion(args[0], (s) => {
         s.status = "skipped"; s.note = args.slice(1).join(" ").slice(0, 500);
@@ -154,7 +165,7 @@ async function main() {
       console.log("ok");
       break;
     default:
-      console.log("commands: inbox | publish <spec> | skip <id> <reason> | refs <dir> | guide <md> | ends <json> | summary <text>");
+      console.log("commands: inbox | publish <spec> | collab <draftId> [day] [handle] | skip <id> <reason> | refs <dir> | guide <md> | ends <json> | summary <text>");
   }
 }
 

@@ -10,7 +10,7 @@ async function main() {
   if (!url || !out) throw new Error("usage: shot.ts <url> <out.png> [selector]");
   const tweet = url.match(/(?:x|twitter)\.com\/[^/]+\/status\/(\d+)/);
   const browser = await chromium.launch({ channel: "chrome" });
-  const page = await browser.newPage({ viewport: { width: tweet ? 560 : 1200, height }, deviceScaleFactor: 2, locale: "en-US" });
+  const page = await browser.newPage({ viewport: { width: tweet ? 560 : 1200, height }, deviceScaleFactor: 2, locale: "en-US", timezoneId: "America/New_York" });
   try {
     if (tweet) {
       await page.goto(`https://platform.twitter.com/embed/Tweet.html?id=${tweet[1]}&theme=light&dnt=true&hideThread=true`, { waitUntil: "networkidle" });

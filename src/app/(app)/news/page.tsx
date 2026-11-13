@@ -190,8 +190,12 @@ function DraftCard({ d, end, now, act, remove }: {
       <div className="flex items-center gap-2 px-4 pt-3.5 pb-2.5">
         <span className="news-tag">{d.tag}</span>
         <h2 className="flex-1 min-w-0 truncate text-[15px] font-semibold">{d.title}</h2>
+        {d.collab && <span className="news-collab">Collab</span>}
         <span className="news-status" style={{ "--s": STATUS_TONE[d.status] } as React.CSSProperties}>{NEWS_STATUS_LABEL[d.status]}</span>
       </div>
+      {d.collab && (
+        <div className="news-collab-note">Today’s collab post: when you post it on Instagram, add <b>@{d.collab.handle}</b> as collaborator.</div>
+      )}
 
       <Slides slides={slides} />
 

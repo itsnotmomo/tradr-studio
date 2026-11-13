@@ -29,6 +29,8 @@ export type NewsDraft = {
   /** How many times it has been redone. */
   version: number;
   suggestionId: string | null;
+  /** The day's collab post (one per day): tag this account as collaborator when posting. */
+  collab?: { handle: string; day: string } | null;
   createdAt: number;
   updatedAt: number;
   approvedAt: number | null;

@@ -1,6 +1,6 @@
 # Tradr News — Media Playbook
 
-_Last updated: 13 Nov 2026. Built from a study of @polymarket's Instagram (788K followers, 1,863 posts at the time of the study): **~191 posts read** (metadata, caption, likes/comments/shares, slide count), **16 carousels stepped through slide by slide**, date range **11 May 2026 → 13 Nov 2026** (every post from 24 Oct to 13 Nov, then every 3rd, then every 6th post going back). Raw log and reference screenshots: `.news/pm-study/`._
+_Last updated: 13 Nov 2026 (§11 added the same evening). Built from a study of @polymarket's Instagram (788K followers, 1,863 posts at the time of the study): **~191 posts read** (metadata, caption, likes/comments/shares, slide count), **16 carousels stepped through slide by slide**, date range **11 May 2026 → 13 Nov 2026** (every post from 24 Oct to 13 Nov, then every 3rd, then every 6th post going back). Raw log and reference screenshots: `.news/pm-study/`._
 
 This is decision-making guidance for whoever edits Tradr News, not a template. Where it says "Polymarket does X", that is evidence; where it says "we", that is the recommendation. `docs/news-style-guide.md` holds the production rules (fonts, sizes, Studio fields); where this playbook's evidence differs from it, the difference is called out in "Adapting to Tradr" for Mohamed to decide.
 
@@ -187,11 +187,26 @@ Never a forecast or a price target. Nothing on Tradr is advice.
 **Workflow.** Every post is drafted in Tradr Studio, reviewed by Mohamed and posted by hand. Speed therefore comes from preparation (templates, sources ready), not from auto-posting.
 
 **Decisions for Mohamed** (the evidence differs from `docs/news-style-guide.md`):
-- **Memes.** ~40% of Polymarket's inner slides are memes; they carry the reach. The current style guide is wire-only. Options: none; one or two reaction slides per post, captioned above, never mocking a loss-making trader by name; or Polymarket's full mix.
+- **Memes.** Decided 13 Nov: allowed on inside slides (§11).
 - **Captions.** Polymarket's main account uses no hashtags and no sources list (attribution inline). The style guide asks for a "Sources:" line and 3–6 hashtags.
 - **🚨 and tags.** Polymarket uses 🚨 only in sports sub-account captions; its BREAKING / TRENDING / OFFICIAL REPORT / quote tags match the style guide.
 - **Gossip.** The Huang affair saga was the account's biggest run of the period (3 posts above 44K). The style guide rules out gossip; a market angle (Nvidia shares) is the bridge if Mohamed wants such stories.
-- **Collabs.** Polymarket's reach depends on collab posts with its sub-accounts and big pages. Tradr could do the same with trading pages, by hand.
+- **Collabs.** Decided 13 Nov: one daily collab with @range.fx (§11).
+
+## 11. Tradr rules added 13 Nov 2026 (Mohamed)
+
+**Memes — allowed on inside slides, never on slide 1.** Used the way Polymarket uses them (§1, §5): a reaction slide placed after a fact slide, with our one-line caption above and the meme below. The caption carries the joke and ties it to the story ("Apple when someone asks about its AI data-centre budget"). Rules:
+- At most ~1 meme for every 2–3 fact slides; the best one goes last, before the end slide.
+- Mock the situation or "the market", never a group of people, never a victim, never a trader by name. No memes on tragedies.
+- Real meme images only: known templates (imgflip's blank library works when the image needs no words), or a real meme/reaction post shown as an X screenshot with its handle. Never an AI-made image of a real person.
+- Picked by the editor; no need to ask.
+- _13 Nov: first used — Monkey Puppet on Apple's record, Surprised Pikachu on Anthropic's IPO._
+
+**The daily collab — @range.fx.** Every day, the single strongest news post is the range.fx collab: Mohamed adds **@range.fx** as collaborator when he posts it. One per day only. Strongest = the post with the highest ceiling by §2 and §8 (famous face × shock number × twist, a saga at its peak, a record money move). Mark it with `desk collab <draftId> <YYYY-MM-DD>` (it clears any other post marked for that day); News shows a green **Collab** pill and a note on that post.
+- _13 Nov: Nvidia loses almost $500B (saga peak, famous face, record-size number)._
+
+**Times on screenshots are US Eastern.** Every screenshot with a timestamp (Truth Social, X, articles, live blogs) shows US Eastern time (ET), the time most readers and the outlets use. `shot.ts` renders in America/New_York. Truth Social in Chrome shows the browser's time zone: before capturing, set the post's time to its `created_at` in ET (the same instant, written the way an Eastern reader sees it). If a screenshot can't be taken in ET, don't use it until it can.
+- _13 Nov: the two Truth Social screenshots already in News (Iran post, Tim Cook post) still show CET; Truth Social put up a "Verify you are human" check, which we never click. Re-capture when it lets the page through._
 
 ## How to update
 

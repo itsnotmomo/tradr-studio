@@ -197,6 +197,8 @@ dialog.sheet::backdrop { background: rgba(20, 20, 18, .35); }
 .news-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
 .news-empty { padding: 48px 12px; text-align: center; color: var(--muted); font-size: 14px; }
 .news-card { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; }
+.news-collab { font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; background: #00a85c; color: #fff; flex: none; }
+.news-collab-note { margin: 0 16px 10px; padding: 9px 12px; border-radius: 10px; background: rgba(0,168,92,.10); color: #0b5d36; font-size: 13.5px; line-height: 1.35; }
 .news-tag { font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; padding: 3px 7px; border-radius: 5px; background: var(--ink); color: #fff; flex: none; }
 .news-status { --s: var(--s-draft); font-size: 11.5px; font-weight: 700; color: var(--s); background: color-mix(in srgb, var(--s) 11%, transparent); padding: 3px 9px; border-radius: 999px; white-space: nowrap; flex: none; }
 .news-strip { display: flex; gap: 8px; padding: 0 16px 2px; scroll-snap-type: x mandatory; scroll-padding: 16px; }
