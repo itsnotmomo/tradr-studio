@@ -1,4 +1,4 @@
-_Written 13 Nov 2026 from @polymarket's live Instagram posts (hook, explainer and video slides) and Tradr's own brand. Updated by each run when new references are added._
+_Written 13 Nov 2026 from @polymarket's live Instagram posts and Tradr's own brand; round 2 (same day) from Mohamed's six new references and notes. Updated by each run when new references are added._
 
 
 ## Voice
@@ -8,26 +8,33 @@ _Written 13 Nov 2026 from @polymarket's live Instagram posts (hook, explainer an
 - Never invent facts, numbers or quotes. Quotes are copied word for word from a source we link. Numbers carry their source.
 - English only.
 
-## Slide 1, the hook (what Polymarket gets right)
-- One real, clear photo of the person or company the story is about, big and close. The face sits in the top half, never under the text.
-- Two layouts. **Photo:** full-bleed photo with a dark fade over the bottom 40%. **Cutout:** the person lifted out of the same photo and placed large, bottom-anchored, over a dark blurred version of that photo with a faint green glow. Use cutout when the original background is busy or the person is small in frame.
-- Headline: Anton, all caps, white, centred, 2–3 lines, as big as fits (78–150 px). 3–8 words. Names, verbs and numbers: "JENSEN HUANG RESIGNS AS NVIDIA CEO". One phrase may be green for emphasis (the news itself, not decoration).
-- Tag above the headline: BREAKING (red) only for news under ~6 hours old that changes something. Otherwise TRENDING, REPORT, MARKETS, POLITICS, TECH, CRYPTO, WORLD (white).
-- Top-left: the Tradr mark + TRADR NEWS. Bottom-right: tiny photo credit (required for CC BY / CC BY-SA photos).
+## Slide 1, the hook (round 2, 13 Nov 2026: Polymarket level)
+- **The person fills the frame.** Big, close, sharp, high-res: head and shoulders from the top of the slide down to the headline, using every bit of the space (Polymarket's Trump "KIDDING": face in the top half, suit filling the width). Full-bleed photo, `zoom`/`focusX`/`focusY` to crop in. No small figure in a big background.
+- Layouts: **full portrait** (default), or **person + round inset** (white ring, ~300–360 px) of a second person or a logo/object, placed in empty space beside the face, never over it (Musk + GOP elephant; Trump + Dana White). Cutout only as a fallback.
+- **Headline:** Anton, all caps, white, centred, edge to edge, as big as fits (up to 230 px, 1–3 lines). 2–8 words. Reads like a news report and makes people swipe: names, verbs, numbers ("NVIDIA CEO PROBED OVER ALLEGED AFFAIR WITH CHINESE SPY", "MUSK SPENT $446M ON MIDTERMS"). One phrase may be green (red for a price drop).
+- **Tag only when it says something:** BREAKING (red, under ~6 h and it changes something), TRENDING, REPORT, OFFICIAL, OFFICIAL REPORT, EXCLUSIVE. Never a topic tag (no CRYPTO, TECH, POLITICS). No tag is fine.
+- **Quote headlines:** when the headline is the person's own words, use the quote tag (green pill with a black quote mark, `"tag": "quote"`) and put “ ” around the words. Their words only, verbatim.
+- Dark fade over the bottom ~60% so the headline reads; the face stays clear of it.
+- **Branding: slide 1 only**, our green T mark, small, top-left. No "TRADR NEWS" text anywhere. No credits or sources on any slide.
+- Price stories with no person: chart hook from real exchange data (big price, change chip, data note).
 
-## Slides 2–3, explain and prove
-- White background, Tradr mark top-left. One or two sentences at the top in Inter (500 weight, ~50 px), the key words in bold.
-- Under the text, the proof, full width: a video of the moment (best), a screenshot of the original post or headline, a quote card (verbatim quote, who and role, small face), or one big number (Anton, green, with what it measures).
-- A small "Source: …" line at the bottom of every proof slide.
-- Video slides: the real clip, 16:9 across the full width, ≤ 59 s, sound on. Only clips of the actual moment (the person speaking, the official briefing). Never stock footage.
+## Slides 2–4, explain and prove
+- White background, no logo, no source line. One or two sentences at the top in Inter 500 (~50 px), key words in bold. Say who said what, where and when: "President Trump posted on Truth Social on Thursday morning: …", "Fed Governor Christopher Waller said in London on Monday: …".
+- The carousel tells the story slide by slide (Polymarket's $446M post: claim → TV proof → breakdown → reaction).
+- Proof under the text, as wide as the slide:
+  - **The original post as people saw it**: a real screenshot of the Truth Social / X post. Truth Social works through Claude in Chrome (the public API from the page, then a zoomed capture). If blocked, a real screenshot from news coverage or people sharing it. A quote card only when no real screenshot exists anywhere.
+  - Headline screenshots (CNBC, CoinDesk), official releases and filings, official pages (federalreserve.gov speech text).
+  - **Real video clips of the moment**, ≤ 59 s, sound on. TV/news clips with the channel's logo are fine (Fox News, ABC NEWS bug). Never stock footage.
+  - One big number (Anton, green) for the figure that matters.
 
 ## Last slide
-- The fixed Tradr slide chosen in Studio. Never changed per post.
+- Fixed, chosen in Studio: "Don’t just watch the market, *watch the traders.*" / "Join the first social media platform for traders." with tradr.me shown as the real website in a big browser window (address bar "tradr.me", live screenshot of the homepage). Never changed per post.
 
 ## Photos
-- Real photos of the real people only. Never AI-generated or AI-altered people (cutting the person out of the original photo is fine; nothing is redrawn).
-- Order of preference: official (White House, government, company press), Wikimedia Commons, then news photos.
-- No watermarks, and never remove one. Store the photo source and licence with every draft.
+- Real photos of the real people only. Never AI-generated or AI-altered people.
+- From anywhere on the internet: pick the best, clearest, most expressive photo of the moment (emotion beats a stiff official portrait). News-article lead images (og:image) often give the full-resolution original (CNBC's image API returns 5000+ px without size params).
+- No stock-agency watermarks, and never remove one.
+- Credits and sources go in the draft's `photos` and `sources` (Studio only), never on a slide.
 
 ## Caption (Instagram)
 - First line: the news in one sentence, as the headline would read in a newspaper.

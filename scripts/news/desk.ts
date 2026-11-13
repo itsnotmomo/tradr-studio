@@ -142,7 +142,7 @@ async function main() {
         options.push({ id: `end-${i + 1}-${Date.now()}`, ...ends[i], url: await upload(f, `news/end/end-${i + 1}.jpg`, "image/jpeg") });
       }
       await mutateNewsDesk((d) => {
-        d.endOptions = options; d.endChoice = null;
+        d.endOptions = options; d.endChoice = options.length === 1 ? options[0].id : null;
       });
       console.log(JSON.stringify(options, null, 2));
       break;

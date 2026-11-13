@@ -126,6 +126,7 @@ export async function renderSpec(specPath: string, opts: { end?: End } = {}) {
       if (raw.type === "hook") {
         const s: Hook = { ...raw, tag: raw.tag || spec.tag, photo: raw.photo ? await local(dir, raw.photo) : undefined };
         if (s.mode === "cutout" && s.photo) s.cutout = await cutout(s.photo);
+        if (s.inset) s.inset = { ...s.inset, src: await local(dir, s.inset.src) };
         const file = path.join(outDir, `${n}.jpg`);
         await shoot(browser, hookHtml(s), file, "jpeg", dir);
         done.push({ file, kind: "image" });
