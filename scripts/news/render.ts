@@ -12,6 +12,18 @@ const run = promisify(execFile);
 export const UA = "TradrStudioNews/1.0 (https://tradr.me; news desk)";
 const ROOT = path.resolve(import.meta.dirname, "../..");
 const CUTOUT_BIN = path.join(ROOT, ".news/bin/cutout");
+const FACE_BIN = path.join(ROOT, ".news/bin/face");
+
+/** The largest face in a photo (Apple Vision, on-device), or null. */
+async function findFace(file: string) {
+  if (!existsSync(FACE_BIN)) {
+    await mkdir(path.dirname(FACE_BIN), { recursive: true });
+    await run("swiftc", ["-O", path.join(import.meta.dirname, "face.swift"), "-o", FACE_BIN]);
+  }
+  const { stdout } = await run(FACE_BIN, [file]);
+  const f = JSON.parse(stdout || "{}");
+  return typeof f.w === "number" ? { x: f.x, y: f.y, w: f.w, h: f.h } : null;
+}
 
 export type Spec = {
   slug: string;
@@ -126,7 +138,8 @@ export async function renderSpec(specPath: string, opts: { end?: End } = {}) {
       if (raw.type === "hook") {
         const s: Hook = { ...raw, tag: raw.tag || spec.tag, photo: raw.photo ? await local(dir, raw.photo) : undefined };
         if (s.mode === "cutout" && s.photo) s.cutout = await cutout(s.photo);
-        if (s.inset) s.inset = { ...s.inset, src: await local(dir, s.inset.src) };
+        if ((s.mode ?? "photo") === "photo" && s.photo && s.face === undefined) s.face = await findFace(s.photo);
+        if (s.inset?.src) s.inset = { ...s.inset, src: await local(dir, s.inset.src) };
         const file = path.join(outDir, `${n}.jpg`);
         await shoot(browser, hookHtml(s), file, "jpeg", dir);
         done.push({ file, kind: "image" });

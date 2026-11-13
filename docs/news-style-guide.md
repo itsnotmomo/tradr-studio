@@ -9,6 +9,7 @@ _Written 13 Nov 2026 from @polymarket's live Instagram posts and Tradr's own bra
 - English only.
 
 ## Slide 1, the hook (round 2, 13 Nov 2026: Polymarket level)
+- **Slide 1 is a tight face** (render.ts finds the face with Apple Vision and frames it: face ~half the slide width, eyes in the top third). Never a wide or medium shot.
 - **The person fills the frame.** Big, close, sharp, high-res: head and shoulders from the top of the slide down to the headline, using every bit of the space (Polymarket's Trump "KIDDING": face in the top half, suit filling the width). Full-bleed photo, `zoom`/`focusX`/`focusY` to crop in. No small figure in a big background.
 - Layouts: **full portrait** (default), or **person + round inset** (white ring, ~300–360 px) of a second person or a logo/object, placed in empty space beside the face, never over it (Musk + GOP elephant; Trump + Dana White). Cutout only as a fallback.
 - **Headline:** Anton, all caps, white, centred, edge to edge, as big as fits (up to 230 px, 1–3 lines). 2–8 words. Reads like a news report and makes people swipe: names, verbs, numbers ("NVIDIA CEO PROBED OVER ALLEGED AFFAIR WITH CHINESE SPY", "MUSK SPENT $446M ON MIDTERMS"). One phrase may be green (red for a price drop).
@@ -25,10 +26,13 @@ _Written 13 Nov 2026 from @polymarket's live Instagram posts and Tradr's own bra
   - **The original post as people saw it**: a real screenshot of the Truth Social / X post. Truth Social works through Claude in Chrome (the public API from the page, then a zoomed capture). If blocked, a real screenshot from news coverage or people sharing it. A quote card only when no real screenshot exists anywhere.
   - Headline screenshots (CNBC, CoinDesk), official releases and filings, official pages (federalreserve.gov speech text).
   - **Real video clips of the moment**, ≤ 59 s, sound on. TV/news clips with the channel's logo are fine (Fox News, ABC NEWS bug). Never stock footage.
-  - One big number (Anton, green) for the figure that matters.
+  - Numbers get real visuals: a price chart card (`chart`, real data, optional mark at the moment of the news) when something moves; bold red/green market tiles (`tiles`, `stat` with `tone`) for figures. Never a plain text box.
+- **Never say the same thing twice.** If the text says it, the image under it must add something new (the report's own paragraph, the chart, the post), not the same headline again.
 
 ## Last slide
-- Fixed, chosen in Studio: "Don’t just watch the market, *watch the traders.*" / "Join the first social media platform for traders." with tradr.me shown as the real website in a big browser window (address bar "tradr.me", live screenshot of the homepage). Never changed per post.
+- Fixed, chosen in Studio: "Don’t just watch the market, watch the traders." / "Join the first social media platform for traders." / tradr.me pill, on Tradr green like the tradr.me lander, with an iPhone 18 Pro showing the Tradr feed. The feed uses made-up traders and made-up trades only (never real users or their results). Never changed per post.
+
+**Decisions come from `docs/media-playbook.md`** (the Polymarket study). This guide is the production rules; the playbook is the editorial judgement.
 
 ## Photos
 - Real photos of the real people only. Never AI-generated or AI-altered people.
@@ -36,11 +40,11 @@ _Written 13 Nov 2026 from @polymarket's live Instagram posts and Tradr's own bra
 - No stock-agency watermarks, and never remove one.
 - Credits and sources go in the draft's `photos` and `sources` (Studio only), never on a slide.
 
-## Caption (Instagram)
-- First line: the news in one sentence, as the headline would read in a newspaper.
-- Then 2–4 short paragraphs: what happened, what is confirmed, what is reported and by whom, why it matters for markets when it does (prices with their source and time).
-- End with "Sources: …" naming the outlets (no links: Instagram doesn't link them).
-- 3–6 plain hashtags at the very end, topic only (#Nvidia #Stocks). No engagement bait.
+## Caption (Instagram) (from the playbook, 13 Nov 2026)
+- 2–5 short paragraphs. Paragraph 1: the news in one sentence with its attribution ("…, Reuters reported Thursday").
+- Then context and numbers, confirmed vs reported, attribution inline in the sentences. No "Sources:" list (sources live in Studio).
+- Last line: the market move from real data, with venue and time ("BTC traded at $69,081 on Binance at 21:00 UTC Friday, down 9.0% over seven days."). Never a forecast or a target.
+- No hashtags, no emojis, no CTA, no questions to the audience.
 
 ## X post
 - One post, ≤ 280 characters, no links, no hashtags, no emojis.

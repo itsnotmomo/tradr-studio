@@ -26,7 +26,7 @@ async function upload(file: string, key: string, type: string) {
 
 function check(spec: Spec) {
   const errs: string[] = [];
-  if (!spec.slides?.length || spec.slides.length < 2 || spec.slides.length > 4) errs.push("2–4 story slides (the Tradr slide is added after)");
+  if (!spec.slides?.length || spec.slides.length < 2 || spec.slides.length > 9) errs.push("2–9 story slides (the Tradr slide is added after)");
   if (spec.slides?.[0]?.type !== "hook") errs.push("slide 1 must be the hook");
   if (!spec.caption?.trim()) errs.push("caption");
   if (!spec.x?.trim()) errs.push("X text");
