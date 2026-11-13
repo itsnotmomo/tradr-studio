@@ -29,8 +29,10 @@ function LoginForm() {
   return (
     <form onSubmit={submit} className="card w-full max-w-[360px] p-6 flex flex-col gap-4">
       <div className="flex items-center gap-3">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/icon.svg" alt="" width={44} height={44} className="rounded-[11px] border" style={{ borderColor: "var(--line)" }} />
         <div>
-          <div className="text-[18px] font-bold leading-tight">Tradr Studio</div>
+          <div className="serif text-[26px] leading-tight">Tradr Media</div>
           <div className="text-[12px] muted">Private. Sign in to continue.</div>
         </div>
       </div>

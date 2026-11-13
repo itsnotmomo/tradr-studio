@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { Icon, type IconName } from "./icons";
-import { Sheet } from "./ui";
 import { useAppState } from "@/lib/client/state";
 import { api } from "@/lib/client/api";
 import { LANGS, LK } from "@/lib/langs";
@@ -12,83 +11,89 @@ import { relTime } from "@/lib/time";
 import { AUTO_PUBLISH } from "@/lib/features";
 import { reelMediaProblems } from "@/lib/reel";
 
+// Tradr Media: one place for all marketing. Instagram posts (Planner, Inspo), news posts and tweets (News);
+// scheduling and posting slot in here later.
 const NAV: { href: string; label: string; icon: IconName }[] = [
   { href: "/", label: "Planner", icon: "planner" },
   { href: "/news", label: "News", icon: "news" },
-  { href: "/batch", label: "Batch", icon: "batch" },
-  { href: "/captions", label: "Captions", icon: "captions" },
-  { href: "/ideas", label: "Ideas", icon: "ideas" },
   { href: "/inspo", label: "Inspo", icon: "inspo" },
-  { href: "/posted", label: "Posted", icon: "posted" },
 ];
-/** Not in the phone's bottom bar (no room); reached through More. */
-const PHONE_MORE = ["/captions"];
-const TOOLS: { href: string; label: string; icon: IconName }[] = [
-  { href: "/tools/tweet", label: "Tweet card", icon: "tweet" },
-  { href: "/tools/editor", label: "Text editor", icon: "editor" },
-];
+/** Phone and portrait-tablet tab bar: the three sections plus Settings. The sidebar starts at 1024 px so a portrait iPad keeps the full width for the Planner. */
+const PHONE_TABS = [...NAV, { href: "/settings", label: "Settings", icon: "settings" as IconName }];
 
-const active = (path: string, href: string) => (href === "/" ? path === "/" : path.startsWith(href));
+const active = (path: string, href: string) => (href === "/" ? path === "/" || path.startsWith("/posts/") || path.startsWith("/go/") : path.startsWith(href));
+
+/** Hides or shows the desktop sidebar and remembers it on this device (as in Tradr HQ). */
+function toggleSidebar() {
+  const el = document.documentElement;
+  const closing = el.dataset.sidebar !== "closed";
+  if (closing) el.dataset.sidebar = "closed"; else delete el.dataset.sidebar;
+  try { localStorage.setItem("media:sidebar", closing ? "closed" : "open"); } catch { /* still toggles for this visit */ }
+}
 
 export function Shell({ children }: { children: ReactNode }) {
   const path = usePathname();
-  const [more, setMore] = useState(false);
   const signOut = async () => {
     await api("/api/auth/logout", { method: "POST" }).catch(() => {});
     location.href = "/login";
   };
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "\\") { e.preventDefault(); toggleSidebar(); }
+    };
+    window.addEventListener("keydown", k);
+    return () => window.removeEventListener("keydown", k);
+  }, []);
   const item = (n: { href: string; label: string; icon: IconName }) => (
     <Link key={n.href} href={n.href} aria-current={active(path, n.href) ? "page" : undefined}
-      className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13.5px] font-medium text-[#c9c9c4] hover:bg-[#232323] hover:text-white aria-[current=page]:bg-white aria-[current=page]:text-[#161616] aria-[current=page]:font-semibold">
+      className="flex items-center gap-3 h-9 px-2.5 rounded-lg text-[14px] transition text-[var(--muted)] hover:bg-[var(--hover)] hover:text-[var(--ink)] aria-[current=page]:bg-[var(--panel)] aria-[current=page]:text-[var(--ink)] aria-[current=page]:shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
       <Icon name={n.icon} size={17} />
-      {n.label}
+      <span className="flex-1">{n.label}</span>
     </Link>
   );
   return (
-    <div className="min-h-dvh md:flex">
-      <nav aria-label="Sections" className="hidden md:flex w-[208px] flex-none flex-col gap-0.5 px-3 py-4 text-white sticky top-0 h-dvh" style={{ background: "var(--rail)" }}>
-        <Link href="/" className="flex items-center gap-2.5 px-2 pb-5">
-          <span className="font-bold text-[16px]">Tradr Studio</span>
-        </Link>
-        {NAV.map(item)}
-        <div className="px-2.5 pt-5 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-[#77776f]">Tools</div>
-        {TOOLS.map(item)}
-        <div className="flex-1" />
-        {item({ href: "/settings", label: "Settings", icon: "settings" })}
-        <button onClick={signOut} className="text-left px-2.5 py-2 text-[12px] text-[#8a8a85] hover:text-white">Sign out</button>
-      </nav>
+    <div className="min-h-dvh lg:flex">
+      <aside className="media-sidebar hidden lg:flex w-[220px] flex-none sticky top-0 h-dvh border-r" style={{ background: "var(--side)", borderColor: "var(--line)" }}>
+        <nav aria-label="Sections" className="flex flex-col h-full w-full px-3 pb-3">
+          <div className="flex items-center gap-2 px-2 h-14 flex-none">
+            <Link href="/" className="serif text-[19px] leading-none">Tradr Media</Link>
+            <div className="flex-1" />
+            <button className="icon-btn !w-8 !h-8 -mr-1" aria-label="Hide sidebar" title="Hide sidebar (⌘\)" onClick={toggleSidebar}><Icon name="panel" size={16} /></button>
+          </div>
+          <div className="flex flex-col gap-0.5 mt-1">{NAV.map(item)}</div>
+          <div className="flex-1" />
+          <div className="flex flex-col gap-0.5">
+            {item({ href: "/settings", label: "Settings", icon: "settings" })}
+            <button onClick={signOut} className="flex items-center gap-3 h-9 px-2.5 rounded-lg text-[14px] text-left text-[var(--muted)] hover:bg-[var(--hover)] hover:text-[var(--ink)]">
+              <Icon name="signout" size={17} /> Sign out
+            </button>
+          </div>
+        </nav>
+      </aside>
+      <button className="media-sidebar-open icon-btn fixed top-3 left-3 z-30" style={{ background: "var(--panel)", border: "1px solid var(--line)" }} aria-label="Show sidebar" title="Show sidebar (⌘\)" onClick={toggleSidebar}>
+        <Icon name="panel" size={18} />
+      </button>
 
-      <main className="flex-1 min-w-0 pb-[calc(64px+env(safe-area-inset-bottom))] md:pb-0">
+      <main className="flex-1 min-w-0 pt-safe lg:pt-0 pb-[calc(58px+env(safe-area-inset-bottom))] lg:pb-0">
         <Banners />
         {children}
       </main>
 
-      <nav aria-label="Sections" className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t safe-b" style={{ background: "var(--panel)", borderColor: "var(--line)" }}>
-        <div className="grid grid-cols-7">
-          {NAV.filter((n) => !PHONE_MORE.includes(n.href)).map((n) => (
-            <Link key={n.href} href={n.href} aria-current={active(path, n.href) ? "page" : undefined}
-              className="flex flex-col items-center gap-0.5 pt-2 pb-1.5 text-[10.5px] font-semibold text-[var(--muted)] aria-[current=page]:text-[var(--ink)]">
-              <Icon name={n.icon} size={21} />
-              {n.label}
-            </Link>
-          ))}
-          <button onClick={() => setMore(true)} aria-current={[...TOOLS, ...PHONE_MORE.map((href) => ({ href })), { href: "/settings" }].some((t) => active(path, t.href)) ? "page" : undefined}
-            className="flex flex-col items-center gap-0.5 pt-2 pb-1.5 text-[10.5px] font-semibold text-[var(--muted)] aria-[current=page]:text-[var(--ink)]">
-            <Icon name="more" size={21} />
-            More
-          </button>
+      {/* Phone and portrait-tablet tab bar, as in Tradr HQ */}
+      <nav aria-label="Sections" className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t safe-b backdrop-blur" style={{ background: "color-mix(in srgb, var(--panel) 95%, transparent)", borderColor: "var(--line)" }}>
+        <div className="grid grid-cols-4 h-[58px] items-center">
+          {PHONE_TABS.map((n) => {
+            const on = active(path, n.href);
+            return (
+              <Link key={n.href} href={n.href} aria-current={on ? "page" : undefined}
+                className={`flex flex-col items-center justify-center gap-0.5 h-full text-[10.5px] ${on ? "text-[var(--ink)] font-medium" : "text-[var(--faint)]"}`}>
+                <Icon name={n.icon} size={21} />
+                {n.label}
+              </Link>
+            );
+          })}
         </div>
       </nav>
-      <Sheet open={more} onClose={() => setMore(false)} label="More">
-        <div className="p-3 flex flex-col">
-          {[...NAV.filter((n) => PHONE_MORE.includes(n.href)), ...TOOLS, { href: "/settings", label: "Settings", icon: "settings" as IconName }].map((t) => (
-            <Link key={t.href} href={t.href} onClick={() => setMore(false)} className="flex items-center gap-3 rounded-lg px-3 py-3 text-[15px] font-medium hover:bg-[var(--soft)]">
-              <Icon name={t.icon} size={20} /> {t.label}
-            </Link>
-          ))}
-          <button onClick={signOut} className="text-left rounded-lg px-3 py-3 text-[15px] muted">Sign out</button>
-        </div>
-      </Sheet>
     </div>
   );
 }

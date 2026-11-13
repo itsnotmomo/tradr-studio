@@ -16,7 +16,7 @@ export async function checkScheduler(now = Date.now()) {
   const first = await redis().set(ALERTED, String(now), { nx: true });
   if (first) {
     try {
-      await sendNtfy("Tradr Studio", `Scheduler stopped: last ran ${last ? relTime(last, now) : "never"}. Reminders are paused.`, "/settings#scheduler");
+      await sendNtfy("Tradr Media", `Scheduler stopped: last ran ${last ? relTime(last, now) : "never"}. Reminders are paused.`, "/settings#scheduler");
     } catch (e) {
       await redis().del(ALERTED);
       throw e;
@@ -28,5 +28,5 @@ export async function checkScheduler(now = Date.now()) {
 /** Called from every tick: if an alert went out, say once that it's running again. */
 export async function noteRecovery() {
   const was = await redis().getdel(ALERTED);
-  if (was) await sendNtfy("Tradr Studio", "Scheduler is running again. Reminders are back on.", "/settings#scheduler").catch(() => {});
+  if (was) await sendNtfy("Tradr Media", "Scheduler is running again. Reminders are back on.", "/settings#scheduler").catch(() => {});
 }

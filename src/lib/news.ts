@@ -1,4 +1,4 @@
-// News desk: drafts made locally by the "make news posts" run, reviewed and posted by hand from Studio.
+// News desk: drafts made locally by the "make news posts" run, reviewed and posted by hand from Tradr Media.
 
 export type NewsStatus = "draft" | "changes" | "approved" | "rejected" | "posted";
 

@@ -54,7 +54,7 @@ async function main() {
   const counts = (["en", "it", "es"] as Lang[]).filter((k) => n(k)).map((k) => `${n(k)} ${k.toUpperCase()}`).join(" · ");
   const msg = `Scheduled ${label}: ${counts}. ${confirmed.filter((x) => x.kind !== "reel").length} posts need audio.`;
   console.log(msg);
-  if (!dry) await sendNtfy("Instagram scheduled", msg, "/batch");
+  if (!dry) await sendNtfy("Instagram scheduled", msg, "/");
 }
 
 main().catch((e) => {

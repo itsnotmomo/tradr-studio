@@ -56,7 +56,7 @@ export function Spinner({ size = 14 }: { size?: number }) {
 
 export function ErrorBox({ title, children, action }: { title: string; children?: ReactNode; action?: ReactNode }) {
   return (
-    <div role="alert" className="rounded-xl border px-3.5 py-3 text-[13px]" style={{ background: "var(--danger-bg)", borderColor: "var(--danger-line)", color: "var(--ink)" }}>
+    <div role="alert" className="rounded-[12px] border px-3.5 py-3 text-[13px]" style={{ background: "var(--danger-bg)", borderColor: "var(--danger-line)", color: "var(--ink)" }}>
       <div className="font-semibold" style={{ color: "var(--danger)" }}>{title}</div>
       {children && <div className="mt-1 whitespace-pre-line break-words">{children}</div>}
       {action && <div className="mt-2.5 flex gap-2 flex-wrap">{action}</div>}
@@ -70,10 +70,10 @@ export function Warn({ children }: { children: ReactNode }) {
 
 export function PageHeader({ title, sub, children }: { title: string; sub?: ReactNode; children?: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-end gap-3 px-4 md:px-6 pt-4 md:pt-6 pb-3">
+    <div className="flex flex-wrap items-end gap-3 px-4 md:px-6 pt-5 md:pt-10 pb-4 md:pb-5">
       <div className="flex-1 min-w-[200px]">
-        <h1 className="text-[20px] font-bold tracking-tight">{title}</h1>
-        {sub && <div className="text-[13px] muted mt-0.5">{sub}</div>}
+        <h1 className="serif text-[30px] md:text-[34px] leading-tight">{title}</h1>
+        {sub && <div className="text-[13.5px] muted mt-1">{sub}</div>}
       </div>
       {children}
     </div>

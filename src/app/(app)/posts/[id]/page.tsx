@@ -81,7 +81,7 @@ function Editor({ post, data, k, setK }: { post: Post; data: AppState; k: Lang; 
     try {
       await api(`/api/posts/${post.id}`, { method: "DELETE" });
       await dropPost(post.id);
-      router.push(post.date ? "/" : "/ideas");
+      router.push("/");
     } catch (e) {
       toast((e as Error).message, { tone: "error" });
     }
@@ -302,8 +302,6 @@ function Slides({ post, k, data, locked, save }: { post: Post; k: Lang; data: Ap
       </div>
       {!locked && (
         <div className="flex flex-wrap items-center gap-2 pt-1">
-          <Link className="btn small" href={`/tools/tweet?post=${post.id}`}><Icon name="tweet" size={14} /> Tweet card</Link>
-          <Link className="btn small" href={`/tools/editor?post=${post.id}&lang=${k}`}><Icon name="editor" size={14} /> Edit image text</Link>
           <span className="flex-1" />
           <select className="field !w-auto !min-h-[28px] !py-1 text-[12px]" value={copyFrom} onChange={(e) => setCopyFrom(e.target.value as Lang)} aria-label="Copy slides from">
             {LANGS.filter((l) => l.k !== k).map((l) => <option key={l.k} value={l.k}>{l.name}</option>)}

@@ -61,10 +61,10 @@ function NewsView() {
   const list = (data?.drafts ?? []).filter((d) => inTab(d, tab));
 
   return (
-    <div className="news mx-auto w-full max-w-[860px] px-4 md:px-6 pt-4 md:pt-7 pb-10">
+    <div className="news mx-auto w-full max-w-[860px] px-4 md:px-6 pt-5 md:pt-10 pb-10">
       <header className="flex items-end gap-3 pb-1">
         <div className="flex-1 min-w-0">
-          <h1 className="text-[22px] font-bold tracking-tight">News</h1>
+          <h1 className="serif text-[30px] md:text-[34px] leading-tight">News</h1>
           <p className="text-[13px] muted mt-0.5 truncate">
             {data?.desk.lastRunAt ? <>Last run {relTime(data.desk.lastRunAt, data.now)}{data.desk.lastRunSummary ? ` · ${data.desk.lastRunSummary}` : ""}</> : "Drafts for @tradr__app and @tradr_app"}
           </p>

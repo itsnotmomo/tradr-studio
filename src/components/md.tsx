@@ -48,14 +48,20 @@ export function Markdown({ text }: { text: string }) {
       );
       continue;
     }
-    if (/^- /.test(l)) {
-      const items: string[] = [];
-      while (i < lines.length && /^- /.test(lines[i])) items.push(lines[i++].slice(2));
-      blocks.push(<ul key={i} className="list-disc pl-5 flex flex-col gap-1">{items.map((t, j) => <li key={j}>{inline(t, j)}</li>)}</ul>);
+    // List items, including indented (nested) ones. An indented "- " line used to match neither this
+    // nor the paragraph loop, which never advanced and froze the page.
+    if (/^\s*- /.test(l)) {
+      const items: { text: string; nested: boolean }[] = [];
+      while (i < lines.length && /^\s*- /.test(lines[i])) {
+        const raw = lines[i++];
+        items.push({ text: raw.trim().slice(2), nested: /^\s/.test(raw) });
+      }
+      blocks.push(<ul key={i} className="list-disc pl-5 flex flex-col gap-1">{items.map((t, j) => <li key={j} className={t.nested ? "ml-5 list-[circle]" : undefined}>{inline(t.text, j)}</li>)}</ul>);
       continue;
     }
     const para: string[] = [];
     while (i < lines.length && lines[i].trim() && !/^(#{1,4} |- |\|)/.test(lines[i].trim())) para.push(lines[i++]);
+    if (!para.length) para.push(lines[i++]); // always make progress
     blocks.push(<p key={i}>{inline(para.join(" "), i)}</p>);
   }
   return <div className="flex flex-col gap-2.5 text-[13px] leading-relaxed">{blocks.map((b, i) => <Fragment key={i}>{b}</Fragment>)}</div>;

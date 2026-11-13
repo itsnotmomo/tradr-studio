@@ -83,7 +83,7 @@ function Accounts({ data }: { data: AppState }) {
       {ok && <div className="text-[13px]" style={{ color: "var(--s-posted)" }}>Connected {ok.split(",").map((k) => LANGS.find((l) => l.k === k)?.handle).join(", ")}.</div>}
       {err && <ErrorBox title="Couldn’t connect">{err}</ErrorBox>}
       {!m.configured && (
-        <Warn>You post from the Instagram app, so the Meta connection is only for the numbers on the Posted page. It’s not set up yet. Once META_APP_ID and META_APP_SECRET are set, a “Connect with Facebook” button appears here.</Warn>
+        <Warn>You post from the Instagram app, so the Meta connection is only for Instagram stats. It’s not set up yet. Once META_APP_ID and META_APP_SECRET are set, a “Connect with Facebook” button appears here.</Warn>
       )}
       <div className="grid md:grid-cols-3 gap-2">
         {LANGS.map((l) => {
@@ -288,7 +288,7 @@ function Notifications({ data }: { data: AppState }) {
     <section id="notifications" className="card p-4 flex flex-col gap-1 scroll-mt-4">
       <h2 className="font-bold text-[15px]">Notifications</h2>
       <p className="text-[12.5px] muted mb-1">Sent through ntfy to your phone. Tapping one opens the right screen here.</p>
-      {row("weekly", "Weekly batch", "Mondays: how many posts this week and how many aren’t scheduled yet. Opens Batch.")}
+      {row("weekly", "Weekly batch", "Mondays: how many posts this week and how many aren’t scheduled yet. Opens the Planner.")}
       {n.weekly && (
         <div className="flex items-center gap-2 pl-7 pb-1 text-[13px]">
           <span className="muted">Mondays at</span>
@@ -354,6 +354,10 @@ function Security() {
         <ConfirmButton className="btn danger" confirm="Tap again to sign out everywhere" onConfirm={async () => { await api("/api/auth/signout-all", { method: "POST" }); location.href = "/login"; }}>
           Sign out on all devices
         </ConfirmButton>
+        {/* On a phone there's no sidebar, so signing out of this device lives here. */}
+        <button type="button" className="btn lg:hidden" onClick={async () => { await api("/api/auth/logout", { method: "POST" }).catch(() => {}); location.href = "/login"; }}>
+          Sign out
+        </button>
       </div>
     </section>
   );

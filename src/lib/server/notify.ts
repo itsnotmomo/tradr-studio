@@ -61,12 +61,12 @@ export async function runNotifications(now = Date.now()) {
         const msg = st === "scheduled"
           ? `${code(k)} · ${local} · ${name(p)} goes live now`
           : `${code(k)} · ${local} · ${name(p)} — post it now`;
-        if (await once(`slot:${p.id}:${k}:${at}`, 3 * 86400, () => sendNtfy("Tradr Studio", msg, postScreen(p, k)))) sent.push(msg);
+        if (await once(`slot:${p.id}:${k}:${at}`, 3 * 86400, () => sendNtfy("Tradr Media", msg, postScreen(p, k)))) sent.push(msg);
       }
       // One follow-up if it's still not scheduled or posted 2 hours later.
       if (s.notify.missed && !isDone(st) && now >= at + MISSED_AFTER && now < at + MISSED_AFTER + MISSED_WINDOW) {
         const msg = `Missed: ${code(k)} · ${p.kind === "reel" ? "Reel · " : ""}${name(p)} wasn't posted`;
-        if (await once(`missed:${p.id}:${k}:${at}`, 7 * 86400, () => sendNtfy("Tradr Studio", msg, postScreen(p, k)))) sent.push(msg);
+        if (await once(`missed:${p.id}:${k}:${at}`, 7 * 86400, () => sendNtfy("Tradr Media", msg, postScreen(p, k)))) sent.push(msg);
       }
     }
   }
@@ -77,7 +77,7 @@ export async function runNotifications(now = Date.now()) {
     const isMonday = parseYmd(z.date).getDay() === 1;
     if (isMonday && z.time >= s.notify.weeklyTime) {
       const msg = weeklyMessage(s, planned, z.date);
-      if (await once(`weekly:${z.date}`, 8 * 86400, () => sendNtfy("Weekly batch", msg, "/batch"))) sent.push(msg);
+      if (await once(`weekly:${z.date}`, 8 * 86400, () => sendNtfy("Weekly batch", msg, "/"))) sent.push(msg);
     }
   }
   return sent;

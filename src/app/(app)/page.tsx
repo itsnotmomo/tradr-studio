@@ -205,13 +205,13 @@ function Toolbar(p: {
         <button className="btn small" onClick={p.today}>Today</button>
         <button className="btn small ghost" onClick={() => p.shift(1)} aria-label="Next"><Icon name="right" size={16} /></button>
       </div>
-      <h1 className="text-[16px] md:text-[18px] font-bold tracking-tight min-w-[150px] flex-1 md:flex-none">{p.label}</h1>
-      <div className="seg" role="group" aria-label="View">
+      <h1 className="serif text-[21px] md:text-[24px] leading-tight min-w-[150px] flex-1 md:flex-none">{p.label}</h1>
+      <div className="seg max-md:order-2" role="group" aria-label="View">
         {(["day", "week", "month"] as View[]).map((v) => (
           <button key={v} aria-pressed={p.view === v} onClick={() => p.setView(v)}>{v[0].toUpperCase() + v.slice(1)}</button>
         ))}
       </div>
-      <div className="seg" role="group" aria-label="Account">
+      <div className="seg max-md:order-2" role="group" aria-label="Account">
         <button aria-pressed={p.filter === "all"} onClick={() => p.setFilter("all")}>All</button>
         {LANGS.map((l) => (
           <button key={l.k} aria-pressed={p.filter === l.k} onClick={() => p.setFilter(l.k)} title={l.handle}>{l.code}</button>
@@ -271,7 +271,7 @@ function Week({ cursor, byDay, filter, onNew, settings }: { cursor: Date; byDay:
                     <SlotDrop key={slot} date={k} slot={slot} className={`group rounded-lg border border-dashed p-1.5 flex flex-col gap-1.5 min-w-0 ${slot === "reel" ? "md:min-h-[64px]" : "md:min-h-[200px]"}`} style={{ borderColor: "var(--line)", background: slot === "reel" ? "transparent" : "var(--soft)" }}>
                       <div className="flex items-center justify-between gap-1" title={slotTimes(settings, slot)}>
                         <span className="text-[11px] font-bold uppercase tracking-wide muted">{name}</span>
-                        {!here.length && <button className="btn small ghost !min-h-[22px] !px-1 md:opacity-0 group-hover:opacity-100 focus:opacity-100" onClick={() => onNew(k, slot)} aria-label={`New post, ${name} ${k}`}><Icon name="plus" size={14} /></button>}
+                        {!here.length && <button className="btn small ghost !h-[22px] !px-1 md:opacity-0 group-hover:opacity-100 focus:opacity-100" onClick={() => onNew(k, slot)} aria-label={`New post, ${name} ${k}`}><Icon name="plus" size={14} /></button>}
                       </div>
                       <div className="text-[10px] muted -mt-1 truncate">{slotTimes(settings, slot, only)}</div>
                       <div className="flex flex-col gap-1.5">
