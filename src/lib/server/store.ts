@@ -3,6 +3,7 @@ import { hashToObject, redis } from "./redis";
 import { LK } from "../langs";
 import { slotFromTime } from "../slots";
 import type { Inspo, Lang, PlanItem, Post, Settings, Variant } from "../types";
+import { NEWS_DESK_DEFAULTS, type NewsDesk, type NewsDraft, type NewsSuggestion } from "../news";
 
 // ---------------------------------------------------------------------------
 // Documents live as JSON in Redis hashes (one hash per collection) with a
@@ -34,7 +35,7 @@ for i = 2, #ARGV do
 end
 return 1`;
 
-type Coll = "posts" | "inspo" | "plans" | "kv";
+type Coll = "posts" | "inspo" | "plans" | "kv" | "news" | "newsq";
 const K = { due: "due", inflight: "inflight" };
 
 export class ConflictError extends Error {}
@@ -219,3 +220,44 @@ export async function getKv<T>(id: string, fallback: () => T): Promise<T & { rev
 }
 export const mutateKv = <T>(id: string, fallback: () => T, fn: (d: T & { rev: number }) => (T & { rev: number }) | void) =>
   mutate<T & { rev: number }>("kv", id, fn, undefined, () => ({ ...fallback(), rev: 0 }));
+
+// ---------- News desk ----------
+
+export const listNews = () => readAll<NewsDraft>("news");
+export const getNews = (id: string) => readOne<NewsDraft>("news", id);
+export async function createNews(init: Omit<NewsDraft, "id" | "rev" | "createdAt" | "updatedAt">): Promise<NewsDraft> {
+  const now = Date.now();
+  const doc: NewsDraft = { id: uid(), ...init, createdAt: now, updatedAt: now, rev: 0 };
+  doc.rev = await cas("news", doc.id, 0, doc);
+  return doc;
+}
+export const mutateNews = (id: string, fn: (d: NewsDraft) => NewsDraft | void) =>
+  mutate<NewsDraft>("news", id, (d) => {
+    const out = fn(d) ?? d;
+    out.updatedAt = Date.now();
+    return out;
+  });
+export async function deleteNews(id: string) {
+  await redis().eval(DEL, ["news", "news:rev", K.due, K.inflight], [id]);
+}
+
+export const listSuggestions = () => readAll<NewsSuggestion>("newsq");
+export async function createSuggestion(text: string, url: string | null): Promise<NewsSuggestion> {
+  const now = Date.now();
+  const doc: NewsSuggestion = { id: uid(), text, url, status: "queued", note: "", draftId: null, createdAt: now, updatedAt: now, rev: 0 };
+  doc.rev = await cas("newsq", doc.id, 0, doc);
+  return doc;
+}
+export const mutateSuggestion = (id: string, fn: (d: NewsSuggestion) => NewsSuggestion | void) =>
+  mutate<NewsSuggestion>("newsq", id, (d) => {
+    const out = fn(d) ?? d;
+    out.updatedAt = Date.now();
+    return out;
+  });
+export async function deleteSuggestion(id: string) {
+  await redis().eval(DEL, ["newsq", "newsq:rev", K.due, K.inflight], [id]);
+}
+
+export const getNewsDesk = () => getKv<NewsDesk>("news-desk", () => structuredClone(NEWS_DESK_DEFAULTS));
+export const mutateNewsDesk = (fn: (d: NewsDesk & { rev: number }) => (NewsDesk & { rev: number }) | void) =>
+  mutateKv<NewsDesk>("news-desk", () => structuredClone(NEWS_DESK_DEFAULTS), fn);

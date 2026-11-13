@@ -1,7 +1,7 @@
 import "server-only";
 import { put, list, del } from "@vercel/blob";
 import { hashToObject, redis } from "./redis";
-import { dueVariants, getKv, listInspo, listPlans, listPosts, stuckVariants } from "./store";
+import { dueVariants, getKv, getNewsDesk, listInspo, listNews, listPlans, listPosts, listSuggestions, stuckVariants } from "./store";
 import { getConnection, getSettings, mutateConnection } from "./settings";
 import { metricsDue, publishVariant, recoverStuck, refreshMetrics, type PublishOutcome } from "./publisher";
 import { accountProfile } from "./meta/publish";
@@ -136,10 +136,10 @@ async function daily(today: string) {
 
 /** Nightly JSON backup of everything except Meta tokens, kept for 30 days. */
 export async function backup(today: string) {
-  const [posts, inspo, plans, notes, settings] = await Promise.all([listPosts(), listInspo(), listPlans(), getKv("inspoNotes", () => ({})), getSettings()]);
+  const [posts, inspo, plans, notes, settings, news, newsSuggestions, newsDesk] = await Promise.all([listPosts(), listInspo(), listPlans(), getKv("inspoNotes", () => ({})), getSettings(), listNews(), listSuggestions(), getNewsDesk()]);
   const followers: Record<string, Record<string, string>> = {};
   for (const k of LK) followers[k] = hashToObject(await redis().hgetall(`followers:${k}`));
-  const body = JSON.stringify({ app: "tradr-studio", version: 2, exportedAt: new Date().toISOString(), settings, posts, inspo, plans, notes, followers });
+  const body = JSON.stringify({ app: "tradr-studio", version: 2, exportedAt: new Date().toISOString(), settings, posts, inspo, plans, notes, followers, news, newsSuggestions, newsDesk });
   await put(`backups/tradr-studio-${today}.json`, body, { access: "public", contentType: "application/json", addRandomSuffix: true });
   const { blobs } = await list({ prefix: "backups/" });
   const old = blobs.filter((b) => Date.now() - new Date(b.uploadedAt).getTime() > 30 * 864e5).map((b) => b.url);

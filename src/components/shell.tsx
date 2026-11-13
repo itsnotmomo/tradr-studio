@@ -14,6 +14,7 @@ import { reelMediaProblems } from "@/lib/reel";
 
 const NAV: { href: string; label: string; icon: IconName }[] = [
   { href: "/", label: "Planner", icon: "planner" },
+  { href: "/news", label: "News", icon: "news" },
   { href: "/batch", label: "Batch", icon: "batch" },
   { href: "/captions", label: "Captions", icon: "captions" },
   { href: "/ideas", label: "Ideas", icon: "ideas" },
@@ -63,7 +64,7 @@ export function Shell({ children }: { children: ReactNode }) {
       </main>
 
       <nav aria-label="Sections" className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t safe-b" style={{ background: "var(--panel)", borderColor: "var(--line)" }}>
-        <div className="grid grid-cols-6">
+        <div className="grid grid-cols-7">
           {NAV.filter((n) => !PHONE_MORE.includes(n.href)).map((n) => (
             <Link key={n.href} href={n.href} aria-current={active(path, n.href) ? "page" : undefined}
               className="flex flex-col items-center gap-0.5 pt-2 pb-1.5 text-[10.5px] font-semibold text-[var(--muted)] aria-[current=page]:text-[var(--ink)]">

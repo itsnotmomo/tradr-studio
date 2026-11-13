@@ -52,3 +52,6 @@ next-env.d.ts
 
 # scheduling run files (scripts/schedule-plan.ts)
 /.schedule/
+
+# News desk run files (photos, clips, renders)
+/.news/
