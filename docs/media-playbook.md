@@ -206,7 +206,7 @@ Never a forecast or a price target. Nothing on Tradr is advice.
 - _13 Nov: Nvidia loses almost $500B (saga peak, famous face, record-size number)._
 
 **Times on screenshots are US Eastern.** Every screenshot with a timestamp (Truth Social, X, articles, live blogs) shows US Eastern time (ET), the time most readers and the outlets use. `shot.ts` renders in America/New_York. Truth Social in Chrome shows the browser's time zone: before capturing, set the post's time to its `created_at` in ET (the same instant, written the way an Eastern reader sees it). If a screenshot can't be taken in ET, don't use it until it can.
-- _13 Nov: the two Truth Social screenshots already in News (Iran post, Tim Cook post) still show CET; Truth Social put up a "Verify you are human" check, which we never click. Re-capture when it lets the page through._
+- _13 Nov: the two Truth Social screenshots already in News (Iran post, Tim Cook post) were captured in CET; on Mohamed's instruction the timestamp text was edited in the image to the same moment in ET (8:07 AM, 10:29 AM), matched to Truth Social's font (Inter, text cut). Truth Social had put up a "Verify you are human" check, which we never click._
 
 ## How to update
 
