@@ -19,15 +19,13 @@ _Written 13 Nov 2026 from @polymarket's live Instagram posts and Tradr's own bra
 - **Branding: slide 1 only**, our green T mark, small, top-left. No "TRADR NEWS" text anywhere. No credits or sources on any slide.
 - Price stories with no person: chart hook from real exchange data (big price, change chip, data note).
 
-## Slides 2–4, explain and prove
-- White background, no logo, no source line. One or two sentences at the top in Inter 500 (~50 px), key words in bold. Say who said what, where and when: "President Trump posted on Truth Social on Thursday morning: …", "Fed Governor Christopher Waller said in London on Monday: …".
-- The carousel tells the story slide by slide (Polymarket's $446M post: claim → TV proof → breakdown → reaction).
-- Proof under the text, as wide as the slide:
-  - **The original post as people saw it**: a real screenshot of the Truth Social / X post. Truth Social works through Claude in Chrome (the public API from the page, then a zoomed capture). If blocked, a real screenshot from news coverage or people sharing it. A quote card only when no real screenshot exists anywhere.
-  - Headline screenshots (CNBC, CoinDesk), official releases and filings, official pages (federalreserve.gov speech text).
-  - **Real video clips of the moment**, ≤ 59 s, sound on. TV/news clips with the channel's logo are fine (Fox News, ABC NEWS bug). Never stock footage.
-  - Numbers get real visuals: a price chart card (`chart`, real data, optional mark at the moment of the news) when something moves; bold red/green market tiles (`tiles`, `stat` with `tone`) for figures. Never a plain text box.
-- **Never say the same thing twice.** If the text says it, the image under it must add something new (the report's own paragraph, the chart, the post), not the same headline again.
+## Slides 2–4, explain and prove (14 Nov 2026: Polymarket explainer layout, the default)
+- Off-white background (#FAFAF7), no logo, no source line. Spec: `rows` (see `Panel` in scripts/news/templates.ts).
+- At the top, one short news-style sentence written like a caption (Inter ~50 px, left-aligned, key phrase in bold). One idea per slide; understood in seconds.
+- Below it, the proof as rows of rounded panels (24 px corners), side by side or stacked: the real price chart (`chart`, real data, optional mark at the moment), real screenshots (`image`: headline, data page, the person's post; US Eastern time), red/green/dark number tiles (`tile`), bars for a daily series (`bars`).
+- Real video clips still use the single `media` card (≤ 59 s).
+- **Never say the same thing twice.** The panels add what the sentence doesn't.
+- 2–3 explainer slides by default.
 
 ## Memes, collab, times (13 Nov 2026)
 - Memes on inside slides only, never slide 1: caption above, meme below (playbook §11).
@@ -35,7 +33,7 @@ _Written 13 Nov 2026 from @polymarket's live Instagram posts and Tradr's own bra
 - Every screenshot timestamp in US Eastern time.
 
 ## Last slide
-- Fixed, chosen in Studio: "Don’t just watch the market, watch the traders." / "Join the first social media platform for traders." / tradr.me pill, on Tradr green like the tradr.me lander, with an iPhone 18 Pro showing the Tradr feed. The feed uses made-up traders and made-up trades only (never real users or their results). Never changed per post.
+- Fixed, uploaded with `desk ends` (14 Nov 2026 redesign, Polymarket's last slide as the reference): dark cinematic background (drawn circuit traces, green glow, light lines), Tradr logo + name at the top, "Don't just watch the market. Watch the traders.", the sub-line, a white tradr.me button, a tilted 3D iPhone showing the real tradr.me lander feed (capture of the live page), and the site's disclosure as fine print. Never changed per post.
 
 **Decisions come from `docs/media-playbook.md`** (the Polymarket study). This guide is the production rules; the playbook is the editorial judgement.
 
@@ -57,5 +55,6 @@ _Written 13 Nov 2026 from @polymarket's live Instagram posts and Tradr's own bra
 - Uses the same slides as Instagram.
 
 ## Story choice
+- **When Mohamed names the story, that is the story.** Find the strongest angle inside it; never swap it for another one.
 - What's hot right now and will be shared: politics, markets, finance, crypto, tech, world. Priority to stories that move prices.
 - No tragedies as the hook, no gossip, nothing whose only source is one unverified account.

@@ -187,10 +187,87 @@ export type Card = {
   chart?: { points: number[]; title: string; price: string; change: string; note: string; down?: boolean; mark?: { at: number; label: string } };
   /** 2–4 market tiles, e.g. the moves of several assets. */
   tiles?: { label: string; value: string; change?: string; tone?: "up" | "down" | "neutral" }[];
+  /** Polymarket layout (the default since 14 Nov 2026): off-white slide, the caption-like line on top, then rows of
+   *  rounded visuals side by side (each row is an array of panels; panels in a row share its height). */
+  rows?: Panel[][];
   /** Kept in Studio only (sources[]); never drawn on the slide. */
   source?: string;
   credit?: string;
 };
+
+export type Panel =
+  | { kind: "image"; src: string; h?: number; flex?: number; fit?: "cover" | "contain"; bg?: string; focusY?: number; pad?: number }
+  | { kind: "chart"; h?: number; flex?: number; points: number[]; title: string; price: string; change: string; note: string; down?: boolean; mark?: { at: number; label: string } }
+  | { kind: "tile"; h?: number; flex?: number; label: string; value: string; change?: string; tone?: "up" | "down" | "neutral" }
+  | { kind: "bars"; h?: number; flex?: number; title: string; note?: string; bars: { label: string; value: number; text: string }[] };
+
+function panelHtml(p: Panel, h: number | null) {
+  const hs = h ? `height:${h}px;` : "";
+  const fl = `flex:${p.flex ?? 1};`;
+  if (p.kind === "image") {
+    if (!h) return `<div class="pn img" style="${fl}${p.bg ? `background:${p.bg};` : ""}${p.pad ? `padding:${p.pad}px;` : ""}"><img src="${src(p.src)}" style="width:100%;height:auto"></div>`;
+    return `<div class="pn img" style="${fl}${hs}background:${p.bg ?? (p.fit === "contain" ? "#fff" : "#111")};${p.pad ? `padding:${p.pad}px;` : ""}"><img src="${src(p.src)}" style="width:100%;height:100%;object-fit:${p.fit ?? "cover"};object-position:50% ${Math.round((p.focusY ?? 0.3) * 100)}%"></div>`;
+  }
+  if (p.kind === "chart") {
+    const pts = p.points, lo = Math.min(...pts), hi = Math.max(...pts), w = 1000, ch = 400, top = 30, bot = 20;
+    const x = (i: number) => 10 + (i / (pts.length - 1)) * (w - 50);
+    const y = (v: number) => top + (1 - (v - lo) / (hi - lo || 1)) * (ch - top - bot);
+    const line = pts.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join("");
+    const col = p.down ? RED : GREEN;
+    const m = p.mark ? `<line x1="${x(p.mark.at)}" x2="${x(p.mark.at)}" y1="${top - 10}" y2="${ch}" stroke="#fff" stroke-opacity=".45" stroke-dasharray="6 8" stroke-width="3"/>` : "";
+    return `<div class="pn pchart" style="${fl}${hs}"><div class="ct">${esc(p.title)}</div><div class="cp"><b>${esc(p.price)}</b><span style="background:${col}">${esc(p.change)}</span></div>
+<svg viewBox="0 0 ${w} ${ch}" preserveAspectRatio="none"><defs><linearGradient id="pg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col}" stop-opacity=".4"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>
+<path d="${line}L${x(pts.length - 1)},${ch}L${x(0)},${ch}Z" fill="url(#pg)"/><path d="${line}" fill="none" stroke="${col}" stroke-width="6" stroke-linejoin="round"/>${m}
+<circle cx="${x(pts.length - 1)}" cy="${y(pts[pts.length - 1])}" r="12" fill="${col}"/></svg>${p.mark ? `<div class="mk" style="left:${(x(p.mark.at) / w) * 100}%;transform:translateX(${x(p.mark.at) / w > 0.75 ? "calc(-100% + 8px)" : "-50%"})">${esc(p.mark.label)}</div>` : ""}<div class="cn">${esc(p.note)}</div></div>`;
+  }
+  if (p.kind === "tile") {
+    const tone = p.tone === "up" ? "up" : p.tone === "down" ? "down" : "neutral";
+    const vpx = Math.min(150, Math.round(780 / Math.max(3, [...p.value].length)) * (p.flex ?? 1));
+    return `<div class="pn ptile ${tone}" style="${fl}${hs}"><div class="tl">${esc(p.label)}</div><div class="tv" style="font-size:${vpx}px">${esc(p.value)}</div>${p.change ? `<div class="tc">${tone === "down" ? "▼ " : tone === "up" ? "▲ " : ""}${esc(p.change)}</div>` : ""}</div>`;
+  }
+  const max = Math.max(...p.bars.map((b) => Math.abs(b.value)));
+  return `<div class="pn pbars" style="${fl}${hs}"><div class="ct">${esc(p.title)}</div><div class="bs">${p.bars.map((b) =>
+    `<div class="b"><span class="bt">${esc(b.text)}</span><i style="height:${Math.round((Math.abs(b.value) / max) * 100)}%;background:${b.value < 0 ? RED : GREEN}"></i><span class="bl">${esc(b.label)}</span></div>`).join("")}</div>${p.note ? `<div class="cn">${esc(p.note)}</div>` : ""}</div>`;
+}
+
+function rowsHtml(s: Card) {
+  return `<!doctype html><html><head><meta charset="utf-8"><style>${BASE}
+body { background: #FAFAF7; color: #111; display: flex; flex-direction: column; justify-content: center; padding: 70px 0 70px; }
+.lead { padding: 0 34px 38px; font: 450 50px/1.24 Inter; letter-spacing: -.012em; color: #121212; }
+.lead em { font-style: normal; font-weight: 750; }
+.rows { margin: 0 16px; display: flex; flex-direction: column; gap: 14px; }
+.row { display: flex; gap: 14px; align-items: stretch; }
+.pn { border-radius: 24px; overflow: hidden; position: relative; min-width: 0; }
+.pn.img { box-shadow: 0 0 0 2px #ecebe6; background: #fff; }
+.pn.img img { display: block; }
+.pchart, .pbars { background: #0b0c0c; color: #fff; padding: 30px 0 0; display: flex; flex-direction: column; }
+.ct { padding: 0 32px; font: 800 24px/1 Inter; letter-spacing: .05em; text-transform: uppercase; color: rgba(255,255,255,.6); }
+.cp { padding: 12px 32px 0; display: flex; align-items: center; gap: 16px; }
+.cp b { font: 400 92px/1 Anton; }
+.cp span { font: 800 30px/1 Inter; padding: 9px 14px; border-radius: 10px; color: #fff; }
+.pchart svg { display: block; width: 100%; flex: 1; min-height: 0; margin-top: 8px; }
+.mk { position: absolute; top: 34px; background: #fff; color: #0b0c0c; font: 800 22px/1 Inter; padding: 8px 12px; border-radius: 9px; white-space: nowrap; }
+.cn { position: absolute; left: 32px; bottom: 20px; font: 500 20px/1.2 Inter; color: rgba(255,255,255,.5); }
+.ptile { color: #fff; padding: 34px 30px; display: flex; flex-direction: column; justify-content: space-between; }
+.ptile.up { background: linear-gradient(160deg, #10d27a, #00a85a); }
+.ptile.down { background: linear-gradient(160deg, #f0383d, #c3161b); }
+.ptile.neutral { background: #0b0c0c; }
+.ptile .tl { font: 800 28px/1.15 Inter; letter-spacing: .03em; text-transform: uppercase; opacity: .92; }
+.ptile .tv { font-family: Anton; line-height: 1; white-space: nowrap; margin-top: 18px; }
+.ptile .tc { margin-top: 14px; font: 800 28px/1.15 Inter; }
+.pbars .bs { flex: 1; display: flex; gap: 16px; padding: 26px 32px 64px; align-items: stretch; }
+.pbars .b { flex: 1; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; gap: 10px; }
+.pbars .b i { display: block; width: 100%; border-radius: 0 0 12px 12px; }
+.pbars .bt { font: 800 26px/1 Inter; color: #ff6a6e; }
+.pbars .bl { font: 600 22px/1 Inter; color: rgba(255,255,255,.6); margin-top: auto; }
+</style></head><body>
+<div class="lead" data-fit="54,38,5">${marks(s.text)}</div>
+<div class="rows">${(s.rows ?? []).map((r) => {
+    const h = r.length > 1 || r.some((p) => p.h || p.kind !== "image") ? Math.max(...r.map((p) => p.h ?? 0)) || 520 : null;
+    return `<div class="row">${r.map((p) => panelHtml(p, h)).join("")}</div>`;
+  }).join("")}</div>
+${FIT}</body></html>`;
+}
 
 function cardChart(c: NonNullable<Card["chart"]>) {
   const p = c.points, lo = Math.min(...p), hi = Math.max(...p), w = 1000, h = 420, top = 30, bot = 70;
@@ -208,6 +285,7 @@ function cardChart(c: NonNullable<Card["chart"]>) {
 
 /** Returns the HTML plus, for video cards, the box the video is laid into. */
 export function cardHtml(s: Card) {
+  if (s.rows?.length) return rowsHtml(s);
   const m = s.media;
   const aspect = m?.aspect ?? 16 / 9;
   const boxH = Math.round(W / aspect);
@@ -274,119 +352,86 @@ ${FIT}</body></html>`;
 
 export type End = { type: "end"; line: string; sub: string };
 
-type FeedPost = { who: string; name: string; face: string; time: string; note: string; market: string; side: "Buy" | "Sell"; res: string; rr: string; likes: string; comments: string; saves: string; path: number[] };
-
-/** Made-up traders and made-up trades for the marketing phone (never real users or their results).
- *  Faces: free-licence stock portraits from the tradr.me landing set (Unsplash), names invented. */
-const FEED: FeedPost[] = [
-  { who: "marcus", name: "Marcus Cole", face: "marcus.webp", time: "2h", note: "Waited three sessions for this retest. London open delivered, out at the second target.", market: "XAU/USD", side: "Buy", res: "+6.42%", rr: "1 : 3.8", likes: "2.4k", comments: "318", saves: "906",
-    path: [10, 12, 11, 14, 13, 15, 14, 18, 17, 21, 20, 24, 23, 27, 30, 29, 33, 36, 35, 39, 42] },
-  { who: "elena", name: "Elena Petrova", face: "elena.webp", time: "5h", note: "Short from the range high, held through the flush. Partials at TP1 and TP2.", market: "BTC/USD", side: "Sell", res: "+4.85%", rr: "1 : 2.9", likes: "1.9k", comments: "241", saves: "712",
-    path: [40, 41, 39, 42, 38, 37, 39, 35, 33, 34, 30, 28, 29, 25, 22, 23, 19, 17, 18, 14, 12] },
-  { who: "tobi", name: "Tobi Adeyemi", face: "tobi.webp", time: "8h", note: "Clean break of the weekly level. Risked 1%, closed the week green.", market: "EUR/USD", side: "Buy", res: "+3.12%", rr: "1 : 3.1", likes: "1.2k", comments: "164", saves: "433",
-    path: [12, 13, 12, 15, 16, 15, 18, 19, 21, 20, 23, 25, 24, 27, 29, 31, 30, 33, 35, 36, 38] },
-];
-
-const ICO = {
-  heart: "M12 21s-7.5-4.6-9.5-9.2C1 8.4 3.4 5 6.9 5c2 0 3.6 1.1 5.1 3 1.5-1.9 3.1-3 5.1-3 3.5 0 5.9 3.4 4.4 6.8C19.5 16.4 12 21 12 21Z",
-  chat: "M4 5h16v11H9l-5 4V5Z",
-  save: "M6 3h12v18l-6-4-6 4V3Z",
-  search: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14Zm5.2 12.2L21 21",
-  bell: "M6 16V11a6 6 0 1 1 12 0v5l2 2H4l2-2Zm4 4h4",
-  home: "M3 11 12 4l9 7v9h-6v-6H9v6H3v-9Z",
-  trophy: "M7 4h10v4a5 5 0 0 1-10 0V4Zm5 9v4m-4 3h8M7 6H4a3 3 0 0 0 3 4m10-4h3a3 3 0 0 1-3 4",
-  users: "M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 9a7 7 0 0 1 14 0M17 3a4 4 0 0 1 0 8m5 9a7 7 0 0 0-4-6.3",
-  user: "M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm-8 10a8 8 0 0 1 16 0",
-};
-const ico = (d: string, fill = false) => `<svg viewBox="0 0 24 24" class="i"><path d="${d}" fill="${fill ? "currentColor" : "none"}" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-
-function spark(p: number[], up: boolean) {
-  const lo = Math.min(...p), hi = Math.max(...p), w = 300, h = 74;
-  const pts = p.map((v, i) => `${((i / (p.length - 1)) * w).toFixed(1)},${(h - 4 - ((v - lo) / (hi - lo || 1)) * (h - 8)).toFixed(1)}`);
-  const col = "#00D478";
-  void up;
-  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" class="sp"><defs><linearGradient id="sg${p[0]}${p[1]}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col}" stop-opacity=".35"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>
-<path d="M${pts.join("L")}L${w},${h}L0,${h}Z" fill="url(#sg${p[0]}${p[1]})"/><path d="M${pts.join("L")}" fill="none" stroke="${col}" stroke-width="3" stroke-linejoin="round"/></svg>`;
+/** Seeded random, so the background is the same on every render. */
+function rng(seed: number) {
+  return () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
 }
 
-function postHtml(t: FeedPost) {
-  const face = src(path.join(import.meta.dirname, "assets", "faces", t.face));
-  return `<article class="post"><header><img src="${face}"><p><b>${esc(t.name)}</b><em>${esc(t.res)}</em></p><time>${esc(t.time)}</time></header>
-<div class="note">${esc(t.note)}</div>
-<div class="row"><div class="pair"><span class="mk">${esc(t.market)}</span><span class="side ${t.side === "Buy" ? "b" : "s"}">${t.side}</span><span class="rr">R:R ${esc(t.rr)}</span></div><div class="res">${esc(t.res)}</div></div>
-<div class="chart">${spark(t.path, t.side === "Buy")}</div>
-<footer><span>${ico(ICO.heart, true)}${t.likes}</span><span>${ico(ICO.chat)}${t.comments}</span><span>${ico(ICO.save)}${t.saves}</span></footer></article>`;
+/** Circuit-board traces: orthogonal runs with a 45° kink, a node at each end. Drawn, not an image. */
+function circuit(seed: number) {
+  const r = rng(seed);
+  const paths: string[] = [], dots: string[] = [];
+  for (let k = 0; k < 70; k++) {
+    let x = Math.round(r() * 27) * 40, y = Math.round(r() * 34) * 40;
+    let d = `M${x},${y}`;
+    const n = 2 + Math.floor(r() * 3);
+    for (let s = 0; s < n; s++) {
+      const len = (2 + Math.floor(r() * 6)) * 40, dir = Math.floor(r() * 4);
+      if (dir === 0) x += len; else if (dir === 1) x -= len; else if (dir === 2) y += len; else y -= len;
+      d += `L${x},${y}`;
+      const kink = (1 + Math.floor(r() * 2)) * 40;
+      x += r() < .5 ? kink : -kink; y += r() < .5 ? kink : -kink;
+      d += `L${x},${y}`;
+    }
+    paths.push(d);
+    dots.push(`<circle cx="${x}" cy="${y}" r="7"/>`);
+  }
+  return `<svg class="circ" viewBox="0 0 1080 1350" preserveAspectRatio="xMidYMid slice"><g fill="none" stroke-width="3" stroke-linejoin="round">${paths.map((d) => `<path d="${d}"/>`).join("")}</g><g class="nodes">${dots.join("")}</g></svg>`;
 }
 
-/** The fixed last slide: the line, the sub-line, tradr.me, and an iPhone showing the Tradr feed (made-up traders). */
+/** The fixed last slide (14 Nov 2026, Polymarket-style ad): dark cinematic background, Tradr logo on top, the line,
+ *  tradr.me as the call to action, and a tilted iPhone showing the real tradr.me lander feed (a capture of the live
+ *  page: its stand-in names and faces on real Tradr trades, replayed; the fine print says so, as the site does). */
 export function endHtml(s: End) {
-  const me = src(path.join(import.meta.dirname, "assets", "faces", "luke.webp"));
+  const feed = src(path.join(import.meta.dirname, "assets", "lander-feed.jpg"));
   const [l1, l2] = s.line.replace(/\*/g, "").split(/,\s*/);
   return `<!doctype html><html><head><meta charset="utf-8"><style>${BASE}
 @font-face { font-family: Display; src: url(${f("archivo-condensed-black-italic.woff2")}); font-weight: 900; font-style: italic; }
 @font-face { font-family: Geist; src: url(${f("geist.woff2")}); font-weight: 400 700; }
-body { background: #00C16A; color: #06100a; font-family: Geist, Inter, sans-serif; }
-.bg { position: absolute; inset: 0; background: radial-gradient(60% 40% at 50% 85%, rgba(255,255,255,.28), transparent 70%), radial-gradient(80% 60% at 0% 0%, rgba(0,0,0,.10), transparent 60%); }
-.hd { position: absolute; left: 60px; right: 60px; top: 60px; }
-h2 { font-family: Display; font-weight: 900; font-style: italic; text-transform: uppercase; line-height: .9; letter-spacing: -.01em; }
+body { background: #020504; color: #fff; font-family: Geist, Inter, sans-serif; }
+.bg { position: absolute; inset: 0; background:
+  radial-gradient(42% 30% at 50% 66%, rgba(0,193,106,.42), transparent 70%),
+  radial-gradient(70% 45% at 50% 70%, rgba(0,120,66,.30), transparent 72%),
+  radial-gradient(60% 40% at 50% 0%, rgba(0,193,106,.10), transparent 70%),
+  linear-gradient(180deg, #030a07 0%, #020504 60%, #010302 100%); }
+.circ { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .4; -webkit-mask-image: radial-gradient(70% 60% at 50% 55%, #000 30%, transparent 90%); }
+.circ g:first-child { stroke: rgba(0,193,106,.20); }
+.circ .nodes { fill: #0b2a1c; stroke: rgba(0,220,120,.55); stroke-width: 3; }
+.glowlines { position: absolute; inset: 0; background:
+  linear-gradient(115deg, transparent 47%, rgba(0,255,140,.10) 49.6%, rgba(160,255,210,.30) 50%, rgba(0,255,140,.10) 50.4%, transparent 53%),
+  linear-gradient(65deg, transparent 58%, rgba(0,255,140,.07) 59.7%, rgba(160,255,210,.22) 60%, rgba(0,255,140,.07) 60.3%, transparent 62%);
+  mix-blend-mode: screen; filter: blur(1.5px); }
+.floor { position: absolute; left: -20%; right: -20%; bottom: -10px; height: 470px; transform: perspective(700px) rotateX(64deg); transform-origin: 50% 100%;
+  background-image: linear-gradient(rgba(0,220,120,.30) 2px, transparent 2px), linear-gradient(90deg, rgba(0,220,120,.30) 2px, transparent 2px); background-size: 90px 90px;
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 60%); }
+.vig { position: absolute; inset: 0; background: radial-gradient(120% 90% at 50% 50%, transparent 55%, rgba(0,0,0,.75)), linear-gradient(180deg, transparent 80%, rgba(2,5,4,.85) 92%, #020504 100%); }
+.brand { position: absolute; top: 58px; left: 0; right: 0; display: flex; justify-content: center; align-items: center; gap: 14px; font: 700 44px/1 Geist; letter-spacing: -.02em; }
+.brand svg { width: 34px; height: 38px; }
+.hd { position: absolute; top: 140px; left: 40px; right: 40px; text-align: center; }
+h2 { font-family: Display; font-weight: 900; font-style: italic; text-transform: uppercase; line-height: .9; letter-spacing: -.005em; }
 h2 span { display: block; white-space: nowrap; }
-h2 .a { color: rgba(6,16,10,.42); }
-h2 .b { color: #06100a; }
-.subrow { margin-top: 30px; display: flex; align-items: center; justify-content: space-between; gap: 30px; }
-.sub { font: 500 34px/1.25 Geist; color: #06100a; max-width: 560px; }
-.url { flex: none; display: flex; align-items: center; gap: 14px; background: #06100a; color: #fff; font: 700 42px/1 Geist; letter-spacing: -.01em; padding: 22px 34px 22px 26px; border-radius: 999px; box-shadow: 0 18px 40px -12px rgba(0,0,0,.45); }
-.url svg { width: 30px; height: 34px; }
-/* iPhone 18 Pro */
-.phone { position: absolute; left: 50%; top: 392px; width: 640px; height: 1300px; margin-left: -320px; border-radius: 98px; padding: 14px;
-  background: linear-gradient(145deg, #4a4f53, #1c1f21 30%, #2e3235 60%, #121415); box-shadow: 0 70px 120px -30px rgba(0,40,20,.65), 0 30px 60px -20px rgba(0,0,0,.5), inset 0 0 0 2px rgba(255,255,255,.12); }
-.phone::before { content: ""; position: absolute; right: -6px; top: 300px; width: 6px; height: 120px; border-radius: 0 4px 4px 0; background: #2a2e30; }
-.scr { position: relative; width: 100%; height: 100%; border-radius: 85px; overflow: hidden; background: #000; color: #e7eaeb; display: flex; flex-direction: column; font-family: Geist, Inter, sans-serif; }
-.island { position: absolute; top: 20px; left: 50%; width: 150px; height: 44px; margin-left: -75px; border-radius: 30px; background: #000; box-shadow: 0 0 0 1px #111; z-index: 3; }
-.sb { height: 84px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 14px 58px 0 66px; font: 700 27px/1 Geist; color: #fff; }
-.sb i { display: inline-block; width: 40px; height: 18px; border-radius: 6px; border: 2px solid rgba(255,255,255,.55); position: relative; }
-.sb i::after { content: ""; position: absolute; inset: 2px 6px 2px 2px; border-radius: 3px; background: #fff; }
-.top { flex: none; display: flex; align-items: center; justify-content: space-between; padding: 6px 30px 14px; }
-.top img { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; }
-.top .t { width: 40px; height: 45px; }
-.top .r { display: flex; gap: 22px; color: #9aa3a7; }
-.i { width: 34px; height: 34px; }
-.tabs { flex: none; display: flex; border-bottom: 1px solid #1a1f22; font: 600 25px/1 Geist; color: #737c80; }
-.tabs span { flex: 1; text-align: center; padding: 14px 0 20px; position: relative; }
-.tabs .on { color: #fff; }
-.tabs .on::after { content: ""; position: absolute; left: 50%; bottom: 0; width: 90px; height: 5px; margin-left: -45px; border-radius: 4px; background: #00C16A; }
-.feed { flex: 1; padding: 18px 18px 0; display: flex; flex-direction: column; gap: 16px; overflow: hidden; }
-.post { border: 1.5px solid #1c2225; border-radius: 28px; padding: 22px 24px 18px; background: #050707; }
-.post header { display: flex; align-items: center; gap: 14px; }
-.post header img { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; }
-.post header p { flex: 1; display: flex; align-items: baseline; gap: 12px; }
-.post header b { font: 700 26px/1 Geist; color: #fff; }
-.post header em { font: 700 20px/1 Geist; font-style: normal; color: #00d478; }
-.post time { font: 500 20px/1 Geist; color: #6b7478; }
-.note { margin-top: 14px; font: 400 23px/1.36 Geist; color: #c5cbce; }
-.row { margin-top: 16px; display: flex; align-items: center; justify-content: space-between; }
-.pair { display: flex; align-items: center; gap: 12px; font: 700 23px/1 Geist; letter-spacing: .02em; color: #fff; }
-.side { font: 800 17px/1 Geist; letter-spacing: .08em; text-transform: uppercase; padding: 7px 10px; border-radius: 8px; }
-.side.b { color: #00d478; background: rgba(0,212,120,.12); } .side.s { color: #ff5a5f; background: rgba(255,90,95,.12); }
-.res { font: 800 46px/1 Geist; letter-spacing: -.03em; color: #00d478; }
-.chart { position: relative; margin-top: 12px; height: 74px; }
-.sp { width: 100%; height: 74px; display: block; }
-.rr { font: 600 19px/1 Geist; letter-spacing: 0; color: #8b9498; }
-.post footer { margin-top: 14px; display: flex; gap: 34px; font: 600 21px/1 Geist; color: #8b9498; }
-.post footer span { display: inline-flex; align-items: center; gap: 8px; }
-.post footer span:first-child { color: #ff5a7a; }
-.post footer .i { width: 27px; height: 27px; }
-.post footer span:last-child { margin-left: auto; }
-.chip { position: absolute; display: flex; align-items: center; gap: 12px; padding: 16px 22px; border-radius: 999px; background: #fff; color: #06100a; font: 700 26px/1 Geist; box-shadow: 0 24px 50px -14px rgba(0,40,20,.55); z-index: 5; }
-.chip img { width: 46px; height: 46px; border-radius: 50%; object-fit: cover; }
-.chip b { color: #00a85c; }
-.chip .hrt { color: #ff4d6d; display: flex; } .chip .i { width: 32px; height: 32px; }
-</style></head><body><div class="bg"></div>
-<div class="hd"><h2><span class="a" data-fit="160,80,1">${esc(l1 ?? "")},</span><span class="b" data-fit="160,80,1">${esc(l2 ?? "")}</span></h2>
-<div class="subrow"><p class="sub">${esc(s.sub)}</p><div class="url">${MARK}tradr.me</div></div></div>
-<div class="phone"><div class="scr"><div class="island"></div>
-<div class="sb"><span>9:41</span><span><i></i></span></div>
-<div class="top"><img src="${me}"><div class="t">${MARK}</div><div class="r">${ico(ICO.search)}${ico(ICO.bell)}</div></div>
-<div class="tabs"><span class="on">Discover</span><span>Trade Ideas</span></div>
-<div class="feed">${FEED.map(postHtml).join("")}</div></div></div>
+h2 .a { color: rgba(255,255,255,.62); }
+h2 .b { color: #fff; text-shadow: 0 0 40px rgba(0,193,106,.45); }
+.cta { margin-top: 26px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.cta small { font: 500 32px/1.2 Geist; color: rgba(255,255,255,.78); }
+.url { display: inline-flex; align-items: center; gap: 16px; background: #fff; color: #050807; font: 800 64px/1 Geist; letter-spacing: -.03em; padding: 16px 34px 18px 28px; border-radius: 18px; box-shadow: 0 0 0 4px rgba(0,193,106,.35), 0 20px 60px rgba(0,193,106,.35); }
+.url svg { width: 40px; height: 45px; }
+.stage { position: absolute; left: 0; right: 0; top: 548px; height: 900px; perspective: 2400px; }
+.phone { position: absolute; left: 50%; top: 0; width: 500px; height: 1020px; margin-left: -250px; border-radius: 76px; padding: 11px;
+  transform: rotateX(16deg) rotateY(-14deg) rotateZ(-9deg); transform-origin: 50% 40%;
+  background: linear-gradient(140deg, #6b7176 0%, #23272a 18%, #3c4145 46%, #15181a 70%, #5a6065 100%);
+  box-shadow: 30px 50px 90px rgba(0,0,0,.75), 0 0 120px rgba(0,193,106,.35), inset 0 0 0 2px rgba(255,255,255,.18); }
+.phone::before { content: ""; position: absolute; left: -5px; top: 210px; width: 5px; height: 90px; border-radius: 3px 0 0 3px; background: #4a5055; box-shadow: 0 120px 0 #4a5055; }
+.scr { width: 100%; height: 100%; border-radius: 66px; overflow: hidden; background: #000 url('${feed}') top center / 100% auto no-repeat; position: relative; }
+.scr::after { content: ""; position: absolute; inset: 0; background: linear-gradient(125deg, rgba(255,255,255,.16) 0%, rgba(255,255,255,0) 32%, rgba(255,255,255,0) 70%, rgba(255,255,255,.06) 100%); }
+.fine { position: absolute; left: 70px; right: 70px; bottom: 26px; text-align: center; font: 500 15.5px/1.38 Geist; color: rgba(255,255,255,.55); }
+</style></head><body>
+<div class="bg"></div>${circuit(7)}<div class="glowlines"></div><div class="floor"></div>
+<div class="stage"><div class="phone"><div class="scr"></div></div></div>
+<div class="vig"></div>
+<div class="brand">${MARK}Tradr</div>
+<div class="hd"><h2><span class="a" data-fit="96,50,1">${esc(l1 ?? "")}.</span><span class="b" data-fit="150,70,1">${esc((l2 ?? "").replace(/^./, (c) => c.toUpperCase()))}</span></h2>
+<div class="cta"><small>${esc(s.sub)}</small><div class="url">${MARK}tradr.me</div></div></div>
+<div class="fine">The trades shown are real ones from Tradr, replayed. Names, faces and notes are stand-ins; likes, comments and saves are illustrative. Tradr is a trade journal. Nothing on Tradr is financial advice. Trading carries a high risk of losing money.</div>
 ${FIT}</body></html>`;
 }

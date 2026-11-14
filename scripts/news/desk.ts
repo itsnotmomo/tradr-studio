@@ -12,7 +12,7 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { put } from "@vercel/blob";
 import {
-  createNews, getNews, getNewsDesk, listNews, listSuggestions, mutateNews, mutateNewsDesk, mutateSuggestion, uid,
+  createNews, deleteNews, getNews, getNewsDesk, listNews, listSuggestions, mutateNews, mutateNewsDesk, mutateSuggestion, uid,
 } from "@/lib/server/store";
 import type { EndOption, NewsSlide } from "@/lib/news";
 import { renderEnds, renderSpec, type Spec } from "./render";
@@ -158,6 +158,14 @@ async function main() {
       console.log(JSON.stringify(options, null, 2));
       break;
     }
+    case "delete": {
+      // Deletes a draft for good (only when Mohamed asks; the app's own delete needs the draft rejected first).
+      const d = await getNews(args[0]);
+      if (!d) throw new Error(`No draft ${args[0]}`);
+      await deleteNews(d.id);
+      console.log(`deleted ${d.id} (${d.title})`);
+      break;
+    }
     case "summary":
       await mutateNewsDesk((d) => {
         d.lastRunAt = Date.now(); d.lastRunSummary = args.join(" ").slice(0, 2000);
@@ -165,7 +173,7 @@ async function main() {
       console.log("ok");
       break;
     default:
-      console.log("commands: inbox | publish <spec> | collab <draftId> [day] [handle] | skip <id> <reason> | refs <dir> | guide <md> | ends <json> | summary <text>");
+      console.log("commands: inbox | publish <spec> | collab <draftId> [day] [handle] | skip <id> <reason> | refs <dir> | guide <md> | ends <json> | delete <draftId> | summary <text>");
   }
 }
 

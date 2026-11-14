@@ -148,6 +148,7 @@ export async function renderSpec(specPath: string, opts: { end?: End } = {}) {
       const s: Card = structuredClone(raw);
       if (s.quote?.photo) s.quote.photo = await local(dir, s.quote.photo);
       if (s.media?.kind === "image") s.media.src = await local(dir, s.media.src);
+      for (const row of s.rows ?? []) for (const pn of row) if (pn.kind === "image") pn.src = await local(dir, pn.src);
       if (s.media?.kind === "video") {
         const bg = path.join(outDir, `${n}.bg.png`);
         const box = await shoot(browser, cardHtml(s), bg, "png", dir);

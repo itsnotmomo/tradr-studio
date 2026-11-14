@@ -1,6 +1,6 @@
 # Tradr News — Media Playbook
 
-_Last updated: 13 Nov 2026 (§11 added the same evening; §12 "Built for reach" added later that night from a study of viral news & finance pages, raw log `.news/viral-study/`). Built from a study of @polymarket's Instagram (788K followers, 1,863 posts at the time of the study): **~191 posts read** (metadata, caption, likes/comments/shares, slide count), **16 carousels stepped through slide by slide**, date range **11 May 2026 → 13 Nov 2026** (every post from 24 Oct to 13 Nov, then every 3rd, then every 6th post going back). Raw log and reference screenshots: `.news/pm-study/`._
+_Last updated: 14 Nov 2026 (§13 house format and story rule; §11 added the same evening; §12 "Built for reach" added later that night from a study of viral news & finance pages, raw log `.news/viral-study/`). Built from a study of @polymarket's Instagram (788K followers, 1,863 posts at the time of the study): **~191 posts read** (metadata, caption, likes/comments/shares, slide count), **16 carousels stepped through slide by slide**, date range **11 May 2026 → 13 Nov 2026** (every post from 24 Oct to 13 Nov, then every 3rd, then every 6th post going back). Raw log and reference screenshots: `.news/pm-study/`._
 
 This is decision-making guidance for whoever edits Tradr News, not a template. Where it says "Polymarket does X", that is evidence; where it says "we", that is the recommendation. `docs/news-style-guide.md` holds the production rules (fonts, sizes, Studio fields); where this playbook's evidence differs from it, the difference is called out in "Adapting to Tradr" for Mohamed to decide.
 
@@ -383,6 +383,23 @@ Use when the story is a person and a turn, not a price move.
 _13 Nov, first story post on this recipe: Serve Robotics/Jensen ("DAYS FROM BANKRUPTCY. THEN JENSEN CALLED."), 9 slides: hook (Jensen + founder inset) → stakes → the email → the one-line reply blown up → "6:00 AM. His phone rings." + his post → then/now tiles → Nasdaq bell clip → twist (founders posting Jensen stories the week he resigned) → meme; caption ends "Would you have hit send?". Check the numbers after 48 h._
 
 _14 Nov: single-story Bitcoin run. The price move (BTC $65K) was yesterday's story again, so the angle was the famous face inside it: "SAYLOR'S BITCOIN IS NOW $8.4 BILLION UNDERWATER" (paper loss = our maths from Strategy's 8-K, shown in the caption). Receipt = his own buy post five days earlier at $79,012 (before/after); twist = MSCI exit on Nov 30. Mohamed asked for hashtags on this caption: one-off, guide unchanged. X embed screenshots run tall with a link card: trim the card out (keep header, text, timestamp) so the ET time stays visible._
+
+## 13. House format and story rule (Mohamed, 14 Nov 2026) — the default for every News carousel
+
+**Stick to the story Mohamed asks for.** When he names a story or subject ("Bitcoin dropping today: the price fall itself"), that is the post. Research it, find its strongest true angle *within* that story, and build it. Never swap it for a neighbouring story because it looks more viral (14 Nov: asked for Bitcoin's biggest story, the first draft went to Saylor's Strategy; he wanted the drop itself). If a different story looks stronger, build what he asked and mention the other one in one line.
+
+**Built to be understood in seconds.** One idea per slide, short text, big clear visuals. The reader should get the story from the slides alone, swiping fast.
+
+**Inner slides = Polymarket's explainer slide** (`rows` in the spec; reference screenshot: Polymarket's Nvidia/Blind slide 3/12):
+- Off-white background (#FAFAF7).
+- At the top: one short news-style sentence, written like a caption (Inter, ~50 px, left-aligned, one or two key phrases bold). It states the point with its number; attribution goes in the caption and Studio, not on the slide unless it is the point.
+- Below it: the visuals that prove it, as rows of rounded panels (24 px corners, 14 px gaps, 16 px side margins), side by side or stacked: the real chart, the real screenshot (headline, data page, post), the number as a red/green/dark tile, bars for a series. Every panel adds something the sentence doesn't say.
+- 2–3 explainer slides is the default length unless Mohamed asks otherwise.
+- Old white "text above one media" cards (`media`, `tiles`, `stat` without `rows`) are legacy; use `rows`.
+
+**Last slide = the cinematic ad** (rendered by `endHtml`, uploaded with `desk ends`): near-black background with drawn circuit traces, green glow and light lines, Tradr logo + name on top, the locked line "Don't just watch the market. Watch the traders.", the sub-line, a white tradr.me button, and a tilted 3D iPhone showing the **real tradr.me lander feed** (a capture of the live page, `scripts/news/assets/lander-feed.jpg`). The fine print copies the site's disclosure (real Tradr trades replayed; names, faces and notes are stand-ins; likes etc. illustrative; not financial advice). Refresh the capture when the lander changes. Never write made-up trades into the phone.
+
+_14 Nov: first post in this format — "BITCOIN CRASHES TO $65,000" (chart hook) → 7-day chart + CoinDesk headline → CoinGlass liquidation panel → Farside ETF bars + two tiles → new end slide. Check numbers after 48 h._
 
 ## How to update
 
