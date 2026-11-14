@@ -28,6 +28,7 @@ function NewsView() {
   const { data, error, mutate } = useSWR<Data>(KEY, fetcher, { refreshInterval: 30_000 });
   const params = useSearchParams();
   const router = useRouter();
+  const only = params.get("id");
   const tab = (params.get("tab") as Tab) || "review";
   const setTab = (t: Tab) => router.replace(t === "review" ? "/news" : `/news?tab=${t}`, { scroll: false });
   const toast = useToast();
@@ -58,7 +59,8 @@ function NewsView() {
   }, [data]);
 
   const end = data ? endSlideOf(data.desk) : null;
-  const list = (data?.drafts ?? []).filter((d) => inTab(d, tab));
+  // ?id=<draftId> opens one post on its own (the direct link to a draft), whatever its tab.
+  const list = (data?.drafts ?? []).filter((d) => (only ? d.id === only : inTab(d, tab)));
 
   return (
     <div className="news mx-auto w-full max-w-[860px] px-4 md:px-6 pt-5 md:pt-10 pb-10">
@@ -85,12 +87,14 @@ function NewsView() {
       {error && <p className="text-[13px] text-[var(--danger)] py-6">{error.message}</p>}
       {!data && !error && <div className="py-16 flex justify-center muted"><Spinner size={20} /></div>}
 
-      {data && tab === "style" && <StylePanel desk={data.desk} onChange={() => mutate()} />}
+      {only && <p className="text-[13px] py-3"><button className="underline underline-offset-2" onClick={() => router.replace("/news", { scroll: false })}>← All posts</button></p>}
 
-      {data && tab !== "style" && (
+      {data && !only && tab === "style" && <StylePanel desk={data.desk} onChange={() => mutate()} />}
+
+      {data && (only || tab !== "style") && (
         list.length === 0 ? (
           <div className="news-empty">
-            {tab === "review" ? <>Nothing to review. Run <b>make news posts</b> in Claude Code.</> : tab === "approved" ? "Nothing approved and waiting to be posted." : "Nothing posted yet."}
+            {only ? "This post no longer exists." : tab === "review" ? <>Nothing to review. Run <b>make news posts</b> in Claude Code.</> : tab === "approved" ? "Nothing approved and waiting to be posted." : "Nothing posted yet."}
           </div>
         ) : (
           <div className="flex flex-col gap-4 mt-1">
