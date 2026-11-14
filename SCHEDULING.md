@@ -56,7 +56,7 @@ The plan script does the following:
 
 ## 2. Schedule each item
 
-0. **Reels need the Chrome window visible**, on screen and not minimized. In the Instagram tab, `document.visibilityState` must be `"visible"`. When the window is hidden, Chrome doesn't decode video, and the upload sticks on "Drag photos and videos here". Photos work either way. If it's hidden, schedule the posts and leave the reels until the owner brings Chrome to the front.
+0. **"Chrome visible" applies only to video uploads.** For photo posts a hidden or background tab is not a reason to stop or pause: keep going. Reels need the Chrome window visible, on screen and not minimized. In the Instagram tab, `document.visibilityState` must be `"visible"`. When the window is hidden, Chrome doesn't decode video, and the upload sticks on "Drag photos and videos here". Photos work either way. If it's hidden, schedule the posts and leave the reels until the owner brings Chrome to the front.
 1. Click **Create**, then **Post** (the menu toggles, so click again if it doesn't open). For a reel, reload instagram.com first: video uploads sometimes hang on the first try.
 2. Upload the item's files in order (see Uploading files above). Don't click "Select from computer", because that opens a native picker.
 3. **Crop**: open the crop menu (bottom left) and choose **Original**. The default is 1:1, which would crop the slides.

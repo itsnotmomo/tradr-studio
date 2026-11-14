@@ -382,6 +382,8 @@ Use when the story is a person and a turn, not a price move.
 
 _13 Nov, first story post on this recipe: Serve Robotics/Jensen ("DAYS FROM BANKRUPTCY. THEN JENSEN CALLED."), 9 slides: hook (Jensen + founder inset) → stakes → the email → the one-line reply blown up → "6:00 AM. His phone rings." + his post → then/now tiles → Nasdaq bell clip → twist (founders posting Jensen stories the week he resigned) → meme; caption ends "Would you have hit send?". Check the numbers after 48 h._
 
+_14 Nov: single-story Bitcoin run. The price move (BTC $65K) was yesterday's story again, so the angle was the famous face inside it: "SAYLOR'S BITCOIN IS NOW $8.4 BILLION UNDERWATER" (paper loss = our maths from Strategy's 8-K, shown in the caption). Receipt = his own buy post five days earlier at $79,012 (before/after); twist = MSCI exit on Nov 30. Mohamed asked for hashtags on this caption: one-off, guide unchanged. X embed screenshots run tall with a link card: trim the card out (keep header, text, timestamp) so the ET time stays visible._
+
 ## How to update
 
 Each news run adds what it learns here: a dated line under the section it concerns (what we tried, the numbers after 48 hours, what we'd keep). When a rule changes, edit it in place and note the date. Restudy @polymarket (or another reference account) every couple of months, append to `.news/pm-study/log.md`, and refresh §8's table and baseline.
