@@ -25,7 +25,10 @@ export default function NewsPage() {
 }
 
 function NewsView() {
-  const { data, error, mutate } = useSWR<Data>(KEY, fetcher, { refreshInterval: 30_000 });
+  const { data, error, mutate } = useSWR<Data>(KEY, fetcher, {
+    // Faster while the poster on the Mac is working on something.
+    refreshInterval: (d?: Data) => (d?.drafts.some((x) => x.post && (x.post.state === "queued" || x.post.state === "running")) ? 5_000 : 30_000),
+  });
   const params = useSearchParams();
   const router = useRouter();
   const only = params.get("id");
@@ -236,6 +239,8 @@ function DraftCard({ d, end, now, act, remove }: {
           </ul>
         </div>
 
+        {d.post && <PostStatus d={d} now={now} />}
+
         {asking ? (
           <div className="flex flex-col gap-2">
             <textarea className="news-input" rows={3} autoFocus placeholder="What should change? e.g. headline shorter, use a different photo"
@@ -250,13 +255,20 @@ function DraftCard({ d, end, now, act, remove }: {
           </div>
         ) : (
           <div className="news-actions">
+            {canPost(d) && (
+              <button className="btn primary" disabled={!!busy}
+                onClick={async () => { if (await run("post")) toast("Sent to the poster. Instagram is scheduled for 24 hours from now; the tweet goes out now.", { ms: 3500 }); }}>
+                {busy === "post" ? <Spinner /> : d.post?.state === "failed" ? "Try posting again" : "Post"}
+              </button>
+            )}
+            {d.post?.state === "queued" && <button className="btn ghost" disabled={!!busy} onClick={() => run("post-cancel")}>Cancel post</button>}
             {(d.status === "draft" || d.status === "changes") && <>
-              <button className="btn primary" disabled={!!busy} onClick={() => run("approve")}>{busy === "approve" ? <Spinner /> : "Approve"}</button>
+              <button className="btn" disabled={!!busy} onClick={() => run("approve")}>{busy === "approve" ? <Spinner /> : "Approve"}</button>
               <button className="btn" disabled={!!busy} onClick={() => setAsking(true)}>{d.status === "changes" ? "Edit note" : "Ask for changes"}</button>
               {d.status === "changes" && <button className="btn ghost" disabled={!!busy} onClick={() => run("reopen")}>Cancel request</button>}
               <button className="btn ghost danger" disabled={!!busy} onClick={() => run("reject")}>Reject</button>
             </>}
-            {d.status === "approved" && <PostKit d={d} slides={slides} busy={!!busy} onPosted={() => run("posted")} onBack={() => run("reopen")} copy={copy} />}
+            {d.status === "approved" && (!d.post || d.post.state === "failed") && <PostKit d={d} slides={slides} busy={!!busy} onPosted={() => run("posted")} onBack={() => run("reopen")} copy={copy} />}
             {d.status === "posted" && <>
               <span className="text-[13px] muted">Posted {d.postedAt ? relTime(d.postedAt, now) : ""}</span>
               <button className="btn ghost" onClick={() => run("unpost")}>Undo</button>
@@ -270,6 +282,30 @@ function DraftCard({ d, end, now, act, remove }: {
         <div className="text-[11.5px] faint">Drafted {relTime(d.createdAt, now)}{d.version > 1 ? ` · version ${d.version}` : ""}</div>
       </div>
     </article>
+  );
+}
+
+const canPost = (d: NewsDraft) =>
+  d.status !== "rejected" && d.status !== "posted" && (!d.post || d.post.state === "failed");
+
+const ROME = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Rome", weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+
+/** Where the one-button post is: Instagram (scheduled in Instagram's own scheduler, 24 h ahead) and the tweet. */
+function PostStatus({ d, now }: { d: NewsDraft; now: number }) {
+  const p = d.post!;
+  const live = ROME.format(p.igAt) + " Rome";
+  return (
+    <div className="news-note flex flex-col gap-1.5">
+      {p.state === "queued" && <div><b>Waiting for the poster on the Mac.</b> It picks this up within a minute while the Mac is on.</div>}
+      {p.state === "running" && <div className="flex items-center gap-2"><Spinner /> <b>Posting now…</b></div>}
+      {p.state === "failed" && <div><b>Posting stopped:</b> {p.error}</div>}
+      <div>
+        Instagram: {p.igScheduledAt
+          ? <>scheduled on <b>@tradr__app</b>, goes live <b>{live}</b> ({relTime(p.igAt, now)}). Add the music from the phone: Profile → ☰ → Scheduled content.</>
+          : <>to be scheduled for {live}.</>}
+      </div>
+      <div>X: {p.tweetUrl ? <a className="underline underline-offset-2" href={p.tweetUrl} target="_blank" rel="noreferrer">tweet posted on @tradr_app</a> : "not posted yet."}</div>
+    </div>
   );
 }
 

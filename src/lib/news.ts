@@ -35,6 +35,21 @@ export type NewsDraft = {
   updatedAt: number;
   approvedAt: number | null;
   postedAt: number | null;
+  /** One-button posting (16 Nov 2026): set by the Post button, worked by the poster on the Mac (scripts/news/poster.ts). */
+  post?: NewsPost | null;
+};
+
+/** queued → running → done | failed. Instagram is scheduled 24 h ahead in Instagram's own scheduler (so music can be
+ *  added from the phone); the tweet goes out at once. Each half is recorded as it finishes, so a retry skips it. */
+export type NewsPost = {
+  state: "queued" | "running" | "done" | "failed";
+  requestedAt: number;
+  /** When the Instagram post goes live (ms). */
+  igAt: number;
+  igScheduledAt: number | null;
+  tweetUrl: string | null;
+  error: string | null;
+  updatedAt: number;
 };
 
 export type NewsSuggestion = {

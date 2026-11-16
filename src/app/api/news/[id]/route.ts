@@ -2,7 +2,7 @@ import { body, route } from "@/lib/server/api";
 import { deleteNews, getNews, mutateNews, UserError } from "@/lib/server/store";
 
 type Ctx = { params: Promise<{ id: string }> };
-type Action = "approve" | "reject" | "changes" | "posted" | "unpost" | "reopen";
+type Action = "approve" | "reject" | "changes" | "posted" | "unpost" | "reopen" | "post" | "post-cancel";
 
 // Review actions. Changes are made by the next "make news posts" run, which reads changeNote.
 export const POST = route<Ctx>(async (req, { params }) => {
@@ -31,6 +31,21 @@ export const POST = route<Ctx>(async (req, { params }) => {
         break;
       case "reopen":
         d.status = "draft"; d.changeNote = ""; d.history.push({ at: now, what: "Back to draft" });
+        break;
+      case "post": {
+        // One-button posting: the poster on the Mac picks this up (scripts/news/poster.ts).
+        if (d.status === "rejected" || d.status === "posted") throw new UserError("This one can't be posted.");
+        if (d.post && (d.post.state === "queued" || d.post.state === "running")) throw new UserError("Already on its way.");
+        const keep = d.post?.state === "failed" ? d.post : null; // a retry keeps what already went out
+        const igAt = keep?.igAt && keep.igAt - now > 30 * 60e3 ? keep.igAt : Math.ceil((now + 24 * 3600e3) / 300e3) * 300e3;
+        d.post = { state: "queued", requestedAt: now, igAt, igScheduledAt: keep?.igScheduledAt ?? null, tweetUrl: keep?.tweetUrl ?? null, error: null, updatedAt: now };
+        if (d.status !== "approved") { d.status = "approved"; d.approvedAt = now; }
+        d.history.push({ at: now, what: keep ? "Post retried" : "Post pressed" });
+        break;
+      }
+      case "post-cancel":
+        if (d.post?.state !== "queued") throw new UserError("It's already being posted.");
+        d.post = null; d.history.push({ at: now, what: "Post cancelled" });
         break;
       default:
         throw new UserError("Unknown action");

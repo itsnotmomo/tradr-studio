@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- The News poster (scripts/news/poster.ts run). Install: cp to ~/Library/LaunchAgents/me.tradr.media-poster.plist,
+     then launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/me.tradr.media-poster.plist -->
+<plist version="1.0"><dict>
+  <key>Label</key><string>me.tradr.media-poster</string>
+  <key>WorkingDirectory</key><string>/Users/mohamedharchi/Desktop/tradrig</string>
+  <key>ProgramArguments</key><array>
+    <string>/Users/mohamedharchi/.nvm/versions/node/v20.19.5/bin/node</string><string>/Users/mohamedharchi/Desktop/tradrig/node_modules/tsx/dist/cli.mjs</string>
+    <string>--env-file=.env.local</string><string>--conditions=react-server</string><string>scripts/news/poster.ts</string><string>run</string>
+  </array>
+  <key>EnvironmentVariables</key><dict><key>PATH</key><string>/Users/mohamedharchi/.nvm/versions/node/v20.19.5/bin:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string></dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>/Users/mohamedharchi/Library/Logs/tradr-media-poster.log</string>
+  <key>StandardErrorPath</key><string>/Users/mohamedharchi/Library/Logs/tradr-media-poster.log</string>
+</dict></plist>
