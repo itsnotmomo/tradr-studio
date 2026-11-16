@@ -31,7 +31,7 @@ async function browser(): Promise<BrowserContext> {
     channel: "chrome",
     headless: false,
     timezoneId: TZ,
-    locale: "en-GB",
+    locale: "en-GB", // 24-hour time in Instagram's scheduler
     viewport: { width: 1360, height: 900 },
     args: ["--disable-blink-features=AutomationControlled"],
   });
@@ -72,9 +72,20 @@ async function typeLines(page: Page, text: string) {
 const lines = (t: string) => t.replace(/\u00a0/g, " ").split(/\n+/).map((l) => l.trim()).filter(Boolean).join("\n");
 
 
+/** Closes Instagram's and X's one-off pop-ups ("Turn on notifications", "Save your login info"…) with their "Not now". */
+async function dismiss(page: Page) {
+  for (let i = 0; i < 3; i++) {
+    const b = page.getByRole("button", { name: /^(Not now|Not Now)$/ }).first();
+    if (!(await b.isVisible({ timeout: 1500 }).catch(() => false))) return;
+    await b.click().catch(() => {});
+    await sleep(800);
+  }
+}
+
 async function igSignedIn(page: Page) {
   await page.goto("https://www.instagram.com/", { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(4000);
+  await dismiss(page);
   return page.locator(`img[alt="${IG_HANDLE}'s profile picture"]`).first().isVisible().catch(() => false);
 }
 
@@ -90,16 +101,16 @@ async function scheduleInstagram(page: Page, d: NewsDraft, slides: string[], igA
   await page.locator('[role="dialog"] input[type="file"]').first().waitFor({ state: "attached", timeout: 15000 });
   await page.locator('[role="dialog"] input[type="file"]').first().setInputFiles(slides);
   // Crop → Original (the default 1:1 would cut the 4:5 slides).
-  const crop = page.locator('[role="dialog"] svg[aria-label="Select crop"]').first();
+  const crop = page.locator('[role="dialog"] svg[aria-label="Select crop" i]:visible').first();
   await crop.waitFor({ timeout: 30000 });
   await crop.click();
-  await page.locator('[role="dialog"]').getByRole("button", { name: /^Original/ }).first().click();
+  await page.locator('[role="dialog"]').getByText("Original", { exact: true }).locator("visible=true").first().click();
   await sleep(700);
   for (let i = 0; i < 2; i++) {
-    await page.locator('[role="dialog"]').getByRole("button", { name: "Next", exact: true }).first().click();
+    await page.locator('[role="dialog"]').getByText("Next", { exact: true }).locator("visible=true").first().click();
     await sleep(2000);
   }
-  const box = page.locator('[role="dialog"] [role="textbox"][aria-label^="Add a caption"]').first();
+  const box = page.locator('[role="dialog"] [role="textbox"][aria-label*="caption" i]').first();
   await box.waitFor({ timeout: 20000 });
   const acct = await page.locator('[role="dialog"]').last().innerText();
   if (!acct.includes(IG_HANDLE)) throw new Error(`The Create dialog isn't on @${IG_HANDLE}.`);
@@ -144,12 +155,12 @@ async function scheduleInstagram(page: Page, d: NewsDraft, slides: string[], igA
 
   // Date: open the picker, move to the month, click the day.
   const when = rome(igAt);
-  const dateField = page.locator('[role="dialog"] [role="button"]').filter({ hasText: /^\w{3}, \d{1,2} \w{3} \d{4}$/ }).first();
+  const dateField = page.locator('[role="dialog"] [role="button"]').filter({ hasText: /^\w{3}, (\d{1,2} \w{3}|\w{3} \d{1,2}),? \d{4}$/ }).first();
   await dateField.click();
   const cal = page.locator('[role="dialog"]').filter({ has: page.locator('[role="gridcell"]') }).last();
   for (let i = 0; i < 3; i++) {
     if ((await cal.innerText()).includes(`${when.month} ${when.year}`)) break;
-    await cal.getByRole("button", { name: "Next month" }).click();
+    await cal.getByRole("button", { name: /next month/i }).click();
     await sleep(500);
   }
   const clicked = await cal.evaluate((el, day) => {
@@ -164,18 +175,20 @@ async function scheduleInstagram(page: Page, d: NewsDraft, slides: string[], igA
   await sleep(700);
   // Time: hour, then minutes, two digits each.
   for (const [label, value] of [["Hours", when.hour], ["Minutes", when.minute]] as const) {
-    const f = page.locator(`[role="dialog"] input[aria-label="${label}"]`).first();
+    const f = page.locator(`[role="dialog"] input[aria-label="${label}" i]`).first();
     await f.click();
     await page.keyboard.press("Meta+A");
     await page.keyboard.type(value, { delay: 80 });
     await sleep(500);
   }
   const text = await page.locator('[role="dialog"]').filter({ hasText: "Schedule content" }).last().innerText();
-  const want = new Intl.DateTimeFormat("en-GB", { timeZone: TZ, weekday: "short", day: "numeric", month: "short", year: "numeric" }).format(igAt).replace(/,/g, "");
-  const shown = (text.match(/Date\s*\n\s*([^\n]+)/)?.[1] ?? "").replace(/,/g, "");
-  const hh = await page.locator('[role="dialog"] input[aria-label="Hours"]').first().inputValue();
-  const mm = await page.locator('[role="dialog"] input[aria-label="Minutes"]').first().inputValue();
-  if (shown.trim() !== want || hh.padStart(2, "0") !== when.hour || mm.padStart(2, "0") !== when.minute) {
+  const fmt = (loc: string) => new Intl.DateTimeFormat(loc, { timeZone: TZ, weekday: "short", day: "numeric", month: "short", year: "numeric" }).format(igAt).replace(/,/g, "");
+  const want = fmt("en-GB");
+  const shown = (text.match(/Date\s*\n\s*([^\n]+)/)?.[1] ?? "").replace(/,/g, "").trim();
+  // The time shows as text ("Time 17 : 10"); the inputs' values stay empty.
+  const tm = text.match(/Time\s*\n?\s*(\d{1,2})\s*\n?\s*:\s*\n?\s*(\d{2})(?!\s*\n?\s*[AP]M)/);
+  const hh = tm?.[1] ?? "", mm = tm?.[2] ?? "";
+  if ((shown !== want && shown !== fmt("en-US")) || hh.padStart(2, "0") !== when.hour || mm.padStart(2, "0") !== when.minute) {
     throw new Error(`Schedule check failed: Instagram shows ${shown} ${hh}:${mm}, wanted ${want} ${when.hour}:${when.minute}.`);
   }
   if (/at least 20 minutes/i.test(text)) throw new Error("Instagram says the time is too soon.");
@@ -189,6 +202,7 @@ async function scheduleInstagram(page: Page, d: NewsDraft, slides: string[], igA
 async function postTweet(page: Page, d: NewsDraft, hook: string) {
   await page.goto("https://x.com/compose/post", { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(4000);
+  await dismiss(page);
   const who = await page.locator('[data-testid="SideNav_AccountSwitcher_Button"]').innerText().catch(() => "");
   if (!who.includes(`@${X_HANDLE}`)) throw new Error(`X isn't signed in as @${X_HANDLE} in the poster's Chrome. Run the login step.`);
   const box = page.locator('[data-testid="tweetTextarea_0"]').first();
