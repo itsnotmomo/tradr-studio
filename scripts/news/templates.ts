@@ -467,21 +467,8 @@ function qrSvg(text: string) {
 
 const APPLE = `<svg viewBox="0 0 384 512" aria-hidden="true"><path fill="currentColor" d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>`;
 
-/** Faint decorative candles, top right (seeded, the same on every render; not market data). */
-function candles(seed: number) {
-  const r = rng(seed), out: string[] = [];
-  let y = 520;
-  for (let i = 0; i < 14; i++) {
-    const x = 690 + i * 28, open = y, close = y - 18 - r() * 40 + (r() < .3 ? 46 : 0);
-    const top = Math.min(open, close) - 10 - r() * 26, bot = Math.max(open, close) + 10 + r() * 26;
-    out.push(`<line x1="${x + 7}" x2="${x + 7}" y1="${top}" y2="${bot}" stroke-width="2"/><rect x="${x}" y="${Math.min(open, close)}" width="14" height="${Math.max(6, Math.abs(close - open))}" rx="2"/>`);
-    y = close;
-  }
-  return `<svg class="candles" viewBox="0 0 1080 1350"><g fill="rgba(0,193,106,.55)" stroke="rgba(0,193,106,.55)">${out.join("")}</g></svg>`;
-}
-
-/** The fixed last slide (16 Nov 2026 v2, Mohamed's reference): dark green background with glowing sweeping curves and
- *  faint candles, the headline and the line under it top left, a green-outlined "Join at Tradr.me" button and a white
+/** The fixed last slide (16 Nov 2026 v2, Mohamed's reference): dark green cinematic background (circuit traces, glow,
+ *  light lines, grid floor), the headline and the line under it top left, a green-outlined "Join at Tradr.me" button and a white
  *  "Download the App" button, the App Store QR code in a green-edged card with "Scan to get the app", and the big tilted
  *  iPhone with the live tradr.me lander feed on the right. No logo row, no fine print. `line` = headline, `sub` = the
  *  line under it (*words* = bold white). */
@@ -489,14 +476,22 @@ export function endHtml(s: End) {
   const feed = src(path.join(import.meta.dirname, "assets", "lander-feed.jpg"));
   return `<!doctype html><html><head><meta charset="utf-8"><style>${BASE}
 @font-face { font-family: Geist; src: url(${f("geist.woff2")}); font-weight: 400 800; }
-body { background: #010402; color: #fff; font-family: Geist, Inter, sans-serif; }
+body { background: #020504; color: #fff; font-family: Geist, Inter, sans-serif; }
 .bg { position: absolute; inset: 0; background:
-  radial-gradient(45% 35% at 78% 62%, rgba(0,193,106,.30), transparent 70%),
-  radial-gradient(60% 40% at 10% 105%, rgba(0,160,90,.28), transparent 70%),
-  radial-gradient(50% 30% at 85% 5%, rgba(0,193,106,.16), transparent 70%),
-  linear-gradient(180deg, #020a06 0%, #010402 55%, #010302 100%); }
-.waves { position: absolute; inset: 0; width: 100%; height: 100%; }
-.candles { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .5; -webkit-mask-image: linear-gradient(200deg, #000 20%, transparent 55%); }
+  radial-gradient(40% 32% at 72% 70%, rgba(0,193,106,.42), transparent 70%),
+  radial-gradient(70% 45% at 66% 74%, rgba(0,120,66,.30), transparent 72%),
+  radial-gradient(60% 40% at 20% 0%, rgba(0,193,106,.10), transparent 70%),
+  linear-gradient(180deg, #030a07 0%, #020504 60%, #010302 100%); }
+.circ { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .4; -webkit-mask-image: radial-gradient(70% 60% at 62% 60%, #000 30%, transparent 90%); }
+.circ g:first-child { stroke: rgba(0,193,106,.20); }
+.circ .nodes { fill: #0b2a1c; stroke: rgba(0,220,120,.55); stroke-width: 3; }
+.glowlines { position: absolute; inset: 0; background:
+  linear-gradient(115deg, transparent 52%, rgba(0,255,140,.10) 54.6%, rgba(160,255,210,.30) 55%, rgba(0,255,140,.10) 55.4%, transparent 58%),
+  linear-gradient(65deg, transparent 63%, rgba(0,255,140,.07) 64.7%, rgba(160,255,210,.22) 65%, rgba(0,255,140,.07) 65.3%, transparent 67%);
+  mix-blend-mode: screen; filter: blur(1.5px); }
+.floor { position: absolute; left: -20%; right: -20%; bottom: -10px; height: 470px; transform: perspective(700px) rotateX(64deg); transform-origin: 50% 100%;
+  background-image: linear-gradient(rgba(0,220,120,.30) 2px, transparent 2px), linear-gradient(90deg, rgba(0,220,120,.30) 2px, transparent 2px); background-size: 90px 90px;
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 60%); }
 .top { position: absolute; top: 72px; left: 72px; right: 70px; z-index: 2; }
 h2 { font: 700 86px/1.02 Geist; letter-spacing: -.035em; max-width: 840px; }
 h2 em { font-style: normal; color: ${GREEN}; text-shadow: 0 0 40px rgba(0,193,106,.35); }
@@ -524,13 +519,9 @@ h2 em { font-style: normal; color: ${GREEN}; text-shadow: 0 0 40px rgba(0,193,10
 .phone::after { content: ""; position: absolute; right: -6px; top: 300px; width: 6px; height: 150px; border-radius: 0 3px 3px 0; background: #4a5055; }
 .scr { width: 100%; height: 100%; border-radius: 66px; overflow: hidden; background: #000 url('${feed}') top center / 100% auto no-repeat; position: relative; }
 .scr::after { content: ""; position: absolute; inset: 0; background: linear-gradient(125deg, rgba(255,255,255,.14) 0%, rgba(255,255,255,0) 30%, rgba(255,255,255,0) 72%, rgba(255,255,255,.05) 100%); }
-.vig { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(130% 95% at 50% 45%, transparent 60%, rgba(0,0,0,.6)); }
+.vig { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(120% 90% at 50% 50%, transparent 55%, rgba(0,0,0,.7)), linear-gradient(180deg, transparent 84%, rgba(2,5,4,.8) 94%, #020504 100%); }
 </style></head><body>
-<div class="bg"></div>${candles(11)}
-<svg class="waves" viewBox="0 0 1080 1350" preserveAspectRatio="none"><defs><filter id="wb"><feGaussianBlur stdDeviation="10"/></filter>
-<linearGradient id="wg" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#00C16A" stop-opacity="0"/><stop offset=".35" stop-color="#00C16A" stop-opacity=".9"/><stop offset="1" stop-color="#00C16A" stop-opacity=".15"/></linearGradient></defs>
-<g fill="none" stroke="url(#wg)"><path d="M-40 1330 C 260 1180, 420 980, 620 760 S 960 300, 1140 180" stroke-width="18" opacity=".35" filter="url(#wb)"/><path d="M-40 1330 C 260 1180, 420 980, 620 760 S 960 300, 1140 180" stroke-width="2.5" opacity=".75"/>
-<path d="M-60 1180 C 200 1060, 330 900, 470 700 S 760 260, 1000 -40" stroke-width="14" opacity=".22" filter="url(#wb)"/><path d="M-60 1180 C 200 1060, 330 900, 470 700 S 760 260, 1000 -40" stroke-width="2" opacity=".45"/></g></svg>
+<div class="bg"></div>${circuit(7)}<div class="glowlines"></div><div class="floor"></div>
 <div class="stage"><div class="phone"><div class="scr"></div></div></div>
 <div class="vig"></div>
 <div class="top"><h2>${marks(s.line).replace(/\n/g, "<br>")}</h2><div class="sub">${marks(s.sub)}</div>
