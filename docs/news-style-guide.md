@@ -1,3 +1,10 @@
+## The fixed standard
+**THE FIXED STANDARD (Mohamed, 16 Nov 2026) — every News carousel, no exceptions:**
+1. **Hook:** the viral slide 1 (tight real face or real-data chart, Anton headline, our T mark). A big price must match the headline (a crash-to-$X headline shows the low, not the current price).
+2. **Middle slides (2–4), all `story` cards:** one full-bleed image (real photo, big logo/sign, or a big chart from real data), a big bold title, then 2–4 short lines of description with the key words in Tradr green. One idea per slide. No data tables, no small source text.
+3. **Progress bar on every middle slide**, from slide 2 to the last middle slide, never on the hook or the end slide. Segments = the number of middle slides in that post; the current one is green. render.ts draws it automatically on every card.
+4. **End slide exactly as it is now** (`endHtml`, uploaded with `desk ends` from `.news/2026-11-16/end.json`): original dark green circuit/glow/grid-floor background; "Join the first social / media platform / for *traders.*"; the sub-line with **verified track record** and **monetize** in bold white; glowing green-outlined "↗ Join at Tradr.me"; white "Download the App" with the Apple mark; App Store QR in a green-edged card with "Scan to get the app" and a curved arrow; big tilted iPhone with the live lander feed on the right; no logo row, no fine print. Do not change it without Mohamed.
+
 _Written 13 Nov 2026 from @polymarket's live Instagram posts and Tradr's own brand; round 2 (same day) from Mohamed's six new references and notes. Updated by each run when new references are added._
 
 
@@ -23,7 +30,7 @@ _Written 13 Nov 2026 from @polymarket's live Instagram posts and Tradr's own bra
 - Spec: `"type": "card", "text": "", "story": {title, body, image | chart}` (see `Story` in scripts/news/templates.ts).
 - One big full-bleed visual on top (real photo, big logo/sign with `fit: "width"`, or a big red/green chart from real data with a white pill on the key moment), fading into near-black.
 - Big bold title (Inter 850, 2–5 words), thin rule, 2–4 short lines of story. Key words and numbers in Tradr green with `*…*`.
-- Progress bar at the bottom of every story slide (added by render.ts), never on the hook or the end slide.
+- Progress bar at the bottom of every middle slide (added by render.ts; one segment per middle slide in the post), never on the hook or the end slide.
 - One idea per slide. No data-table screenshots, no walls of numbers, no small source text. No logo.
 - Default arc: what happened → who got hurt → why. 3 story slides unless the story needs more.
 - `rows` (panels) and `media` (video ≤ 59 s, a real post screenshot) cards remain for proof that only a screenshot or clip can give.

@@ -132,8 +132,8 @@ export async function renderSpec(specPath: string, opts: { end?: End } = {}) {
   await mkdir(outDir, { recursive: true });
   const browser = await chromium.launch({ channel: "chrome", args: ["--allow-file-access-from-files"] });
   const done: Rendered[] = [];
-  // Story slides carry a progress bar (their place among the story slides; not on the hook or the end slide).
-  const stories = spec.slides.filter((x) => x.type === "card" && x.story);
+  // Every middle slide carries the progress bar: one segment per middle slide in this post (never on the hook or the end slide).
+  const stories = spec.slides.filter((x) => x.type === "card");
   try {
     for (const [i, raw] of spec.slides.entries()) {
       const n = i + 1;

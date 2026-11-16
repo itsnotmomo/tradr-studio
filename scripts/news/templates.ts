@@ -231,7 +231,7 @@ function storyChart(c: NonNullable<Story["chart"]>) {
 ${mk ? `<circle cx="${mk[0]}" cy="${mk[1]}" r="14" fill="#fff"/><circle cx="${mk[0]}" cy="${mk[1]}" r="30" fill="#fff" fill-opacity=".2"/>` : ""}
 <circle cx="${last[0]}" cy="${last[1]}" r="13" fill="${col}"/></svg></div>
 <div class="labels">${mk && c.mark ? `<div class="smk" style="left:${mk[0]}px; top:${mk[1] + 40}px">${esc(c.mark.label)}</div>` : ""}
-${c.end ? `<div class="send" style="left:${last[0]}px; top:${last[1] - 92}px">${esc(c.end)}</div>` : ""}</div>`;
+${c.end ? `<div class="send" style="left:${last[0]}px; top:${last[1] - 130}px">${esc(c.end)}</div>` : ""}</div>`;
 }
 
 function storyHtml(s: Card) {
@@ -242,7 +242,7 @@ function storyHtml(s: Card) {
     ? `<div class="sbg" style="background-image:url('${src(t.image!)}'); background-size: 100% auto; background-position: 50% 0; -webkit-mask-image: linear-gradient(180deg, #000 48%, transparent 76%)"></div>`
     : `<div class="sbg" data-cover="${t.zoom ?? 1}" style="${bgImg(t.image!, 1, t.focusX ?? 0.5, t.focusY ?? 0.4)}"></div>`;
   const [at, n] = s.progress ?? [0, 0];
-  const bar = n > 1 ? `<div class="prog">${Array.from({ length: n }, (_, i) => `<i class="${i === at ? "on" : ""}"></i>`).join("")}</div>` : "";
+  const bar = n >= 1 ? `<div class="prog">${Array.from({ length: n }, (_, i) => `<i class="${i === at ? "on" : ""}"></i>`).join("")}</div>` : "";
   return `<!doctype html><html><head><meta charset="utf-8"><style>${BASE}
 body { background: #070808; color: #fff; }
 .sbg { position: absolute; left: 0; right: 0; top: 0; height: 900px; background-repeat: no-repeat; }
