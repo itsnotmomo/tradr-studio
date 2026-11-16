@@ -415,3 +415,14 @@ _16 Nov: Mohamed found the rows slides boring ("reads like an email"); the same 
 ## How to update
 
 Each news run adds what it learns here: a dated line under the section it concerns (what we tried, the numbers after 48 hours, what we'd keep). When a rule changes, edit it in place and note the date. Restudy @polymarket (or another reference account) every couple of months, append to `.news/pm-study/log.md`, and refresh §8's table and baseline.
+
+## 14. One-button posting (Mohamed, 16 Nov 2026)
+
+Every News draft has a **Post** button in Tradr Media. Pressing it:
+1. schedules the carousel (all slides + the fixed end slide) and the caption on **@tradr__app for 24 hours later**, in **Instagram's own scheduler** (instagram.com → Create → Post → Original crop → Schedule content). It is a real scheduled post: on the phone it sits under **Profile → ☰ → Scheduled content**, where Mohamed adds the music before it goes out;
+2. posts the tweet on **@tradr_app** at once, with the hook slide attached;
+3. marks the draft Posted, with the Instagram go-live time (Rome) and the tweet link.
+
+**Why this route:** Meta's Graph API can't schedule an Instagram post (no `scheduled_publish_time` for IG) and can't add music, and Tradr has no Meta publishing token anyway (the app's share-to-Story only carries a public Meta App ID). There are no X API keys. So both run in a real browser.
+
+**How it works:** the button only queues (`draft.post`, state queued → running → done | failed). The **poster** on the Mac (`scripts/news/poster.ts`, launchd agent `me.tradr.media-poster`, log `~/Library/Logs/tradr-media-poster.log`) checks the queue every 30 s and does the work in its own Chrome profile (`~/Library/Application Support/TradrMediaPoster`), signed in once to both accounts (`poster.ts login`; `poster.ts check` confirms). It checks the account name, Original crop, the caption read back line by line, the AI label off, the date and time read back, then Schedule; the tweet text is read back before posting and the tweet id comes from X's own response. Each half is saved as it finishes, so "Try posting again" never doubles a post. Results and failures are pushed to ntfy. The Mac has to be on (and not asleep) for the button to work. The day’s collab adds the collaborator. Video slides are not supported by the button yet.
