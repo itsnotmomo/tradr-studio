@@ -390,16 +390,20 @@ _14 Nov: single-story Bitcoin run. The price move (BTC $65K) was yesterday's sto
 
 **Built to be understood in seconds.** One idea per slide, short text, big clear visuals. The reader should get the story from the slides alone, swiping fast.
 
-**Inner slides = Polymarket's explainer slide** (`rows` in the spec; reference screenshot: Polymarket's Nvidia/Blind slide 3/12):
-- Off-white background (#FAFAF7).
-- At the top: one short news-style sentence, written like a caption (Inter, ~50 px, left-aligned, one or two key phrases bold). It states the point with its number; attribution goes in the caption and Studio, not on the slide unless it is the point.
-- Below it: the visuals that prove it, as rows of rounded panels (24 px corners, 14 px gaps, 16 px side margins), side by side or stacked: the real chart, the real screenshot (headline, data page, post), the number as a red/green/dark tile, bars for a series. Every panel adds something the sentence doesn't say.
-- 2–3 explainer slides is the default length unless Mohamed asks otherwise.
-- Old white "text above one media" cards (`media`, `tiles`, `stat` without `rows`) are legacy; use `rows`.
+**Inner slides = the newspaper story slide** (since 16 Nov 2026, Mohamed; reference: the orange-W Nvidia carousels; `story` in the spec). Replaces the `rows` explainer as the default: the rows slides read "like an email".
+- One big full-bleed visual on the top ~2/3: a real photo, a big logo/sign, or a big chart drawn from real data (`story.chart`, white pill on the moment that matters, e.g. the low).
+- Under it, on near-black: a **big bold title** (Inter 850, 2–5 words, one idea), a thin rule, then **2–4 short lines** of story like a newspaper. Key words/numbers in **Tradr green** (`*word*`).
+- **Progress bar** at the bottom (one segment per story slide, current one green): from slide 2 on, never on the hook or the end slide. Render.ts sets it.
+- One idea per slide, skimmable in two seconds. **No screenshots of data tables, no walls of numbers, no small source text** on any slide (sources live in the caption and Studio).
+- Default arc, 3 story slides: what happened (the move in context) → who got hurt → why it's happening. Keep it tight.
+- `rows` / `media` / `tiles` cards stay available for a real screenshot of a post or a video clip, not as the default.
 
-**Last slide = the cinematic ad** (rendered by `endHtml`, uploaded with `desk ends`): near-black background with drawn circuit traces, green glow and light lines, Tradr logo + name on top, the locked line "Don't just watch the market. Watch the traders.", the sub-line, a white tradr.me button, and a tilted 3D iPhone showing the **real tradr.me lander feed** (a capture of the live page, `scripts/news/assets/lander-feed.jpg`). The fine print copies the site's disclosure (real Tradr trades replayed; names, faces and notes are stand-ins; likes etc. illustrative; not financial advice). Refresh the capture when the lander changes. Never write made-up trades into the phone.
+**Hook:** unchanged (Anton headline, chart or tight face), but **no data/source line** under the price (`note: ""`).
+
+**Last slide = the Liquid-style ad** (rendered by `endHtml`, uploaded with `desk ends`, 16 Nov 2026): the dark green cinematic background (circuit traces, glow, light lines), no logo row, the headline "Join the first social media platform for traders." top left, the sub-line "Track your trades, connect with traders worldwide through a verified track record, and monetize your skills.", two real pill buttons (green "Join at tradr.me", white "Download the App" with the Apple mark), a QR code to the App Store (`APP_STORE_URL`, checked with `scripts/news/qrcheck.mts`), and the tilted iPhone with the live lander feed on the right. **No fine print / legal text on this slide** (Mohamed, 16 Nov). Refresh the feed capture when the lander changes. Never write made-up trades into the phone.
 
 _14 Nov: first post in this format — "BITCOIN CRASHES TO $65,000" (chart hook) → 7-day chart + CoinDesk headline → CoinGlass liquidation panel → Farside ETF bars + two tiles → new end slide. Check numbers after 48 h._
+_16 Nov: Mohamed found the rows slides boring ("reads like an email"); the same Bitcoin post was redone as "BITCOIN CRASHES TO $62,000" → "Lowest since July" (coin) → "$2 billion wiped out" (weekend chart, $62,006 pill) → "Big money is leaving" (BlackRock sign) → new end slide. Learned: Farside blocks plain fetches, a headed Chrome via Playwright reads it; CoinGlass weekend totals come via outlets (keep them under `reported`); wide signs/logos need `fit: "width"` so cover doesn't cut them._
 
 ## How to update
 

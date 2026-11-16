@@ -17,15 +17,16 @@ _Written 13 Nov 2026 from @polymarket's live Instagram posts and Tradr's own bra
 - **Quote headlines:** when the headline is the person's own words, use the quote tag (green pill with a black quote mark, `"tag": "quote"`) and put “ ” around the words. Their words only, verbatim.
 - Dark fade over the bottom ~60% so the headline reads; the face stays clear of it.
 - **Branding: slide 1 only**, our green T mark, small, top-left. No "TRADR NEWS" text anywhere. No credits or sources on any slide.
-- Price stories with no person: chart hook from real exchange data (big price, change chip, data note).
+- Price stories with no person: chart hook from real exchange data (big price, change chip). No data/source line under it (16 Nov 2026).
 
-## Slides 2–4, explain and prove (14 Nov 2026: Polymarket explainer layout, the default)
-- Off-white background (#FAFAF7), no logo, no source line. Spec: `rows` (see `Panel` in scripts/news/templates.ts).
-- At the top, one short news-style sentence written like a caption (Inter ~50 px, left-aligned, key phrase in bold). One idea per slide; understood in seconds.
-- Below it, the proof as rows of rounded panels (24 px corners), side by side or stacked: the real price chart (`chart`, real data, optional mark at the moment), real screenshots (`image`: headline, data page, the person's post; US Eastern time), red/green/dark number tiles (`tile`), bars for a daily series (`bars`).
-- Real video clips still use the single `media` card (≤ 59 s).
-- **Never say the same thing twice.** The panels add what the sentence doesn't.
-- 2–3 explainer slides by default.
+## Slides 2–4, the story (16 Nov 2026: newspaper story slides, the default)
+- Spec: `"type": "card", "text": "", "story": {title, body, image | chart}` (see `Story` in scripts/news/templates.ts).
+- One big full-bleed visual on top (real photo, big logo/sign with `fit: "width"`, or a big red/green chart from real data with a white pill on the key moment), fading into near-black.
+- Big bold title (Inter 850, 2–5 words), thin rule, 2–4 short lines of story. Key words and numbers in Tradr green with `*…*`.
+- Progress bar at the bottom of every story slide (added by render.ts), never on the hook or the end slide.
+- One idea per slide. No data-table screenshots, no walls of numbers, no small source text. No logo.
+- Default arc: what happened → who got hurt → why. 3 story slides unless the story needs more.
+- `rows` (panels) and `media` (video ≤ 59 s, a real post screenshot) cards remain for proof that only a screenshot or clip can give.
 
 ## Memes, collab, times (13 Nov 2026)
 - Memes on inside slides only, never slide 1: caption above, meme below (playbook §11).
@@ -33,7 +34,7 @@ _Written 13 Nov 2026 from @polymarket's live Instagram posts and Tradr's own bra
 - Every screenshot timestamp in US Eastern time.
 
 ## Last slide
-- Fixed, uploaded with `desk ends` (14 Nov 2026 redesign, Polymarket's last slide as the reference): dark cinematic background (drawn circuit traces, green glow, light lines), Tradr logo + name at the top, "Don't just watch the market. Watch the traders.", the sub-line, a white tradr.me button, a tilted 3D iPhone showing the real tradr.me lander feed (capture of the live page), and the site's disclosure as fine print. Never changed per post.
+- Fixed, uploaded with `desk ends` (16 Nov 2026, after the Liquid ad): dark green cinematic background, no logo row, "Join the first social media platform for traders." top left with the sub-line under it, a green "Join at tradr.me" and a white "Download the App" pill button, a QR code to the App Store (tested with `npx tsx scripts/news/qrcheck.mts <end.jpg>`), the tilted iPhone with the live lander feed on the right. No fine print. Never changed per post.
 
 **Decisions come from `docs/media-playbook.md`** (the Polymarket study). This guide is the production rules; the playbook is the editorial judgement.
 

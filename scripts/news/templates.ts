@@ -2,6 +2,7 @@
 // Style rules live in the style guide (Studio → News → Style); keep this file in step with it.
 import { pathToFileURL } from "node:url";
 import path from "node:path";
+import QRCode from "qrcode";
 
 export const W = 1080, H = 1350;
 const FONTS = path.join(import.meta.dirname, "fonts");
@@ -109,7 +110,7 @@ function chartSvg(c: NonNullable<Hook["chart"]>) {
 <path d="${line}L${w},${h}L0,${h}Z" fill="url(#g)"/><path d="${line}" fill="none" stroke="${col}" stroke-width="14" stroke-opacity=".45" filter="url(#gl)"/><path d="${line}" fill="none" stroke="${col}" stroke-width="7" stroke-linejoin="round"/>
 <circle cx="${x(p.length - 1)}" cy="${y(p[p.length - 1])}" r="15" fill="${col}"/><circle cx="${x(p.length - 1)}" cy="${y(p[p.length - 1])}" r="30" fill="${col}" fill-opacity=".25"/></svg>
 <div class="px"><b>${esc(c.price)}</b><span style="background:${col}; color:${c.down === false ? "#0b0c0c" : "#fff"}">${esc(c.change)}</span></div>
-<div class="cnote">${esc(c.note)}</div></div>`;
+${c.note ? `<div class="cnote">${esc(c.note)}</div>` : ""}</div>`;
 }
 
 const QUOTE_GLYPH = `<svg viewBox="0 0 64 44" aria-hidden="true"><path fill="currentColor" d="M0 44V27C0 12 7 3 21 0l3 7c-7 2-11 7-11 13h11v24H0Zm34 0V27c0-15 7-24 21-27l3 7c-7 2-11 7-11 13h11v24H34Z"/></svg>`;
@@ -190,10 +191,84 @@ export type Card = {
   /** Polymarket layout (the default since 14 Nov 2026): off-white slide, the caption-like line on top, then rows of
    *  rounded visuals side by side (each row is an array of panels; panels in a row share its height). */
   rows?: Panel[][];
+  /** Newspaper story (house format since 16 Nov 2026, after the orange-W carousels): one full-bleed visual (photo,
+   *  big logo or big chart), a big bold title and 2–4 short lines underneath. *word* = Tradr green. */
+  story?: Story;
+  /** Set by render.ts: [position, count] among the story slides, drawn as the progress bar. */
+  progress?: [number, number];
   /** Kept in Studio only (sources[]); never drawn on the slide. */
   source?: string;
   credit?: string;
 };
+
+export type Story = {
+  title: string;
+  body: string;
+  /** Full-bleed photo / logo (zoom 1 = cover; focus = the point kept in frame, 0–1). */
+  image?: string;
+  zoom?: number;
+  focusX?: number;
+  focusY?: number;
+  /** "width" = the whole image width shown (a wide logo or sign that cover would cut), anchored at the top. */
+  fit?: "cover" | "width";
+  /** Or a full-bleed chart from real data (oldest → newest), red when down. */
+  chart?: { points: number[]; down?: boolean; mark?: { at: number; label: string }; end?: string };
+  /** Colour of the *highlighted* words (default green). */
+  accent?: "green" | "red";
+};
+
+function storyChart(c: NonNullable<Story["chart"]>) {
+  const p = c.points, lo = Math.min(...p), hi = Math.max(...p), w = W, h = 700, top = 110, bot = 120;
+  const x = (i: number) => 40 + (i / (p.length - 1)) * (w - 120);
+  const y = (v: number) => top + (1 - (v - lo) / (hi - lo || 1)) * (h - top - bot);
+  const line = p.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join("");
+  const col = c.down === false ? GREEN : RED;
+  const last = [x(p.length - 1), y(p[p.length - 1])];
+  const mk = c.mark ? [x(c.mark.at), y(p[c.mark.at])] : null;
+  return `<div class="sbg chartbg" style="background: radial-gradient(70% 50% at 60% 40%, ${col}33, transparent 70%), #070808"><div class="grid"></div>
+<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="height:${h}px"><defs><linearGradient id="sg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col}" stop-opacity=".45"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient><filter id="sgl"><feGaussianBlur stdDeviation="8"/></filter></defs>
+<path d="${line}L${last[0]},${h}L${x(0)},${h}Z" fill="url(#sg)"/><path d="${line}" fill="none" stroke="${col}" stroke-width="16" stroke-opacity=".45" filter="url(#sgl)"/><path d="${line}" fill="none" stroke="${col}" stroke-width="7" stroke-linejoin="round"/>
+${mk ? `<circle cx="${mk[0]}" cy="${mk[1]}" r="14" fill="#fff"/><circle cx="${mk[0]}" cy="${mk[1]}" r="30" fill="#fff" fill-opacity=".2"/>` : ""}
+<circle cx="${last[0]}" cy="${last[1]}" r="13" fill="${col}"/></svg></div>
+<div class="labels">${mk && c.mark ? `<div class="smk" style="left:${mk[0]}px; top:${mk[1] + 40}px">${esc(c.mark.label)}</div>` : ""}
+${c.end ? `<div class="send" style="left:${last[0]}px; top:${last[1] - 92}px">${esc(c.end)}</div>` : ""}</div>`;
+}
+
+function storyHtml(s: Card) {
+  const t = s.story!;
+  const accent = t.accent === "red" ? "#ff3b40" : GREEN;
+  const bg = t.chart ? storyChart(t.chart)
+    : t.fit === "width"
+    ? `<div class="sbg" style="background-image:url('${src(t.image!)}'); background-size: 100% auto; background-position: 50% 0; -webkit-mask-image: linear-gradient(180deg, #000 48%, transparent 76%)"></div>`
+    : `<div class="sbg" data-cover="${t.zoom ?? 1}" style="${bgImg(t.image!, 1, t.focusX ?? 0.5, t.focusY ?? 0.4)}"></div>`;
+  const [at, n] = s.progress ?? [0, 0];
+  const bar = n > 1 ? `<div class="prog">${Array.from({ length: n }, (_, i) => `<i class="${i === at ? "on" : ""}"></i>`).join("")}</div>` : "";
+  return `<!doctype html><html><head><meta charset="utf-8"><style>${BASE}
+body { background: #070808; color: #fff; }
+.sbg { position: absolute; left: 0; right: 0; top: 0; height: 900px; background-repeat: no-repeat; }
+.chartbg { height: 900px; }
+.chartbg .grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px); background-size: 108px 108px; }
+.chartbg svg { position: absolute; left: 0; top: 0; width: 100%; }
+.smk, .send { position: absolute; transform: translateX(-50%); font: 800 40px/1 Inter; padding: 14px 20px; border-radius: 14px; white-space: nowrap; }
+.smk { background: #fff; color: #070808; box-shadow: 0 10px 40px rgba(0,0,0,.6); }
+.labels { position: absolute; inset: 0; z-index: 3; }
+.send { background: rgba(255,255,255,.12); color: #fff; border: 2px solid rgba(255,255,255,.25); transform: translateX(-85%); }
+.shade { position: absolute; left: 0; right: 0; top: 380px; bottom: 0; background: linear-gradient(180deg, rgba(7,8,8,0) 0%, rgba(7,8,8,.7) 26%, rgba(7,8,8,.96) 46%, #070808 60%); }
+.copy { position: absolute; left: 60px; right: 60px; bottom: 120px; }
+h2 { font: 850 104px/1.0 Inter; letter-spacing: -.035em; text-wrap: balance; }
+h2 em, p em { font-style: normal; color: ${accent}; }
+hr { border: 0; height: 2px; background: rgba(255,255,255,.22); margin: 34px 0 30px; }
+p { font: 500 41px/1.34 Inter; letter-spacing: -.012em; color: rgba(255,255,255,.9); text-wrap: pretty; }
+p em { font-weight: 750; }
+.prog { position: absolute; left: 60px; right: 60px; bottom: 52px; display: flex; gap: 14px; }
+.prog i { flex: 1; height: 9px; border-radius: 9px; background: rgba(255,255,255,.28); }
+.prog i.on { background: ${GREEN}; }
+</style></head><body>
+${bg}<div class="shade"></div>
+<div class="copy"><h2 data-fit="112,72,2">${marks(t.title)}</h2><hr><p data-fit="44,34,5">${marks(t.body)}</p></div>
+${bar}
+${FIT}</body></html>`;
+}
 
 export type Panel =
   | { kind: "image"; src: string; h?: number; flex?: number; fit?: "cover" | "contain"; bg?: string; focusY?: number; pad?: number }
@@ -285,6 +360,7 @@ function cardChart(c: NonNullable<Card["chart"]>) {
 
 /** Returns the HTML plus, for video cards, the box the video is laid into. */
 export function cardHtml(s: Card) {
+  if (s.story) return storyHtml(s);
   if (s.rows?.length) return rowsHtml(s);
   const m = s.media;
   const aspect = m?.aspect ?? 16 / 9;
@@ -379,59 +455,69 @@ function circuit(seed: number) {
   return `<svg class="circ" viewBox="0 0 1080 1350" preserveAspectRatio="xMidYMid slice"><g fill="none" stroke-width="3" stroke-linejoin="round">${paths.map((d) => `<path d="${d}"/>`).join("")}</g><g class="nodes">${dots.join("")}</g></svg>`;
 }
 
-/** The fixed last slide (14 Nov 2026, Polymarket-style ad): dark cinematic background, Tradr logo on top, the line,
- *  tradr.me as the call to action, and a tilted iPhone showing the real tradr.me lander feed (a capture of the live
- *  page: its stand-in names and faces on real Tradr trades, replayed; the fine print says so, as the site does). */
+export const APP_STORE_URL = "https://apps.apple.com/app/id6805319080";
+
+/** A QR code as crisp SVG squares (error correction M, 4-module quiet zone). */
+function qrSvg(text: string) {
+  const q = QRCode.create(text, { errorCorrectionLevel: "M" });
+  const n = q.modules.size, pad = 4, rects: string[] = [];
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.modules.get(r, c)) rects.push(`M${c + pad},${r + pad}h1v1h-1z`);
+  return `<svg viewBox="0 0 ${n + pad * 2} ${n + pad * 2}" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="#fff"/><path d="${rects.join("")}" fill="#050807"/></svg>`;
+}
+
+const APPLE = `<svg viewBox="0 0 384 512" aria-hidden="true"><path fill="currentColor" d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>`;
+
+/** The fixed last slide (16 Nov 2026, after the Liquid ad): dark green cinematic background, the headline and the line
+ *  under it top left, two real buttons and a QR code to the App Store on the left, the tilted iPhone with the live
+ *  tradr.me lander feed on the right. No logo row, no fine print. `line` = headline, `sub` = the line under it. */
 export function endHtml(s: End) {
   const feed = src(path.join(import.meta.dirname, "assets", "lander-feed.jpg"));
-  const [l1, l2] = s.line.replace(/\*/g, "").split(/,\s*/);
   return `<!doctype html><html><head><meta charset="utf-8"><style>${BASE}
-@font-face { font-family: Display; src: url(${f("archivo-condensed-black-italic.woff2")}); font-weight: 900; font-style: italic; }
-@font-face { font-family: Geist; src: url(${f("geist.woff2")}); font-weight: 400 700; }
+@font-face { font-family: Geist; src: url(${f("geist.woff2")}); font-weight: 400 800; }
 body { background: #020504; color: #fff; font-family: Geist, Inter, sans-serif; }
 .bg { position: absolute; inset: 0; background:
-  radial-gradient(42% 30% at 50% 66%, rgba(0,193,106,.42), transparent 70%),
-  radial-gradient(70% 45% at 50% 70%, rgba(0,120,66,.30), transparent 72%),
-  radial-gradient(60% 40% at 50% 0%, rgba(0,193,106,.10), transparent 70%),
+  radial-gradient(40% 32% at 72% 70%, rgba(0,193,106,.42), transparent 70%),
+  radial-gradient(70% 45% at 66% 74%, rgba(0,120,66,.30), transparent 72%),
+  radial-gradient(60% 40% at 20% 0%, rgba(0,193,106,.10), transparent 70%),
   linear-gradient(180deg, #030a07 0%, #020504 60%, #010302 100%); }
-.circ { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .4; -webkit-mask-image: radial-gradient(70% 60% at 50% 55%, #000 30%, transparent 90%); }
+.circ { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .4; -webkit-mask-image: radial-gradient(70% 60% at 62% 60%, #000 30%, transparent 90%); }
 .circ g:first-child { stroke: rgba(0,193,106,.20); }
 .circ .nodes { fill: #0b2a1c; stroke: rgba(0,220,120,.55); stroke-width: 3; }
 .glowlines { position: absolute; inset: 0; background:
-  linear-gradient(115deg, transparent 47%, rgba(0,255,140,.10) 49.6%, rgba(160,255,210,.30) 50%, rgba(0,255,140,.10) 50.4%, transparent 53%),
-  linear-gradient(65deg, transparent 58%, rgba(0,255,140,.07) 59.7%, rgba(160,255,210,.22) 60%, rgba(0,255,140,.07) 60.3%, transparent 62%);
+  linear-gradient(115deg, transparent 52%, rgba(0,255,140,.10) 54.6%, rgba(160,255,210,.30) 55%, rgba(0,255,140,.10) 55.4%, transparent 58%),
+  linear-gradient(65deg, transparent 63%, rgba(0,255,140,.07) 64.7%, rgba(160,255,210,.22) 65%, rgba(0,255,140,.07) 65.3%, transparent 67%);
   mix-blend-mode: screen; filter: blur(1.5px); }
 .floor { position: absolute; left: -20%; right: -20%; bottom: -10px; height: 470px; transform: perspective(700px) rotateX(64deg); transform-origin: 50% 100%;
   background-image: linear-gradient(rgba(0,220,120,.30) 2px, transparent 2px), linear-gradient(90deg, rgba(0,220,120,.30) 2px, transparent 2px); background-size: 90px 90px;
   -webkit-mask-image: linear-gradient(180deg, transparent, #000 60%); }
-.vig { position: absolute; inset: 0; background: radial-gradient(120% 90% at 50% 50%, transparent 55%, rgba(0,0,0,.75)), linear-gradient(180deg, transparent 80%, rgba(2,5,4,.85) 92%, #020504 100%); }
-.brand { position: absolute; top: 58px; left: 0; right: 0; display: flex; justify-content: center; align-items: center; gap: 14px; font: 700 44px/1 Geist; letter-spacing: -.02em; }
-.brand svg { width: 34px; height: 38px; }
-.hd { position: absolute; top: 140px; left: 40px; right: 40px; text-align: center; }
-h2 { font-family: Display; font-weight: 900; font-style: italic; text-transform: uppercase; line-height: .9; letter-spacing: -.005em; }
-h2 span { display: block; white-space: nowrap; }
-h2 .a { color: rgba(255,255,255,.62); }
-h2 .b { color: #fff; text-shadow: 0 0 40px rgba(0,193,106,.45); }
-.cta { margin-top: 26px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
-.cta small { font: 500 32px/1.2 Geist; color: rgba(255,255,255,.78); }
-.url { display: inline-flex; align-items: center; gap: 16px; background: #fff; color: #050807; font: 800 64px/1 Geist; letter-spacing: -.03em; padding: 16px 34px 18px 28px; border-radius: 18px; box-shadow: 0 0 0 4px rgba(0,193,106,.35), 0 20px 60px rgba(0,193,106,.35); }
-.url svg { width: 40px; height: 45px; }
-.stage { position: absolute; left: 0; right: 0; top: 548px; height: 900px; perspective: 2400px; }
-.phone { position: absolute; left: 50%; top: 0; width: 500px; height: 1020px; margin-left: -250px; border-radius: 76px; padding: 11px;
-  transform: rotateX(16deg) rotateY(-14deg) rotateZ(-9deg); transform-origin: 50% 40%;
+.vig { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(120% 90% at 50% 50%, transparent 55%, rgba(0,0,0,.7)), linear-gradient(180deg, transparent 84%, rgba(2,5,4,.8) 94%, #020504 100%); }
+.top { position: absolute; top: 96px; left: 70px; right: 70px; }
+h2 { font: 700 82px/1.04 Geist; letter-spacing: -.035em; text-wrap: balance; }
+h2 em { font-style: normal; color: ${GREEN}; }
+.sub { margin-top: 30px; font: 400 36px/1.38 Geist; letter-spacing: -.01em; color: rgba(255,255,255,.74); max-width: 900px; text-wrap: pretty; }
+.left { position: absolute; left: 70px; top: 700px; width: 430px; display: flex; flex-direction: column; gap: 22px; }
+.btn { height: 108px; border-radius: 999px; display: flex; align-items: center; justify-content: center; gap: 16px; font: 700 38px/1 Geist; letter-spacing: -.02em; white-space: nowrap; }
+.btn.g { background: ${GREEN}; color: #04140c; box-shadow: 0 0 0 1px rgba(255,255,255,.12) inset, 0 18px 50px rgba(0,193,106,.38); }
+.btn.w { background: #fff; color: #050807; box-shadow: 0 18px 50px rgba(0,0,0,.45); }
+.btn.w svg { width: 34px; height: 42px; margin-top: -6px; }
+.qr { margin-top: 14px; display: flex; align-items: center; gap: 26px; }
+.qr .code { width: 210px; height: 210px; padding: 10px; background: #fff; border-radius: 26px; box-shadow: 0 0 0 4px rgba(0,193,106,.35), 0 20px 50px rgba(0,0,0,.5); }
+.qr .code svg { width: 100%; height: 100%; display: block; }
+.qr small { font: 500 30px/1.25 Geist; color: rgba(255,255,255,.7); }
+.stage { position: absolute; left: 0; right: 0; top: 560px; height: 900px; perspective: 2400px; }
+.phone { position: absolute; left: 560px; top: 0; width: 460px; height: 940px; border-radius: 70px; padding: 10px;
+  transform: rotateX(12deg) rotateY(-16deg) rotateZ(-7deg); transform-origin: 50% 40%;
   background: linear-gradient(140deg, #6b7176 0%, #23272a 18%, #3c4145 46%, #15181a 70%, #5a6065 100%);
   box-shadow: 30px 50px 90px rgba(0,0,0,.75), 0 0 120px rgba(0,193,106,.35), inset 0 0 0 2px rgba(255,255,255,.18); }
-.phone::before { content: ""; position: absolute; left: -5px; top: 210px; width: 5px; height: 90px; border-radius: 3px 0 0 3px; background: #4a5055; box-shadow: 0 120px 0 #4a5055; }
-.scr { width: 100%; height: 100%; border-radius: 66px; overflow: hidden; background: #000 url('${feed}') top center / 100% auto no-repeat; position: relative; }
+.phone::before { content: ""; position: absolute; left: -5px; top: 200px; width: 5px; height: 84px; border-radius: 3px 0 0 3px; background: #4a5055; box-shadow: 0 110px 0 #4a5055; }
+.scr { width: 100%; height: 100%; border-radius: 61px; overflow: hidden; background: #000 url('${feed}') top center / 100% auto no-repeat; position: relative; }
 .scr::after { content: ""; position: absolute; inset: 0; background: linear-gradient(125deg, rgba(255,255,255,.16) 0%, rgba(255,255,255,0) 32%, rgba(255,255,255,0) 70%, rgba(255,255,255,.06) 100%); }
-.fine { position: absolute; left: 70px; right: 70px; bottom: 26px; text-align: center; font: 500 15.5px/1.38 Geist; color: rgba(255,255,255,.55); }
 </style></head><body>
 <div class="bg"></div>${circuit(7)}<div class="glowlines"></div><div class="floor"></div>
 <div class="stage"><div class="phone"><div class="scr"></div></div></div>
 <div class="vig"></div>
-<div class="brand">${MARK}Tradr</div>
-<div class="hd"><h2><span class="a" data-fit="96,50,1">${esc(l1 ?? "")}.</span><span class="b" data-fit="150,70,1">${esc((l2 ?? "").replace(/^./, (c) => c.toUpperCase()))}</span></h2>
-<div class="cta"><small>${esc(s.sub)}</small><div class="url">${MARK}tradr.me</div></div></div>
-<div class="fine">The trades shown are real ones from Tradr, replayed. Names, faces and notes are stand-ins; likes, comments and saves are illustrative. Tradr is a trade journal. Nothing on Tradr is financial advice. Trading carries a high risk of losing money.</div>
+<div class="top"><h2>${marks(s.line)}</h2><div class="sub">${marks(s.sub)}</div></div>
+<div class="left"><div class="btn g">Join at tradr.me</div><div class="btn w">${APPLE}Download the App</div>
+<div class="qr"><div class="code">${qrSvg(APP_STORE_URL)}</div><small>Scan to get<br>the app</small></div></div>
 ${FIT}</body></html>`;
 }

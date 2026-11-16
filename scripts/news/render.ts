@@ -132,6 +132,8 @@ export async function renderSpec(specPath: string, opts: { end?: End } = {}) {
   await mkdir(outDir, { recursive: true });
   const browser = await chromium.launch({ channel: "chrome", args: ["--allow-file-access-from-files"] });
   const done: Rendered[] = [];
+  // Story slides carry a progress bar (their place among the story slides; not on the hook or the end slide).
+  const stories = spec.slides.filter((x) => x.type === "card" && x.story);
   try {
     for (const [i, raw] of spec.slides.entries()) {
       const n = i + 1;
@@ -146,6 +148,10 @@ export async function renderSpec(specPath: string, opts: { end?: End } = {}) {
         continue;
       }
       const s: Card = structuredClone(raw);
+      if (s.story) {
+        s.progress = [stories.indexOf(raw), stories.length];
+        if (s.story.image) s.story.image = await local(dir, s.story.image);
+      }
       if (s.quote?.photo) s.quote.photo = await local(dir, s.quote.photo);
       if (s.media?.kind === "image") s.media.src = await local(dir, s.media.src);
       for (const row of s.rows ?? []) for (const pn of row) if (pn.kind === "image") pn.src = await local(dir, pn.src);
