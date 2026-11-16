@@ -34,7 +34,7 @@ _Written 13 Nov 2026 from @polymarket's live Instagram posts and Tradr's own bra
 - Every screenshot timestamp in US Eastern time.
 
 ## Last slide
-- Fixed, uploaded with `desk ends` (16 Nov 2026, after the Liquid ad): dark green cinematic background, no logo row, "Join the first social media platform for traders." top left with the sub-line under it, a green "Join at tradr.me" and a white "Download the App" pill button, a QR code to the App Store (tested with `npx tsx scripts/news/qrcheck.mts <end.jpg>`), the tilted iPhone with the live lander feed on the right. No fine print. Never changed per post.
+- Fixed, uploaded with `desk ends` (16 Nov 2026, after the Liquid ad): dark green cinematic background, no logo row, "Join the first social media platform for traders." top left with the sub-line under it, a green-outlined glowing "Join at Tradr.me" (↗) and a white "Download the App" pill button, a QR code to the App Store in a green-edged card with "Scan to get the app" and a curved arrow, glowing green curves and faint candles in the background (v2) (tested with `npx tsx scripts/news/qrcheck.mts <end.jpg>`), the tilted iPhone with the live lander feed on the right. No fine print. Never changed per post.
 
 **Decisions come from `docs/media-playbook.md`** (the Polymarket study). This guide is the production rules; the playbook is the editorial judgement.
 

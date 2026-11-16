@@ -467,57 +467,75 @@ function qrSvg(text: string) {
 
 const APPLE = `<svg viewBox="0 0 384 512" aria-hidden="true"><path fill="currentColor" d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>`;
 
-/** The fixed last slide (16 Nov 2026, after the Liquid ad): dark green cinematic background, the headline and the line
- *  under it top left, two real buttons and a QR code to the App Store on the left, the tilted iPhone with the live
- *  tradr.me lander feed on the right. No logo row, no fine print. `line` = headline, `sub` = the line under it. */
+/** Faint decorative candles, top right (seeded, the same on every render; not market data). */
+function candles(seed: number) {
+  const r = rng(seed), out: string[] = [];
+  let y = 520;
+  for (let i = 0; i < 14; i++) {
+    const x = 690 + i * 28, open = y, close = y - 18 - r() * 40 + (r() < .3 ? 46 : 0);
+    const top = Math.min(open, close) - 10 - r() * 26, bot = Math.max(open, close) + 10 + r() * 26;
+    out.push(`<line x1="${x + 7}" x2="${x + 7}" y1="${top}" y2="${bot}" stroke-width="2"/><rect x="${x}" y="${Math.min(open, close)}" width="14" height="${Math.max(6, Math.abs(close - open))}" rx="2"/>`);
+    y = close;
+  }
+  return `<svg class="candles" viewBox="0 0 1080 1350"><g fill="rgba(0,193,106,.55)" stroke="rgba(0,193,106,.55)">${out.join("")}</g></svg>`;
+}
+
+/** The fixed last slide (16 Nov 2026 v2, Mohamed's reference): dark green background with glowing sweeping curves and
+ *  faint candles, the headline and the line under it top left, a green-outlined "Join at Tradr.me" button and a white
+ *  "Download the App" button, the App Store QR code in a green-edged card with "Scan to get the app", and the big tilted
+ *  iPhone with the live tradr.me lander feed on the right. No logo row, no fine print. `line` = headline, `sub` = the
+ *  line under it (*words* = bold white). */
 export function endHtml(s: End) {
   const feed = src(path.join(import.meta.dirname, "assets", "lander-feed.jpg"));
   return `<!doctype html><html><head><meta charset="utf-8"><style>${BASE}
 @font-face { font-family: Geist; src: url(${f("geist.woff2")}); font-weight: 400 800; }
-body { background: #020504; color: #fff; font-family: Geist, Inter, sans-serif; }
+body { background: #010402; color: #fff; font-family: Geist, Inter, sans-serif; }
 .bg { position: absolute; inset: 0; background:
-  radial-gradient(40% 32% at 72% 70%, rgba(0,193,106,.42), transparent 70%),
-  radial-gradient(70% 45% at 66% 74%, rgba(0,120,66,.30), transparent 72%),
-  radial-gradient(60% 40% at 20% 0%, rgba(0,193,106,.10), transparent 70%),
-  linear-gradient(180deg, #030a07 0%, #020504 60%, #010302 100%); }
-.circ { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .4; -webkit-mask-image: radial-gradient(70% 60% at 62% 60%, #000 30%, transparent 90%); }
-.circ g:first-child { stroke: rgba(0,193,106,.20); }
-.circ .nodes { fill: #0b2a1c; stroke: rgba(0,220,120,.55); stroke-width: 3; }
-.glowlines { position: absolute; inset: 0; background:
-  linear-gradient(115deg, transparent 52%, rgba(0,255,140,.10) 54.6%, rgba(160,255,210,.30) 55%, rgba(0,255,140,.10) 55.4%, transparent 58%),
-  linear-gradient(65deg, transparent 63%, rgba(0,255,140,.07) 64.7%, rgba(160,255,210,.22) 65%, rgba(0,255,140,.07) 65.3%, transparent 67%);
-  mix-blend-mode: screen; filter: blur(1.5px); }
-.floor { position: absolute; left: -20%; right: -20%; bottom: -10px; height: 470px; transform: perspective(700px) rotateX(64deg); transform-origin: 50% 100%;
-  background-image: linear-gradient(rgba(0,220,120,.30) 2px, transparent 2px), linear-gradient(90deg, rgba(0,220,120,.30) 2px, transparent 2px); background-size: 90px 90px;
-  -webkit-mask-image: linear-gradient(180deg, transparent, #000 60%); }
-.vig { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(120% 90% at 50% 50%, transparent 55%, rgba(0,0,0,.7)), linear-gradient(180deg, transparent 84%, rgba(2,5,4,.8) 94%, #020504 100%); }
-.top { position: absolute; top: 96px; left: 70px; right: 70px; }
-h2 { font: 700 82px/1.04 Geist; letter-spacing: -.035em; text-wrap: balance; }
-h2 em { font-style: normal; color: ${GREEN}; }
-.sub { margin-top: 30px; font: 400 36px/1.38 Geist; letter-spacing: -.01em; color: rgba(255,255,255,.74); max-width: 900px; text-wrap: pretty; }
-.left { position: absolute; left: 70px; top: 700px; width: 430px; display: flex; flex-direction: column; gap: 22px; }
-.btn { height: 108px; border-radius: 999px; display: flex; align-items: center; justify-content: center; gap: 16px; font: 700 38px/1 Geist; letter-spacing: -.02em; white-space: nowrap; }
-.btn.g { background: ${GREEN}; color: #04140c; box-shadow: 0 0 0 1px rgba(255,255,255,.12) inset, 0 18px 50px rgba(0,193,106,.38); }
-.btn.w { background: #fff; color: #050807; box-shadow: 0 18px 50px rgba(0,0,0,.45); }
-.btn.w svg { width: 34px; height: 42px; margin-top: -6px; }
-.qr { margin-top: 14px; display: flex; align-items: center; gap: 26px; }
-.qr .code { width: 210px; height: 210px; padding: 10px; background: #fff; border-radius: 26px; box-shadow: 0 0 0 4px rgba(0,193,106,.35), 0 20px 50px rgba(0,0,0,.5); }
-.qr .code svg { width: 100%; height: 100%; display: block; }
-.qr small { font: 500 30px/1.25 Geist; color: rgba(255,255,255,.7); }
-.stage { position: absolute; left: 0; right: 0; top: 560px; height: 900px; perspective: 2400px; }
-.phone { position: absolute; left: 560px; top: 0; width: 460px; height: 940px; border-radius: 70px; padding: 10px;
-  transform: rotateX(12deg) rotateY(-16deg) rotateZ(-7deg); transform-origin: 50% 40%;
-  background: linear-gradient(140deg, #6b7176 0%, #23272a 18%, #3c4145 46%, #15181a 70%, #5a6065 100%);
-  box-shadow: 30px 50px 90px rgba(0,0,0,.75), 0 0 120px rgba(0,193,106,.35), inset 0 0 0 2px rgba(255,255,255,.18); }
-.phone::before { content: ""; position: absolute; left: -5px; top: 200px; width: 5px; height: 84px; border-radius: 3px 0 0 3px; background: #4a5055; box-shadow: 0 110px 0 #4a5055; }
-.scr { width: 100%; height: 100%; border-radius: 61px; overflow: hidden; background: #000 url('${feed}') top center / 100% auto no-repeat; position: relative; }
-.scr::after { content: ""; position: absolute; inset: 0; background: linear-gradient(125deg, rgba(255,255,255,.16) 0%, rgba(255,255,255,0) 32%, rgba(255,255,255,0) 70%, rgba(255,255,255,.06) 100%); }
+  radial-gradient(45% 35% at 78% 62%, rgba(0,193,106,.30), transparent 70%),
+  radial-gradient(60% 40% at 10% 105%, rgba(0,160,90,.28), transparent 70%),
+  radial-gradient(50% 30% at 85% 5%, rgba(0,193,106,.16), transparent 70%),
+  linear-gradient(180deg, #020a06 0%, #010402 55%, #010302 100%); }
+.waves { position: absolute; inset: 0; width: 100%; height: 100%; }
+.candles { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .5; -webkit-mask-image: linear-gradient(200deg, #000 20%, transparent 55%); }
+.top { position: absolute; top: 72px; left: 72px; right: 70px; z-index: 2; }
+h2 { font: 700 86px/1.02 Geist; letter-spacing: -.035em; max-width: 840px; }
+h2 em { font-style: normal; color: ${GREEN}; text-shadow: 0 0 40px rgba(0,193,106,.35); }
+.sub { margin-top: 30px; font: 400 36px/1.36 Geist; letter-spacing: -.01em; color: rgba(255,255,255,.72); max-width: 720px; }
+.sub em { font-style: normal; font-weight: 650; color: #fff; }
+.left { margin-top: 60px; width: 445px; display: flex; flex-direction: column; gap: 26px; }
+.btn { height: 112px; border-radius: 999px; display: flex; align-items: center; justify-content: center; gap: 20px; font: 600 40px/1 Geist; letter-spacing: -.02em; white-space: nowrap; }
+.btn.g { background: linear-gradient(180deg, rgba(0,193,106,.16), rgba(0,40,22,.55)); color: #fff; border: 3px solid ${GREEN};
+  box-shadow: 0 0 28px rgba(0,193,106,.55), 0 0 70px rgba(0,193,106,.25), inset 0 0 26px rgba(0,193,106,.30); }
+.btn.g svg { width: 40px; height: 40px; }
+.btn.w { background: #fff; color: #050807; box-shadow: 0 18px 50px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.3); }
+.btn.w svg { width: 36px; height: 44px; margin-top: -6px; }
+.qr { margin-top: 20px; display: flex; align-items: center; gap: 36px; }
+.qr .code { width: 220px; height: 220px; padding: 16px; background: #050a07; border: 3px solid ${GREEN}; border-radius: 28px;
+  box-shadow: 0 0 26px rgba(0,193,106,.5), inset 0 0 18px rgba(0,193,106,.25); }
+.qr .code svg { width: 100%; height: 100%; display: block; border-radius: 10px; }
+.scan { position: relative; white-space: nowrap; font: 400 36px/1.25 Geist; color: rgba(255,255,255,.72); padding-bottom: 90px; }
+.scan svg { position: absolute; left: -16px; bottom: 0; width: 110px; height: 80px; }
+.stage { position: absolute; left: 0; right: 0; top: 500px; height: 1000px; perspective: 2600px; }
+.phone { position: absolute; left: 580px; top: 0; width: 500px; height: 1030px; border-radius: 76px; padding: 11px;
+  transform: rotateX(8deg) rotateY(-14deg) rotateZ(-9deg); transform-origin: 50% 40%;
+  background: linear-gradient(140deg, #8a9095 0%, #2a2e31 14%, #44494d 46%, #16191b 72%, #6a7075 100%);
+  box-shadow: 30px 50px 100px rgba(0,0,0,.8), 0 0 140px rgba(0,193,106,.32), inset 0 0 0 2px rgba(255,255,255,.22); }
+.phone::before { content: ""; position: absolute; left: -6px; top: 230px; width: 6px; height: 96px; border-radius: 3px 0 0 3px; background: #4a5055; box-shadow: 0 126px 0 #4a5055; }
+.phone::after { content: ""; position: absolute; right: -6px; top: 300px; width: 6px; height: 150px; border-radius: 0 3px 3px 0; background: #4a5055; }
+.scr { width: 100%; height: 100%; border-radius: 66px; overflow: hidden; background: #000 url('${feed}') top center / 100% auto no-repeat; position: relative; }
+.scr::after { content: ""; position: absolute; inset: 0; background: linear-gradient(125deg, rgba(255,255,255,.14) 0%, rgba(255,255,255,0) 30%, rgba(255,255,255,0) 72%, rgba(255,255,255,.05) 100%); }
+.vig { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(130% 95% at 50% 45%, transparent 60%, rgba(0,0,0,.6)); }
 </style></head><body>
-<div class="bg"></div>${circuit(7)}<div class="glowlines"></div><div class="floor"></div>
+<div class="bg"></div>${candles(11)}
+<svg class="waves" viewBox="0 0 1080 1350" preserveAspectRatio="none"><defs><filter id="wb"><feGaussianBlur stdDeviation="10"/></filter>
+<linearGradient id="wg" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#00C16A" stop-opacity="0"/><stop offset=".35" stop-color="#00C16A" stop-opacity=".9"/><stop offset="1" stop-color="#00C16A" stop-opacity=".15"/></linearGradient></defs>
+<g fill="none" stroke="url(#wg)"><path d="M-40 1330 C 260 1180, 420 980, 620 760 S 960 300, 1140 180" stroke-width="18" opacity=".35" filter="url(#wb)"/><path d="M-40 1330 C 260 1180, 420 980, 620 760 S 960 300, 1140 180" stroke-width="2.5" opacity=".75"/>
+<path d="M-60 1180 C 200 1060, 330 900, 470 700 S 760 260, 1000 -40" stroke-width="14" opacity=".22" filter="url(#wb)"/><path d="M-60 1180 C 200 1060, 330 900, 470 700 S 760 260, 1000 -40" stroke-width="2" opacity=".45"/></g></svg>
 <div class="stage"><div class="phone"><div class="scr"></div></div></div>
 <div class="vig"></div>
-<div class="top"><h2>${marks(s.line)}</h2><div class="sub">${marks(s.sub)}</div></div>
-<div class="left"><div class="btn g">Join at tradr.me</div><div class="btn w">${APPLE}Download the App</div>
-<div class="qr"><div class="code">${qrSvg(APP_STORE_URL)}</div><small>Scan to get<br>the app</small></div></div>
+<div class="top"><h2>${marks(s.line).replace(/\n/g, "<br>")}</h2><div class="sub">${marks(s.sub)}</div>
+<div class="left"><div class="btn g"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18 18 6M8 6h10v10"/></svg>Join at Tradr.me</div>
+<div class="btn w">${APPLE}Download the App</div>
+<div class="qr"><div class="code">${qrSvg(APP_STORE_URL)}</div><div class="scan">Scan to get<br>the app<svg viewBox="0 0 110 80" fill="none" stroke="rgba(255,255,255,.72)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M90 10 C 85 50, 50 68, 14 62"/><path d="M28 48 14 62 30 74"/></svg></div></div></div></div>
 ${FIT}</body></html>`;
 }
