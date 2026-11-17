@@ -18,6 +18,12 @@ const src = (p: string) => (/^(https?:|data:|file:)/.test(p) ? p : pathToFileURL
 
 export const MARK = `<svg viewBox="0 0 260 290" aria-hidden="true"><path fill="${GREEN}" d="M4 0H260L242 52H153L135 243L67 290L91 52H0Z"/></svg>`;
 
+/** Safe area (Mohamed, 17 Nov 2026). Instagram's profile grid shows a 4:5 post (1080x1350) as a 3:4 centre crop, so
+ *  about 34 px go off each side, and the view counter sits over the bottom strip. On the hook every word stays at
+ *  least SAFE_X from the sides and SAFE_BOTTOM above the bottom edge; the slide itself stays 1080x1350. */
+export const SAFE_X = 96;
+export const SAFE_BOTTOM = 180;
+
 const BASE = `
 @font-face { font-family: Anton; src: url(${f("Anton-Regular.ttf")}); }
 @font-face { font-family: Inter; src: url(${f("Inter.ttf")}); font-weight: 100 900; }
@@ -57,8 +63,12 @@ function cover(el) {
 }
 Promise.all([document.fonts.ready, ...[...document.querySelectorAll('[data-cover]')].map(cover)]).then(() => {
   document.querySelectorAll('[data-fit]').forEach((el) => {
-    const [max, min, lines] = el.dataset.fit.split(',').map(Number);
-    el.dataset.size = fit(el, max, min, lines);
+    // "max,min,lines" or "max,min,lines,min2,lines2": the biggest size that fits in \`lines\`, else in \`lines2\`.
+    const [max, min, lines, min2, lines2] = el.dataset.fit.split(',').map(Number);
+    let s = fit(el, max, min, lines);
+    const lh = () => parseFloat(getComputedStyle(el).lineHeight);
+    if (lines2 && (el.scrollHeight > lh() * lines + 2 || el.scrollWidth > el.clientWidth + 1)) s = fit(el, min, min2, lines2);
+    el.dataset.size = s;
   });
   document.body.dataset.ready = '1';
 });
@@ -151,7 +161,7 @@ body { background: #070808; color: #fff; }
 .inset.tile.upx { background: radial-gradient(circle at 30% 25%, #2ee08e, #00a85a 70%); }
 .inset.tile b { font: 800 40px/1 Inter; letter-spacing: .04em; }
 .inset.tile span { font: 400 76px/1 Anton; }
-.text { position: absolute; left: 34px; right: 34px; bottom: 58px; display: flex; flex-direction: column; align-items: center; gap: 22px; }
+.text { position: absolute; left: ${SAFE_X}px; right: ${SAFE_X}px; bottom: ${SAFE_BOTTOM}px; display: flex; flex-direction: column; align-items: center; gap: 22px; }
 .tag { font: 400 40px/1 Anton; letter-spacing: .01em; text-transform: uppercase; padding: 12px 20px 11px; border-radius: 10px;
   background: #fff; color: #070808; box-shadow: 0 6px 24px rgba(0,0,0,.35); }
 .tag.br { background: ${RED}; color: #fff; border: 3px solid #fff; padding: 9px 17px 8px; }
@@ -159,18 +169,18 @@ body { background: #070808; color: #fff; }
 .tag.q svg { width: 62px; height: 42px; }
 h1 { font-family: Anton; font-weight: 400; text-transform: uppercase; text-align: center; line-height: .93; width: 100%; letter-spacing: -.003em; text-wrap: balance; text-shadow: 0 4px 30px rgba(0,0,0,.4); }
 h1 em { font-style: normal; color: ${s.accent === "red" || (s.accent !== "green" && s.mode === "chart" && s.chart?.down !== false) ? "#ff3b40" : GREEN}; }
-.logo { position: absolute; top: 46px; left: 50px; width: 44px; height: 49px; z-index: 10; filter: drop-shadow(0 2px 10px rgba(0,0,0,.45)); }
+.logo { position: absolute; top: 56px; left: ${SAFE_X - 12}px; width: 44px; height: 49px; z-index: 10; filter: drop-shadow(0 2px 10px rgba(0,0,0,.45)); }
 .chart { position: absolute; inset: 0; }
 .chart .grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.045) 1px, transparent 1px); background-size: 108px 108px; }
 .chart svg { position: absolute; left: 0; top: 330px; width: 100%; height: 640px; }
-.px { position: absolute; left: 50px; top: 140px; display: flex; align-items: center; gap: 22px; }
+.px { position: absolute; left: ${SAFE_X}px; top: 150px; display: flex; align-items: center; gap: 22px; }
 .px b { font: 400 150px/1 Anton; letter-spacing: .005em; }
 .px span { font: 800 40px/1 Inter; padding: 12px 18px; border-radius: 12px; }
-.cnote { position: absolute; left: 52px; top: 302px; font: 500 24px/1.2 Inter; color: rgba(255,255,255,.55); }
+.cnote { position: absolute; left: ${SAFE_X + 2}px; top: 312px; font: 500 24px/1.2 Inter; color: rgba(255,255,255,.55); }
 </style></head><body>
 ${bg}${inset}${s.mode === "chart" ? "" : '<div class="topfade"></div><div class="fade"></div>'}
 <div class="logo">${MARK}</div>
-<div class="text">${tagHtml(s.tag)}<h1 data-fit="230,96,3">${marks(s.headline)}</h1></div>
+<div class="text">${tagHtml(s.tag)}<h1 data-fit="184,112,3,84,4">${marks(s.headline)}</h1></div>
 ${FIT}</body></html>`;
 }
 
@@ -254,13 +264,13 @@ body { background: #070808; color: #fff; }
 .labels { position: absolute; inset: 0; z-index: 3; }
 .send { background: rgba(255,255,255,.12); color: #fff; border: 2px solid rgba(255,255,255,.25); transform: translateX(-85%); }
 .shade { position: absolute; left: 0; right: 0; top: 380px; bottom: 0; background: linear-gradient(180deg, rgba(7,8,8,0) 0%, rgba(7,8,8,.7) 26%, rgba(7,8,8,.96) 46%, #070808 60%); }
-.copy { position: absolute; left: 60px; right: 60px; bottom: 120px; }
+.copy { position: absolute; left: 84px; right: 84px; bottom: 124px; }
 h2 { font: 850 104px/1.0 Inter; letter-spacing: -.035em; text-wrap: balance; }
 h2 em, p em { font-style: normal; color: ${accent}; }
 hr { border: 0; height: 2px; background: rgba(255,255,255,.22); margin: 34px 0 30px; }
 p { font: 500 41px/1.34 Inter; letter-spacing: -.012em; color: rgba(255,255,255,.9); text-wrap: pretty; }
 p em { font-weight: 750; }
-.prog { position: absolute; left: 60px; right: 60px; bottom: 52px; display: flex; gap: 14px; }
+.prog { position: absolute; left: 84px; right: 84px; bottom: 56px; display: flex; gap: 14px; }
 .prog i { flex: 1; height: 9px; border-radius: 9px; background: rgba(255,255,255,.28); }
 .prog i.on { background: ${GREEN}; }
 </style></head><body>
