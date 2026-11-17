@@ -247,7 +247,7 @@ function DraftCard({ d, end, now, act, remove }: {
             onPost={async (igAt, label) => {
               if (await run("post", undefined, igAt == null ? undefined : { igAt })) {
                 setPicking(false);
-                toast(`Sent to the poster. Instagram goes live ${label}; the tweet goes out now.`, { ms: 4000 });
+                toast(`Sent to the poster. Instagram goes live ${label}; ${d.post?.tweetUrl ? "the tweet already went out, so it isn't sent again" : "the tweet goes out now"}.`, { ms: 4000 });
               }
             }} />
         ) : asking ? (
@@ -264,12 +264,10 @@ function DraftCard({ d, end, now, act, remove }: {
           </div>
         ) : (
           <div className="news-actions">
-            {canPost(d) && (
-              <button className="btn primary" disabled={!!busy}
-                onClick={() => setPicking(true)}>
-                {busy === "post" ? <Spinner /> : d.post?.state === "failed" ? "Try posting again" : "Post"}
-              </button>
-            )}
+            <button className="btn primary" disabled={!!busy || inFlight(d)}
+              onClick={() => setPicking(true)}>
+              {busy === "post" ? <Spinner /> : inFlight(d) ? "Posting…" : d.post?.state === "failed" ? "Try posting again" : "Post"}
+            </button>
             {d.post?.state === "queued" && <button className="btn ghost" disabled={!!busy} onClick={() => run("post-cancel")}>Cancel post</button>}
             {(d.status === "draft" || d.status === "changes") && <>
               <button className="btn" disabled={!!busy} onClick={() => run("approve")}>{busy === "approve" ? <Spinner /> : "Approve"}</button>
@@ -294,8 +292,9 @@ function DraftCard({ d, end, now, act, remove }: {
   );
 }
 
-const canPost = (d: NewsDraft) =>
-  d.status !== "rejected" && d.status !== "posted" && (!d.post || d.post.state === "failed");
+// Every draft keeps its Post button (Mohamed, 17 Nov 2026), so a posted one can be posted or rescheduled again.
+// It only waits while a post is on its way.
+const inFlight = (d: NewsDraft) => d.post?.state === "queued" || d.post?.state === "running";
 
 const ROME = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Rome", weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
@@ -347,7 +346,7 @@ function whenChoices(now: number): { key: WhenKey; label: string; at: number }[]
   return out;
 }
 
-/** Opens on Post: pick when Instagram goes live (default 24 h), then Post. The tweet always goes out at once. */
+/** Opens on Post: pick when Instagram goes live (default 24 h), then Post. The tweet goes out at once, unless it already went out. */
 function PostWhen({ d, busy, onPost, onCancel }: {
   d: NewsDraft; busy: boolean; onPost: (igAt: number | null, label: string) => void; onCancel: () => void;
 }) {
@@ -356,6 +355,7 @@ function PostWhen({ d, busy, onPost, onCancel }: {
   const [key, setKey] = useState<WhenKey>("24h");
   const [custom, setCustom] = useState(() => toLocalInput(ceil5(Date.now() + 2 * HOUR)));
   const already = d.post?.state === "failed" && d.post.igScheduledAt ? d.post : null; // a retry: Instagram is done
+  const tweeted = !!d.post?.tweetUrl; // posting again never sends the tweet twice
   const choices = whenChoices(now);
   const parseCustom = () => {
     const m = custom.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
@@ -390,7 +390,7 @@ function PostWhen({ d, busy, onPost, onCancel }: {
           </label>
         )}
         <p className="text-[13px] muted">
-          {problem ? <span className="text-[var(--danger)]">{problem}</span> : <>Goes live <b className="text-[var(--ink)]">{label}</b> ({relTime(at, now)}). The tweet goes out now.</>}
+          {problem ? <span className="text-[var(--danger)]">{problem}</span> : <>Goes live <b className="text-[var(--ink)]">{label}</b> ({relTime(at, now)}). {tweeted ? "The tweet already went out, so it isn't sent again." : "The tweet goes out now."}</>}
         </p>
       </>}
       <div className="news-actions">

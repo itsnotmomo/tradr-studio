@@ -35,9 +35,13 @@ export const POST = route<Ctx>(async (req, { params }) => {
         break;
       case "post": {
         // One-button posting: the poster on the Mac picks this up (scripts/news/poster.ts).
-        if (d.status === "rejected" || d.status === "posted") throw new UserError("This one can't be posted.");
+        // Every draft keeps its Post button (Mohamed, 17 Nov 2026): posted ones can be posted or rescheduled again.
+        // Only a post already on its way is refused.
         if (d.post && (d.post.state === "queued" || d.post.state === "running")) throw new UserError("Already on its way.");
         const keep = d.post?.state === "failed" ? d.post : null; // a retry keeps what already went out
+        const again = d.post?.state === "done" ? d.post : null; // posting again: Instagram is scheduled anew
+        // A tweet that went out is never sent twice; posting again only reschedules Instagram.
+        const tweetUrl = keep?.tweetUrl ?? again?.tweetUrl ?? null;
         // When the Instagram post goes live: the time picked with the Post button (default 24 h). A retry after Instagram
         // was already scheduled keeps that time; only the tweet is left to do.
         let igAt: number;
@@ -48,9 +52,9 @@ export const POST = route<Ctx>(async (req, { params }) => {
           if (igAt - now < IG_MIN_LEAD_MS) throw new UserError(`Instagram needs at least ${IG_MIN_LEAD_MS / 60e3} minutes' notice. Pick a later time.`);
           if (igAt - now > IG_MAX_LEAD_MS) throw new UserError("Instagram schedules at most 29 days ahead. Pick an earlier time.");
         } else igAt = Math.ceil((now + 24 * 3600e3) / 300e3) * 300e3;
-        d.post = { state: "queued", requestedAt: now, igAt, igScheduledAt: keep?.igScheduledAt ?? null, tweetUrl: keep?.tweetUrl ?? null, error: null, updatedAt: now };
+        d.post = { state: "queued", requestedAt: now, igAt, igScheduledAt: keep?.igScheduledAt ?? null, tweetUrl, error: null, updatedAt: now };
         if (d.status !== "approved") { d.status = "approved"; d.approvedAt = now; }
-        d.history.push({ at: now, what: keep ? "Post retried" : "Post pressed" });
+        d.history.push({ at: now, what: keep ? "Post retried" : again ? "Post pressed again (Instagram rescheduled)" : "Post pressed" });
         break;
       }
       case "post-cancel":
