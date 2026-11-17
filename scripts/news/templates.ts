@@ -106,6 +106,9 @@ export type Hook = {
   /** Headline size override, "max,min,lines[,min2,lines2]" (default "184,112,3,84,4"): e.g. a long headline that
    *  should fill 4 lines bigger than the default's 112 px cap. The text box stays inside the safe area either way. */
   fit?: string;
+  /** Headline distance from the bottom edge in px (default SAFE_BOTTOM). Lower only on Mohamed's ask: under 180 the
+   *  last line can sit under the grid's view counter. */
+  bottom?: number;
   /** Kept in Studio only (photos[]); never drawn on the slide. */
   credit?: string;
 };
@@ -183,7 +186,7 @@ h1 em { font-style: normal; color: ${s.accent === "red" || (s.accent !== "green"
 </style></head><body>
 ${bg}${inset}${s.mode === "chart" ? "" : '<div class="topfade"></div><div class="fade"></div>'}
 <div class="logo">${MARK}</div>
-<div class="text">${tagHtml(s.tag)}<h1 data-fit="${esc(s.fit || "184,112,3,84,4")}">${marks(s.headline)}</h1></div>
+<div class="text"${s.bottom != null ? ` style="bottom:${Math.round(s.bottom)}px"` : ""}>${tagHtml(s.tag)}<h1 data-fit="${esc(s.fit || "184,112,3,84,4")}">${marks(s.headline)}</h1></div>
 ${FIT}</body></html>`;
 }
 
