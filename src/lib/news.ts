@@ -39,7 +39,13 @@ export type NewsDraft = {
   post?: NewsPost | null;
 };
 
-/** queued → running → done | failed. Instagram is scheduled 24 h ahead in Instagram's own scheduler (so music can be
+/** Instagram's web scheduler takes posts from 20 minutes ahead up to 29 days ahead (its calendar greys out day 30;
+ *  tested 17 Nov 2026, though Meta's help says 75 days). The picker's earliest choice is 30 minutes
+ *  (the poster needs a minute or two to pick it up and fill the form); the server refuses anything under 25. */
+export const IG_MIN_LEAD_MS = 25 * 60e3;
+export const IG_MAX_LEAD_MS = 29 * 24 * 3600e3;
+
+/** queued → running → done | failed. Instagram is scheduled at the time picked on Post (default 24 h) in Instagram's own scheduler (so music can be
  *  added from the phone); the tweet goes out at once. Each half is recorded as it finishes, so a retry skips it. */
 export type NewsPost = {
   state: "queued" | "running" | "done" | "failed";

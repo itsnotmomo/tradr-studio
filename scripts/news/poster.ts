@@ -1,7 +1,8 @@
 // The poster: works the News "Post" button on this Mac (16 Nov 2026).
 //
 // Instagram: Meta's API can't schedule an Instagram post and can't add music, so the carousel is scheduled in
-// Instagram's own web scheduler (instagram.com → Create → Post → Schedule content), 24 h ahead. That is a real
+// Instagram's own web scheduler (instagram.com → Create → Post → Schedule content), at the time picked with the Post
+// button (default 24 h; 17 Nov 2026). That is a real
 // scheduled post: it shows on the phone under Profile → ☰ → Scheduled content, where the music is added.
 // X: no API keys, so the tweet is posted from x.com in the same browser.
 // Both run in a dedicated Chrome profile (PROFILE below) that is signed in to @tradr__app and @tradr_app once.
@@ -9,6 +10,9 @@
 //   npx tsx --env-file=.env.local --conditions=react-server scripts/news/poster.ts login        sign in once
 //   npx tsx --env-file=.env.local --conditions=react-server scripts/news/poster.ts run          keep working the queue
 //   npx tsx --env-file=.env.local --conditions=react-server scripts/news/poster.ts once <id>   one draft, now
+//   npx tsx --env-file=.env.local --conditions=react-server scripts/news/poster.ts dry <id> [igAt ms]
+//        test run: fills Instagram's scheduler for the draft's picked time (or igAt) and checks it, then closes the
+//        dialog WITHOUT scheduling; no tweet, nothing saved on the draft.
 // The launchd agent `me.tradr.media-poster` runs `run` in the background (scripts/news/poster.plist).
 import { mkdir, writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -89,8 +93,12 @@ async function igSignedIn(page: Page) {
   return page.locator(`img[alt="${IG_HANDLE}'s profile picture"]`).first().isVisible().catch(() => false);
 }
 
-/** Schedules the carousel on @tradr__app in Instagram's own scheduler. */
-async function scheduleInstagram(page: Page, d: NewsDraft, slides: string[], igAt: number) {
+/** Instagram refuses anything under 20 minutes ahead; leave a minute for the form. */
+const IG_MIN_MS = 21 * 60e3;
+
+/** Schedules the carousel on @tradr__app in Instagram's own scheduler. `dry` stops before the Schedule click. */
+async function scheduleInstagram(page: Page, d: NewsDraft, slides: string[], igAt: number, dry = false) {
+  if (igAt - Date.now() < IG_MIN_MS) throw new Error("The Instagram time is now less than 20 minutes away (Instagram's minimum). Press Post again and pick a later time.");
   if (!(await igSignedIn(page))) throw new Error(`Instagram isn't signed in as @${IG_HANDLE} in the poster's Chrome. Run the login step.`);
   // Create → Post (the menu toggles; click again if the item isn't there).
   for (let i = 0; i < 3; i++) {
@@ -158,7 +166,7 @@ async function scheduleInstagram(page: Page, d: NewsDraft, slides: string[], igA
   const dateField = page.locator('[role="dialog"] [role="button"]').filter({ hasText: /^\w{3}, (\d{1,2} \w{3}|\w{3} \d{1,2}),? \d{4}$/ }).first();
   await dateField.click();
   const cal = page.locator('[role="dialog"]').filter({ has: page.locator('[role="gridcell"]') }).last();
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 2; i++) { // up to 29 days ahead
     if ((await cal.innerText()).includes(`${when.month} ${when.year}`)) break;
     await cal.getByRole("button", { name: /next month/i }).click();
     await sleep(500);
@@ -192,6 +200,11 @@ async function scheduleInstagram(page: Page, d: NewsDraft, slides: string[], igA
     throw new Error(`Schedule check failed: Instagram shows ${shown} ${hh}:${mm}, wanted ${want} ${when.hour}:${when.minute}.`);
   }
   if (/at least 20 minutes/i.test(text)) throw new Error("Instagram says the time is too soon.");
+  if (dry) {
+    log(d.id, `dry run: Instagram shows ${shown} ${hh}:${mm} (wanted ${want} ${when.hour}:${when.minute}); not scheduling`);
+    await page.screenshot({ path: path.join(os.tmpdir(), "tradr-poster", `${d.id}-dry.png`) }).catch(() => {});
+    return;
+  }
 
   await page.locator('[role="dialog"]').getByRole("button", { name: "Schedule", exact: true }).first().click();
   await page.getByText(/has been scheduled/i).first().waitFor({ timeout: 120000 });
@@ -290,6 +303,19 @@ async function main() {
     await ctx.close();
     return;
   }
+  if (cmd === "dry") {
+    if (!arg) throw new Error("usage: poster.ts dry <draftId> [igAt ms]");
+    const d = await getNews(arg);
+    if (!d) throw new Error("No such draft.");
+    const igAt = Number(process.argv[4] || d.post?.igAt || Date.now() + 24 * 3600e3);
+    const ctx = await browser();
+    try {
+      const page = ctx.pages()[0] ?? (await ctx.newPage());
+      await scheduleInstagram(page, d, await files(d), igAt, true);
+      console.log(JSON.stringify({ ok: true, igAt, rome: rome(igAt) }));
+    } finally { await ctx.close(); }
+    return;
+  }
   if (cmd === "once") {
     if (!arg) throw new Error("usage: poster.ts once <draftId>");
     const ctx = await browser();
@@ -311,7 +337,7 @@ async function main() {
       await sleep(30_000);
     }
   }
-  console.log("commands: login | check | once <draftId> | run");
+  console.log("commands: login | check | once <draftId> | dry <draftId> [igAt] | run");
 }
 
 main().then(() => { if (process.argv[2] !== "run") process.exit(0); }, (e) => { console.error(e); process.exit(1); });

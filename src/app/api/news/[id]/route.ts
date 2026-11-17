@@ -1,4 +1,5 @@
 import { body, route } from "@/lib/server/api";
+import { IG_MAX_LEAD_MS, IG_MIN_LEAD_MS } from "@/lib/news";
 import { deleteNews, getNews, mutateNews, UserError } from "@/lib/server/store";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -7,7 +8,7 @@ type Action = "approve" | "reject" | "changes" | "posted" | "unpost" | "reopen" 
 // Review actions. Changes are made by the next "make news posts" run, which reads changeNote.
 export const POST = route<Ctx>(async (req, { params }) => {
   const { id } = await params;
-  const b = await body<{ action: Action; note?: string }>(req);
+  const b = await body<{ action: Action; note?: string; igAt?: number }>(req);
   const note = String(b.note || "").trim().slice(0, 2000);
   return mutateNews(id, (d) => {
     const now = Date.now();
@@ -37,7 +38,16 @@ export const POST = route<Ctx>(async (req, { params }) => {
         if (d.status === "rejected" || d.status === "posted") throw new UserError("This one can't be posted.");
         if (d.post && (d.post.state === "queued" || d.post.state === "running")) throw new UserError("Already on its way.");
         const keep = d.post?.state === "failed" ? d.post : null; // a retry keeps what already went out
-        const igAt = keep?.igAt && keep.igAt - now > 30 * 60e3 ? keep.igAt : Math.ceil((now + 24 * 3600e3) / 300e3) * 300e3;
+        // When the Instagram post goes live: the time picked with the Post button (default 24 h). A retry after Instagram
+        // was already scheduled keeps that time; only the tweet is left to do.
+        let igAt: number;
+        if (keep?.igScheduledAt) igAt = keep.igAt;
+        else if (b.igAt != null) {
+          igAt = Math.ceil(Number(b.igAt) / 60e3) * 60e3;
+          if (!Number.isFinite(igAt)) throw new UserError("Pick a time for Instagram.");
+          if (igAt - now < IG_MIN_LEAD_MS) throw new UserError(`Instagram needs at least ${IG_MIN_LEAD_MS / 60e3} minutes' notice. Pick a later time.`);
+          if (igAt - now > IG_MAX_LEAD_MS) throw new UserError("Instagram schedules at most 29 days ahead. Pick an earlier time.");
+        } else igAt = Math.ceil((now + 24 * 3600e3) / 300e3) * 300e3;
         d.post = { state: "queued", requestedAt: now, igAt, igScheduledAt: keep?.igScheduledAt ?? null, tweetUrl: keep?.tweetUrl ?? null, error: null, updatedAt: now };
         if (d.status !== "approved") { d.status = "approved"; d.approvedAt = now; }
         d.history.push({ at: now, what: keep ? "Post retried" : "Post pressed" });

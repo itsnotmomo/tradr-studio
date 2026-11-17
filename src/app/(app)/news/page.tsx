@@ -10,7 +10,7 @@ import { useToast } from "@/components/toast";
 import { copyText } from "@/components/publish";
 import { api, fetcher } from "@/lib/client/api";
 import { imageFiles, toJpeg, uploadBlob } from "@/lib/client/upload";
-import { endSlideOf, NEWS_STATUS_LABEL, type NewsDesk, type NewsDraft, type NewsSlide, type NewsStatus, type NewsSuggestion } from "@/lib/news";
+import { IG_MAX_LEAD_MS, endSlideOf, NEWS_STATUS_LABEL, type NewsDesk, type NewsDraft, type NewsSlide, type NewsStatus, type NewsSuggestion } from "@/lib/news";
 import { relTime } from "@/lib/time";
 
 const KEY = "/api/news";
@@ -36,9 +36,9 @@ function NewsView() {
   const setTab = (t: Tab) => router.replace(t === "review" ? "/news" : `/news?tab=${t}`, { scroll: false });
   const toast = useToast();
 
-  const act = async (d: NewsDraft, action: string, note?: string) => {
+  const act = async (d: NewsDraft, action: string, note?: string, extra?: Record<string, unknown>) => {
     try {
-      const next = await api<NewsDraft>(`${KEY}/${d.id}`, { method: "POST", body: { action, note } });
+      const next = await api<NewsDraft>(`${KEY}/${d.id}`, { method: "POST", body: { action, note, ...extra } });
       await mutate((x) => x && { ...x, drafts: x.drafts.map((y) => (y.id === d.id ? next : y)) }, { revalidate: false });
       return true;
     } catch (e) {
@@ -177,16 +177,17 @@ const STATUS_TONE: Record<NewsStatus, string> = {
 
 function DraftCard({ d, end, now, act, remove }: {
   d: NewsDraft; end: string | null; now: number;
-  act: (d: NewsDraft, action: string, note?: string) => Promise<boolean>; remove: (d: NewsDraft) => void;
+  act: (d: NewsDraft, action: string, note?: string, extra?: Record<string, unknown>) => Promise<boolean>; remove: (d: NewsDraft) => void;
 }) {
   const [asking, setAsking] = useState(false);
+  const [picking, setPicking] = useState(false);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const toast = useToast();
   const slides: (NewsSlide & { fixed?: boolean })[] = [...d.slides, ...(end ? [{ url: end, kind: "image" as const, w: 1080, h: 1350, fixed: true }] : [])];
-  const run = async (action: string, n?: string) => {
+  const run = async (action: string, n?: string, extra?: Record<string, unknown>) => {
     setBusy(action);
-    const ok = await act(d, action, n);
+    const ok = await act(d, action, n, extra);
     setBusy(null);
     return ok;
   };
@@ -241,7 +242,15 @@ function DraftCard({ d, end, now, act, remove }: {
 
         {d.post && <PostStatus d={d} now={now} />}
 
-        {asking ? (
+        {picking ? (
+          <PostWhen d={d} busy={busy === "post"} onCancel={() => setPicking(false)}
+            onPost={async (igAt, label) => {
+              if (await run("post", undefined, igAt == null ? undefined : { igAt })) {
+                setPicking(false);
+                toast(`Sent to the poster. Instagram goes live ${label}; the tweet goes out now.`, { ms: 4000 });
+              }
+            }} />
+        ) : asking ? (
           <div className="flex flex-col gap-2">
             <textarea className="news-input" rows={3} autoFocus placeholder="What should change? e.g. headline shorter, use a different photo"
               value={note} onChange={(e) => setNote(e.target.value)} />
@@ -257,7 +266,7 @@ function DraftCard({ d, end, now, act, remove }: {
           <div className="news-actions">
             {canPost(d) && (
               <button className="btn primary" disabled={!!busy}
-                onClick={async () => { if (await run("post")) toast("Sent to the poster. Instagram is scheduled for 24 hours from now; the tweet goes out now.", { ms: 3500 }); }}>
+                onClick={() => setPicking(true)}>
                 {busy === "post" ? <Spinner /> : d.post?.state === "failed" ? "Try posting again" : "Post"}
               </button>
             )}
@@ -290,7 +299,117 @@ const canPost = (d: NewsDraft) =>
 
 const ROME = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Rome", weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
-/** Where the one-button post is: Instagram (scheduled in Instagram's own scheduler, 24 h ahead) and the tweet. */
+// ---------- Post: when the Instagram post goes live ----------
+
+const TZ = "Europe/Rome";
+const MIN = 60e3, HOUR = 3600e3;
+/** Earliest choice: Instagram's scheduler needs 20 minutes' notice, the poster a minute or two (server floor: IG_MIN_LEAD_MS). */
+const EARLIEST = 30 * MIN;
+
+/** The moment a Rome wall-clock time happens (handles the summer/winter change). */
+function romeTime(y: number, mo: number, day: number, h: number, mi: number) {
+  const guess = Date.UTC(y, mo - 1, day, h, mi);
+  const off = (ms: number) => {
+    const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: TZ, hourCycle: "h23", year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric" })
+      .formatToParts(ms).map((x) => [x.type, Number(x.value)]));
+    return Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute) - ms;
+  };
+  const t = guess - off(guess);
+  return guess - off(t);
+}
+function romeParts(ms: number) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: TZ, hourCycle: "h23", year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric" })
+    .formatToParts(ms).map((x) => [x.type, Number(x.value)]));
+  return { y: p.year, mo: p.month, d: p.day, h: p.hour, mi: p.minute };
+}
+const ceil5 = (ms: number) => Math.ceil(ms / (5 * MIN)) * (5 * MIN);
+const WHEN_FMT = new Intl.DateTimeFormat("en-GB", { timeZone: TZ, weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+const HM = new Intl.DateTimeFormat("en-GB", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
+const pad = (n: number) => String(n).padStart(2, "0");
+const toLocalInput = (ms: number) => { const r = romeParts(ms); return `${r.y}-${pad(r.mo)}-${pad(r.d)}T${pad(r.h)}:${pad(r.mi)}`; };
+
+type WhenKey = "30m" | "1h" | "3h" | "tonight" | "tomorrow" | "24h" | "custom";
+
+/** The choices, worked out from "now". Tonight = 21:00 Rome (15:00 New York), shown while it's at least 30 minutes away;
+ *  tomorrow = 18:00 Rome (noon New York), inside Polymarket's posting window (playbook §2). */
+function whenChoices(now: number): { key: WhenKey; label: string; at: number }[] {
+  const r = romeParts(now);
+  const tonight = romeTime(r.y, r.mo, r.d, 21, 0);
+  const tmr = romeParts(now + 24 * HOUR);
+  const out: { key: WhenKey; label: string; at: number }[] = [
+    { key: "30m", label: "In 30 minutes", at: ceil5(now + 30 * MIN) },
+    { key: "1h", label: "In 1 hour", at: ceil5(now + HOUR) },
+    { key: "3h", label: "In 3 hours", at: ceil5(now + 3 * HOUR) },
+  ];
+  if (tonight - now >= EARLIEST) out.push({ key: "tonight", label: `Tonight ${HM.format(tonight)}`, at: tonight });
+  out.push({ key: "tomorrow", label: `Tomorrow ${HM.format(romeTime(tmr.y, tmr.mo, tmr.d, 18, 0))}`, at: romeTime(tmr.y, tmr.mo, tmr.d, 18, 0) });
+  out.push({ key: "24h", label: "In 24 hours", at: ceil5(now + 24 * HOUR) });
+  return out;
+}
+
+/** Opens on Post: pick when Instagram goes live (default 24 h), then Post. The tweet always goes out at once. */
+function PostWhen({ d, busy, onPost, onCancel }: {
+  d: NewsDraft; busy: boolean; onPost: (igAt: number | null, label: string) => void; onCancel: () => void;
+}) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 20_000); return () => clearInterval(t); }, []);
+  const [key, setKey] = useState<WhenKey>("24h");
+  const [custom, setCustom] = useState(() => toLocalInput(ceil5(Date.now() + 2 * HOUR)));
+  const already = d.post?.state === "failed" && d.post.igScheduledAt ? d.post : null; // a retry: Instagram is done
+  const choices = whenChoices(now);
+  const parseCustom = () => {
+    const m = custom.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
+    return m ? romeTime(+m[1], +m[2], +m[3], +m[4], +m[5]) : NaN;
+  };
+  const at = key === "custom" ? parseCustom() : choices.find((c) => c.key === key)?.at ?? NaN;
+  const problem = already ? null
+    : !Number.isFinite(at) ? "Pick a date and time."
+    : at - now < EARLIEST ? "At least 30 minutes from now (Instagram needs 20 minutes' notice)."
+    : at - now > IG_MAX_LEAD_MS ? "Instagram schedules at most 29 days ahead."
+    : null;
+  const label = `${WHEN_FMT.format(already ? already.igAt : at)} Rome`;
+
+  return (
+    <div className="news-when">
+      {already ? (
+        <p className="text-[13.5px]">Instagram is already scheduled for <b>{label}</b>. This posts the tweet.</p>
+      ) : <>
+        <div className="news-label">Instagram goes live</div>
+        <div className="news-when-opts" role="radiogroup" aria-label="When the Instagram post goes live">
+          {choices.map((c) => (
+            <button key={c.key} role="radio" aria-checked={key === c.key} onClick={() => setKey(c.key)}>{c.label}</button>
+          ))}
+          <button role="radio" aria-checked={key === "custom"} onClick={() => setKey("custom")}>Custom</button>
+        </div>
+        {key === "custom" && (
+          <label className="news-when-custom">
+            <input type="datetime-local" className="news-input" value={custom} step={300}
+              min={toLocalInput(now + EARLIEST)} max={toLocalInput(now + IG_MAX_LEAD_MS)}
+              onChange={(e) => setCustom(e.target.value)} />
+            <span className="text-[12.5px] muted">Rome time</span>
+          </label>
+        )}
+        <p className="text-[13px] muted">
+          {problem ? <span className="text-[var(--danger)]">{problem}</span> : <>Goes live <b className="text-[var(--ink)]">{label}</b> ({relTime(at, now)}). The tweet goes out now.</>}
+        </p>
+      </>}
+      <div className="news-actions">
+        <button className="btn primary" disabled={busy || !!problem}
+          onClick={() => {
+            // Relative choices are worked out again at the moment of the tap.
+            const t = Date.now();
+            const fresh = key === "custom" ? parseCustom() : whenChoices(t).find((c) => c.key === key)?.at ?? at;
+            onPost(already ? null : fresh, `${WHEN_FMT.format(already ? already.igAt : fresh)} Rome`);
+          }}>
+          {busy ? <Spinner /> : already ? "Post the tweet" : "Post"}
+        </button>
+        <button className="btn ghost" disabled={busy} onClick={onCancel}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+/** Where the one-button post is: Instagram (scheduled in Instagram's own scheduler at the picked time) and the tweet. */
 function PostStatus({ d, now }: { d: NewsDraft; now: number }) {
   const p = d.post!;
   const live = ROME.format(p.igAt) + " Rome";
