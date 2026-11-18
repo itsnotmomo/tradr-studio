@@ -37,7 +37,46 @@ export type NewsDraft = {
   postedAt: number | null;
   /** One-button posting (16 Nov 2026): set by the Post button, worked by the poster on the Mac (scripts/news/poster.ts). */
   post?: NewsPost | null;
+  /** Tradr News (18 Nov 2026): the article on tradr.me/news built from this carousel. */
+  tradrNews?: TradrNewsState | null;
 };
+
+/** Tradr News categories (the app's news_category_valid). "Breaking" is a flag on top of one of these. */
+export const TRADR_NEWS_CATEGORIES = [
+  { id: "crypto", label: "Crypto" },
+  { id: "stocks", label: "Stocks" },
+  { id: "forex", label: "Forex" },
+  { id: "commodities", label: "Commodities" },
+  { id: "economy", label: "Economy" },
+  { id: "ai", label: "AI" },
+  { id: "business", label: "Business" },
+] as const;
+export type TradrNewsCategory = (typeof TRADR_NEWS_CATEGORIES)[number]["id"];
+
+export type TradrNewsChoice = { category: TradrNewsCategory; breaking: boolean };
+
+export type TradrNewsState = {
+  state: "published" | "hidden" | "failed";
+  category: TradrNewsCategory;
+  breaking: boolean;
+  slug: string | null;
+  url: string | null;
+  error: string | null;
+  publishedAt: number | null;
+  updatedAt: number;
+};
+
+/** A first guess from the story's words; the owner can change it before publishing. */
+export function guessTradrNewsCategory(text: string): TradrNewsCategory {
+  const t = text.toLowerCase();
+  if (/\b(bitcoin|btc|ethereum|eth|crypto|solana|xrp|stablecoin|coinbase|binance|memecoin)\b/.test(t)) return "crypto";
+  if (/\b(gold|silver|oil|crude|brent|copper|wheat|natural gas)\b/.test(t)) return "commodities";
+  if (/\b(dollar|euro|yen|pound|forex|fx|eur\/usd|currency|currencies)\b/.test(t)) return "forex";
+  if (/\b(fed|ecb|boe|inflation|cpi|rates?|recession|gdp|jobs report|payrolls|tariffs?|treasury)\b/.test(t)) return "economy";
+  if (/\b(ai|openai|chatgpt|anthropic|claude|gemini|llm|artificial intelligence)\b/.test(t)) return "ai";
+  if (/\b(stock|stocks|shares|ipo|nasdaq|s&p|dow|earnings|nvidia|tesla|apple|microsoft)\b/.test(t)) return "stocks";
+  return "business";
+}
 
 /** Instagram's web scheduler takes posts from 20 minutes ahead up to 29 days ahead (its calendar greys out day 30;
  *  tested 17 Nov 2026, though Meta's help says 75 days). The picker's earliest choice is 30 minutes

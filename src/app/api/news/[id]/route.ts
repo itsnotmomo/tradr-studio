@@ -1,16 +1,55 @@
 import { body, route } from "@/lib/server/api";
-import { IG_MAX_LEAD_MS, IG_MIN_LEAD_MS } from "@/lib/news";
+import { IG_MAX_LEAD_MS, IG_MIN_LEAD_MS, TRADR_NEWS_CATEGORIES, type NewsDraft, type TradrNewsChoice } from "@/lib/news";
 import { deleteNews, getNews, mutateNews, UserError } from "@/lib/server/store";
+import { publishToTradrNews, unpublishFromTradrNews } from "@/lib/server/tradrNews";
 
 type Ctx = { params: Promise<{ id: string }> };
-type Action = "approve" | "reject" | "changes" | "posted" | "unpost" | "reopen" | "post" | "post-cancel";
+type Action = "approve" | "reject" | "changes" | "posted" | "unpost" | "reopen" | "post" | "post-cancel" | "tradr-news" | "tradr-news-remove";
+
+function newsChoice(raw: unknown): TradrNewsChoice | null {
+  const c = raw as { category?: string; breaking?: boolean } | null | undefined;
+  if (!c) return null;
+  if (!TRADR_NEWS_CATEGORIES.some((x) => x.id === c.category)) throw new UserError("Pick a Tradr News category.");
+  return { category: c.category as TradrNewsChoice["category"], breaking: !!c.breaking };
+}
+
+/** Publishes to Tradr News and records the result on the draft (the call happens outside the CAS write). */
+async function toTradrNews(d: NewsDraft, choice: TradrNewsChoice, what: string) {
+  const state = await publishToTradrNews(d, choice);
+  return mutateNews(d.id, (x) => {
+    x.tradrNews = state;
+    x.history.push({ at: Date.now(), what: state.state === "published" ? `${what} on Tradr News` : `Tradr News failed: ${state.error}` });
+  });
+}
 
 // Review actions. Changes are made by the next "make news posts" run, which reads changeNote.
 export const POST = route<Ctx>(async (req, { params }) => {
   const { id } = await params;
-  const b = await body<{ action: Action; note?: string; igAt?: number }>(req);
+  const b = await body<{ action: Action; note?: string; igAt?: number; news?: unknown }>(req);
   const note = String(b.note || "").trim().slice(0, 2000);
-  return mutateNews(id, (d) => {
+
+  // Tradr News on its own: publish (or update) / remove.
+  if (b.action === "tradr-news") {
+    const d = await getNews(id);
+    if (!d) throw new UserError("Not found.", 404);
+    const choice = newsChoice(b.news);
+    if (!choice) throw new UserError("Pick a Tradr News category.");
+    return toTradrNews(d, choice, d.tradrNews?.state === "published" ? "Updated" : "Published");
+  }
+  if (b.action === "tradr-news-remove") {
+    const d = await getNews(id);
+    if (!d?.tradrNews) throw new UserError("It isn't on Tradr News.");
+    const state = await unpublishFromTradrNews(d);
+    return mutateNews(id, (x) => {
+      x.tradrNews = state;
+      x.history.push({ at: Date.now(), what: state.state === "hidden" ? "Removed from Tradr News" : `Tradr News removal failed: ${state.error}` });
+    });
+  }
+
+  // Post with "Publish to Tradr News" on: Instagram and X are queued for the poster as before, and the
+  // article goes up on Tradr News at once (like the tweet).
+  const postNews = b.action === "post" ? newsChoice(b.news) : null;
+  const saved = await mutateNews(id, (d) => {
     const now = Date.now();
     switch (b.action) {
       case "approve":
@@ -65,6 +104,8 @@ export const POST = route<Ctx>(async (req, { params }) => {
         throw new UserError("Unknown action");
     }
   });
+  if (postNews) return toTradrNews(saved, postNews, "Published with the post");
+  return saved;
 });
 
 export const DELETE = route<Ctx>(async (_req, { params }) => {

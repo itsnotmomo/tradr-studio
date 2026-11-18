@@ -11,6 +11,7 @@ import { copyText } from "@/components/publish";
 import { api, fetcher } from "@/lib/client/api";
 import { imageFiles, toJpeg, uploadBlob } from "@/lib/client/upload";
 import { IG_MAX_LEAD_MS, endSlideOf, NEWS_STATUS_LABEL, type NewsDesk, type NewsDraft, type NewsSlide, type NewsStatus, type NewsSuggestion } from "@/lib/news";
+import { guessTradrNewsCategory, TRADR_NEWS_CATEGORIES, type TradrNewsChoice } from "@/lib/news";
 import { relTime } from "@/lib/time";
 
 const KEY = "/api/news";
@@ -181,6 +182,7 @@ function DraftCard({ d, end, now, act, remove }: {
 }) {
   const [asking, setAsking] = useState(false);
   const [picking, setPicking] = useState(false);
+  const [newsOpen, setNewsOpen] = useState(false);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const toast = useToast();
@@ -241,13 +243,19 @@ function DraftCard({ d, end, now, act, remove }: {
         </div>
 
         {d.post && <PostStatus d={d} now={now} />}
+        {d.tradrNews && !newsOpen && <TradrNewsStatus d={d} now={now} />}
+        {newsOpen && !picking && (
+          <TradrNewsPanel d={d} busy={busy} onClose={() => setNewsOpen(false)}
+            onPublish={async (news) => { if (await run("tradr-news", undefined, { news })) { setNewsOpen(false); toast("On Tradr News.", { ms: 2200 }); } }}
+            onRemove={async () => { if (await run("tradr-news-remove")) { setNewsOpen(false); toast("Removed from Tradr News.", { ms: 2200 }); } }} />
+        )}
 
         {picking ? (
           <PostWhen d={d} busy={busy === "post"} onCancel={() => setPicking(false)}
-            onPost={async (igAt, label) => {
-              if (await run("post", undefined, igAt == null ? undefined : { igAt })) {
+            onPost={async (igAt, label, news) => {
+              if (await run("post", undefined, { ...(igAt == null ? {} : { igAt }), ...(news ? { news } : {}) })) {
                 setPicking(false);
-                toast(`Sent to the poster. Instagram goes live ${label}; ${d.post?.tweetUrl ? "the tweet already went out, so it isn't sent again" : "the tweet goes out now"}.`, { ms: 4000 });
+                toast(`Sent to the poster. Instagram goes live ${label}; ${d.post?.tweetUrl ? "the tweet already went out, so it isn't sent again" : "the tweet goes out now"}${news ? "; Tradr News goes up now" : ""}.`, { ms: 4000 });
               }
             }} />
         ) : asking ? (
@@ -269,6 +277,9 @@ function DraftCard({ d, end, now, act, remove }: {
               {busy === "post" ? <Spinner /> : inFlight(d) ? "Posting…" : d.post?.state === "failed" ? "Try posting again" : "Post"}
             </button>
             {d.post?.state === "queued" && <button className="btn ghost" disabled={!!busy} onClick={() => run("post-cancel")}>Cancel post</button>}
+            <button className="btn" disabled={!!busy} onClick={() => setNewsOpen((v) => !v)} aria-expanded={newsOpen}>
+              {d.tradrNews?.state === "published" ? "Tradr News ✓" : "Tradr News"}
+            </button>
             {(d.status === "draft" || d.status === "changes") && <>
               <button className="btn" disabled={!!busy} onClick={() => run("approve")}>{busy === "approve" ? <Spinner /> : "Approve"}</button>
               <button className="btn" disabled={!!busy} onClick={() => setAsking(true)}>{d.status === "changes" ? "Edit note" : "Ask for changes"}</button>
@@ -348,8 +359,11 @@ function whenChoices(now: number): { key: WhenKey; label: string; at: number }[]
 
 /** Opens on Post: pick when Instagram goes live (default 24 h), then Post. The tweet goes out at once, unless it already went out. */
 function PostWhen({ d, busy, onPost, onCancel }: {
-  d: NewsDraft; busy: boolean; onPost: (igAt: number | null, label: string) => void; onCancel: () => void;
+  d: NewsDraft; busy: boolean; onPost: (igAt: number | null, label: string, news: TradrNewsChoice | null) => void; onCancel: () => void;
 }) {
+  // Publish to Tradr News with the post: on by default the first time; an article already up is left as is.
+  const [toNews, setToNews] = useState(d.tradrNews?.state !== "published");
+  const [news, setNews] = useState<TradrNewsChoice>(() => defaultNewsChoice(d));
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 20_000); return () => clearInterval(t); }, []);
   const [key, setKey] = useState<WhenKey>("24h");
@@ -393,13 +407,21 @@ function PostWhen({ d, busy, onPost, onCancel }: {
           {problem ? <span className="text-[var(--danger)]">{problem}</span> : <>Goes live <b className="text-[var(--ink)]">{label}</b> ({relTime(at, now)}). {tweeted ? "The tweet already went out, so it isn't sent again." : "The tweet goes out now."}</>}
         </p>
       </>}
+      <div className="tn-switch-row">
+        <label className="tn-switch">
+          <input type="checkbox" checked={toNews} onChange={(e) => setToNews(e.target.checked)} />
+          <span className="tn-track" aria-hidden><span /></span>
+          <span className="font-semibold text-[13.5px]">{d.tradrNews?.state === "published" ? "Update on Tradr News" : "Publish to Tradr News"}</span>
+        </label>
+        {toNews && <TradrNewsFields value={news} onChange={setNews} />}
+      </div>
       <div className="news-actions">
         <button className="btn primary" disabled={busy || !!problem}
           onClick={() => {
             // Relative choices are worked out again at the moment of the tap.
             const t = Date.now();
             const fresh = key === "custom" ? parseCustom() : whenChoices(t).find((c) => c.key === key)?.at ?? at;
-            onPost(already ? null : fresh, `${WHEN_FMT.format(already ? already.igAt : fresh)} Rome`);
+            onPost(already ? null : fresh, `${WHEN_FMT.format(already ? already.igAt : fresh)} Rome`, toNews ? news : null);
           }}>
           {busy ? <Spinner /> : already ? "Post the tweet" : "Post"}
         </button>
@@ -655,6 +677,74 @@ function StylePanel({ desk, onChange }: { desk: NewsDesk; onChange: () => void }
         <p className="text-[13px] muted mb-2.5">Every draft follows this.{desk.guideUpdatedAt ? ` Updated ${new Date(desk.guideUpdatedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}.` : ""}</p>
         <div className="news-guide">{desk.guide ? <Markdown text={desk.guide} /> : <span className="muted">Not written yet.</span>}</div>
       </section>
+    </div>
+  );
+}
+
+
+// ---------- Tradr News (18 Nov 2026) ----------
+
+function defaultNewsChoice(d: NewsDraft): TradrNewsChoice {
+  if (d.tradrNews) return { category: d.tradrNews.category, breaking: d.tradrNews.breaking };
+  const spec = (d as unknown as { spec?: { slides?: { headline?: string; tag?: string }[] } }).spec;
+  const hook = spec?.slides?.[0];
+  return {
+    category: guessTradrNewsCategory(`${d.title} ${hook?.headline ?? ""} ${d.caption.slice(0, 400)}`),
+    breaking: /breaking/i.test(d.tag || "") || /breaking/i.test(hook?.tag || ""),
+  };
+}
+
+/** Category chips and the Breaking toggle. */
+function TradrNewsFields({ value, onChange }: { value: TradrNewsChoice; onChange: (v: TradrNewsChoice) => void }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="news-when-opts" role="radiogroup" aria-label="Tradr News category">
+        {TRADR_NEWS_CATEGORIES.map((c) => (
+          <button key={c.id} role="radio" aria-checked={value.category === c.id} onClick={() => onChange({ ...value, category: c.id })}>{c.label}</button>
+        ))}
+      </div>
+      <label className="tn-switch">
+        <input type="checkbox" checked={value.breaking} onChange={(e) => onChange({ ...value, breaking: e.target.checked })} />
+        <span className="tn-track" aria-hidden><span /></span>
+        <span className="text-[13px]">Breaking <span className="muted">· shows the red Breaking mark and alerts everyone following Breaking</span></span>
+      </label>
+    </div>
+  );
+}
+
+/** Publish this draft to Tradr News on its own (no Instagram, no X), update it, or take it down. */
+function TradrNewsPanel({ d, busy, onPublish, onRemove, onClose }: {
+  d: NewsDraft; busy: string | null; onPublish: (n: TradrNewsChoice) => void; onRemove: () => void; onClose: () => void;
+}) {
+  const [news, setNews] = useState<TradrNewsChoice>(() => defaultNewsChoice(d));
+  const live = d.tradrNews?.state === "published";
+  return (
+    <div className="news-when">
+      <div className="news-label">Tradr News only</div>
+      <p className="text-[13px] muted">
+        {live ? <>It&apos;s on Tradr News. Publishing again updates the article (same link); comments and likes stay.</>
+          : <>Posts this carousel as an article on Tradr News: headline, slides, the slide text and the caption. Instagram and X aren&apos;t touched. Followers of the category get an alert the first time.</>}
+      </p>
+      <TradrNewsFields value={news} onChange={setNews} />
+      <div className="news-actions">
+        <button className="btn primary" disabled={!!busy} onClick={() => onPublish(news)}>
+          {busy === "tradr-news" ? <Spinner /> : live ? "Update on Tradr News" : "Publish to Tradr News"}
+        </button>
+        {live && <button className="btn ghost danger" disabled={!!busy} onClick={onRemove}>{busy === "tradr-news-remove" ? <Spinner /> : "Remove"}</button>}
+        <button className="btn ghost" disabled={!!busy} onClick={onClose}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+function TradrNewsStatus({ d, now }: { d: NewsDraft; now: number }) {
+  const n = d.tradrNews!;
+  const cat = TRADR_NEWS_CATEGORIES.find((c) => c.id === n.category)?.label ?? n.category;
+  return (
+    <div className="news-note text-[13px]">
+      {n.state === "published" && <><b>On Tradr News</b> · {cat}{n.breaking ? " · Breaking" : ""} · {n.url ? <a href={n.url} target="_blank" rel="noreferrer" className="underline underline-offset-2">open the article</a> : null}{n.error ? <span className="text-[var(--danger)]"> · last update failed: {n.error}</span> : null}</>}
+      {n.state === "hidden" && <><b>Removed from Tradr News</b> {relTime(n.updatedAt, now)}{n.error ? <span className="text-[var(--danger)]"> · {n.error}</span> : null}</>}
+      {n.state === "failed" && <><b className="text-[var(--danger)]">Tradr News failed:</b> {n.error}</>}
     </div>
   );
 }

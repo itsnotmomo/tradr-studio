@@ -241,3 +241,13 @@ dialog.sheet::backdrop { background: rgba(20, 20, 18, .35); }
 .news-new { position: absolute; top: 6px; left: 6px; font-size: 10px; font-weight: 800; color: #fff; background: var(--green); padding: 2px 6px; border-radius: 999px; }
 .news-ref-x { position: absolute; top: 5px; right: 5px; width: 24px; height: 24px; border-radius: 50%; background: rgba(0,0,0,.55); color: #fff; display: flex; align-items: center; justify-content: center; }
 .news-guide { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; font-size: 14px; line-height: 1.55; }
+
+/* Tradr News switch (18 Nov 2026) */
+.tn-switch-row { display: flex; flex-direction: column; gap: 10px; padding-top: 10px; border-top: 1px solid var(--line-2); }
+.tn-switch { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; min-height: 32px; }
+.tn-switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.tn-track { flex: none; width: 38px; height: 22px; border-radius: 999px; background: var(--line-2); position: relative; transition: background .15s; }
+.tn-track > span { position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: transform .15s; }
+.tn-switch input:checked + .tn-track { background: var(--ink); }
+.tn-switch input:checked + .tn-track > span { transform: translateX(16px); }
+.tn-switch input:focus-visible + .tn-track { outline: 2px solid var(--ink); outline-offset: 2px; }
