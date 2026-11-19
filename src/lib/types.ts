@@ -1,6 +1,7 @@
 export type Lang = "en" | "es" | "it";
 export type Slot = "morning" | "afternoon" | "reel";
-export type PostKind = "post" | "reel";
+/** "story": a set of 9:16 Instagram stories, posted by hand from the phone (no Tradr end slide, never auto-published, lives in Ideas). */
+export type PostKind = "post" | "reel" | "story";
 export type Video = { url: string; size: number; name: string; w: number; h: number; duration: number };
 
 export type Slide = { id: string; url: string; w: number; h: number };
@@ -74,7 +75,7 @@ export type Post = {
   /** YYYY-MM-DD (the same calendar day in each account's zone), or null for an idea. */
   date: string | null;
   slot: Slot;
-  /** A carousel post, or a reel (reels always use the "reel" slot). */
+  /** A carousel post, a reel (reels always use the "reel" slot), or a story set (always in Ideas). */
   kind: PostKind;
   inspoId: string | null;
   createdAt: number;

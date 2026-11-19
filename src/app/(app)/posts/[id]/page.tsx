@@ -101,6 +101,12 @@ function Editor({ post, data, k, setK }: { post: Post; data: AppState; k: Lang; 
               titleT.current = setTimeout(() => save(post.id, { title: v }), 600);
             }} />
         </div>
+        {post.kind === "story" ? (
+          <div className="w-[200px]">
+            <span className="label">Type</span>
+            <div className="field !bg-[var(--panel)] font-semibold" title="Story sets stay in Ideas: post them from your phone.">Story set · 9:16</div>
+          </div>
+        ) : <>
         <div className="w-[150px]">
           <label className="label" htmlFor="p_date">Date</label>
           <input id="p_date" type="date" className="field !bg-[var(--panel)]" value={post.date || ""} onChange={(e) => save(post.id, { date: e.target.value || null })} />
@@ -117,6 +123,7 @@ function Editor({ post, data, k, setK }: { post: Post; data: AppState; k: Lang; 
             {SLOTS.map((x) => <option key={x.k} value={x.k}>{x.name}</option>)}
           </select>
         </div>}
+        </>}
         <div className="flex items-center gap-2 self-center pt-4">
           <span className="text-[12px] muted w-[52px]" aria-live="polite">{saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved" : saveState === "error" ? <span style={{ color: "var(--danger)" }}>Not saved</span> : ""}</span>
           {post.date && <button className="btn small" onClick={() => save(post.id, { date: null })}>To Ideas</button>}
@@ -202,7 +209,9 @@ function LangEditor({ post, k, data, save }: { post: Post; k: Lang; data: AppSta
 function Slides({ post, k, data, locked, save }: { post: Post; k: Lang; data: AppState; locked: boolean; save: (id: string, patch: Parameters<typeof patchPost>[1]) => Promise<void> }) {
   const toast = useToast();
   const v = post.variants[k];
-  const end = data.settings.langs[k].tradrSlide;
+  const story = post.kind === "story";
+  const end = story ? null : data.settings.langs[k].tradrSlide;
+  const shape = story ? "aspect-[9/16]" : "aspect-[4/5]";
   const [uploading, setUploading] = useState(0);
   const [over, setOver] = useState(false);
   const [copyFrom, setCopyFrom] = useState<Lang>(k === "en" ? "es" : "en");
@@ -249,7 +258,7 @@ function Slides({ post, k, data, locked, save }: { post: Post; k: Lang; data: Ap
   const download = async () => {
     const all = [...v.slides, ...(end ? [end] : [])];
     for (const [i, s] of all.entries()) {
-      await downloadUrl(s.url, `${post.date || "idea"}_${k.toUpperCase()}_${String(i + 1).padStart(2, "0")}.jpg`);
+      await downloadUrl(s.url, `${post.date || "idea"}_${k.toUpperCase()}_${String(i + 1).padStart(2, "0")}.${/\.png(\?|$)/i.test(s.url) ? "png" : "jpg"}`);
       await new Promise((r) => setTimeout(r, 300));
     }
   };
@@ -257,7 +266,7 @@ function Slides({ post, k, data, locked, save }: { post: Post; k: Lang; data: Ap
   return (
     <>
       <div className="flex items-center justify-between gap-2">
-        <h2 className="font-bold text-[13px]">Slides <span className="muted font-medium">· {v.slides.length + (end ? 1 : 0)} total</span></h2>
+        <h2 className="font-bold text-[13px]">{story ? "Stories" : "Slides"} <span className="muted font-medium">· {v.slides.length + (end ? 1 : 0)} total</span></h2>
         <button className="btn small ghost" onClick={download} disabled={!v.slides.length}><Icon name="download" size={14} /> Download</button>
       </div>
       <div className="grid grid-cols-3 sm:grid-cols-4 gap-2"
@@ -265,7 +274,7 @@ function Slides({ post, k, data, locked, save }: { post: Post; k: Lang; data: Ap
         onDragLeave={() => setOver(false)}
         onDrop={(e) => { e.preventDefault(); setOver(false); add(imageFiles(e.dataTransfer.files)); }}>
         {v.slides.map((s, i) => (
-          <div key={s.id + i} className="group relative rounded-lg overflow-hidden aspect-[4/5]" style={{ background: "#1a1a1a" }}>
+          <div key={s.id + i} className={`group relative rounded-lg overflow-hidden ${shape}`} style={{ background: "#1a1a1a" }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <PreviewImg post={post} lang={k} index={i} hover={false} src={s.url} alt={`Slide ${i + 1}`} className="w-full h-full object-cover" />
             <span className="absolute top-1.5 left-1.5 text-[11px] font-bold text-white bg-black/65 rounded px-1.5">{i + 1}</span>
@@ -280,17 +289,17 @@ function Slides({ post, k, data, locked, save }: { post: Post; k: Lang; data: Ap
           </div>
         ))}
         {[...Array(uploading)].map((_, i) => (
-          <div key={"u" + i} className="rounded-lg aspect-[4/5] flex items-center justify-center gap-2 text-[12px] muted border" style={{ borderColor: "var(--line)" }}><Spinner /> Uploading</div>
+          <div key={"u" + i} className={`rounded-lg ${shape} flex items-center justify-center gap-2 text-[12px] muted border`} style={{ borderColor: "var(--line)" }}><Spinner /> Uploading</div>
         ))}
         {!locked && (
-          <label className={`rounded-lg aspect-[4/5] border-2 border-dashed flex flex-col items-center justify-center gap-1 cursor-pointer text-center text-[12px] muted p-2 hover:border-[var(--focus)] ${over ? "drop-on" : ""}`} style={{ borderColor: "var(--line)" }}>
+          <label className={`rounded-lg ${shape} border-2 border-dashed flex flex-col items-center justify-center gap-1 cursor-pointer text-center text-[12px] muted p-2 hover:border-[var(--focus)] ${over ? "drop-on" : ""}`} style={{ borderColor: "var(--line)" }}>
             <Icon name="plus" size={20} />
             Add images
             <span className="text-[11px] hidden md:block">or paste / drop</span>
             <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => { add(imageFiles(e.target.files)); e.target.value = ""; }} />
           </label>
         )}
-        <div className="relative rounded-lg overflow-hidden aspect-[4/5] ring-2 ring-[var(--s-posted)] ring-inset" style={{ background: "#1a1a1a" }} title="The Tradr slide is always last">
+        {!story && <div className="relative rounded-lg overflow-hidden aspect-[4/5] ring-2 ring-[var(--s-posted)] ring-inset" style={{ background: "#1a1a1a" }} title="The Tradr slide is always last">
           {end
             // eslint-disable-next-line @next/next/no-img-element
             ? <PreviewImg post={post} lang={k} index={v.slides.length} hover={false} src={end.url} alt="Tradr slide" className="w-full h-full object-cover" />
@@ -298,7 +307,7 @@ function Slides({ post, k, data, locked, save }: { post: Post; k: Lang; data: Ap
           <span className="absolute top-1.5 left-1.5 text-[11px] font-bold text-white rounded px-1.5 flex items-center gap-1" style={{ background: "var(--s-posted)" }}>
             <Icon name="lock" size={11} /> {v.slides.length + 1} · Tradr
           </span>
-        </div>
+        </div>}
       </div>
       {!locked && (
         <div className="flex flex-wrap items-center gap-2 pt-1">

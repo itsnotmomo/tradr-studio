@@ -28,7 +28,8 @@ export function deckFor(post: Post, k: Lang, s: Settings | undefined): Deck {
     const pic = v.cover || v.frame;
     return { slides: pic ? [pic] : [], tradrId: null, title: `${title} · Reel`, video: v.video ? { url: v.video.url, w: v.video.w, h: v.video.h } : null, removed: !!v.videoRemovedAt };
   }
-  const end = s?.langs[k].tradrSlide ?? null;
+  // Story sets have no Tradr end slide.
+  const end = post.kind === "story" ? null : s?.langs[k].tradrSlide ?? null;
   return { slides: [...post.variants[k].slides, ...(end ? [end] : [])], tradrId: end?.id ?? null, title: `${post.title || "Untitled"} · ${langInfo(k).code}` };
 }
 

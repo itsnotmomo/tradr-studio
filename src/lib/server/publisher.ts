@@ -29,6 +29,7 @@ export async function publishVariant(postId: string, k: Lang): Promise<PublishOu
   try {
     post = await mutatePost(postId, (p) => {
       const v = p.variants[k];
+      if (p.kind === "story") return; // story sets are never auto-published
       if (v.state !== "scheduled") return;
       // Slot posts: resolve the real time again now, in case slot times or the day changed since scheduling.
       if (!v.postNow && !v.nextAttemptAt && p.date) {

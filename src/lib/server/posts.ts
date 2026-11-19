@@ -67,6 +67,9 @@ export function resolveSchedule(p: Post, s: Settings, now = Date.now(), langs?: 
   for (const k of ks) Object.assign(p.variants[k], { scheduledAt: publishAt(s, k, p.date, p.slot), nextAttemptAt: null });
 }
 
+/** Story sets are posted by hand from the phone; they never take a slot. */
+export const STORY_IN_IDEAS = "Story sets stay in Ideas. Post them from your phone when you're ready.";
+
 /** Applies an edit from the editor or planner, keeping the schedule consistent. Returns notes for the user. */
 export function applyPatch(p: Post, patch: PostPatch, s: Settings, others: Post[], now = Date.now()) {
   const notes: string[] = [];
@@ -76,6 +79,7 @@ export function applyPatch(p: Post, patch: PostPatch, s: Settings, others: Post[
 
   const dateChanged = patch.date !== undefined && patch.date !== p.date;
   const slotChanged = patch.slot !== undefined && patch.slot !== p.slot;
+  if ((dateChanged || slotChanged) && p.kind === "story") throw new UserError(STORY_IN_IDEAS);
   if (dateChanged || slotChanged) {
     if (patch.date !== undefined && patch.date !== null && !isValidYmd(patch.date)) throw new UserError("Invalid date");
     if (patch.slot !== undefined && !isSlot(patch.slot)) throw new UserError("Invalid slot");

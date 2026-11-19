@@ -41,9 +41,10 @@ function Go({ id, k }: { id: string; k: Lang }) {
   const [busy, setBusy] = useState<PostStatus | null>(null);
 
   const isReel = post?.kind === "reel";
+  const isStory = post?.kind === "story";
   const slides = useMemo(() => {
     if (!post || !data || post.kind === "reel") return [];
-    const end = data.settings.langs[k].tradrSlide;
+    const end = post.kind === "story" ? null : data.settings.langs[k].tradrSlide;
     return [...post.variants[k].slides, ...(end ? [end] : [])];
   }, [post, data, k]);
   const slidesKey = slides.map((x) => x.url).join("|");
@@ -95,7 +96,8 @@ function Go({ id, k }: { id: string; k: Lang }) {
       const out: File[] = [];
       for (const [i, s] of slides.entries()) {
         const blob = await (await fetch(s.url)).blob();
-        out.push(new File([blob], `${String(i + 1).padStart(2, "0")}.jpg`, { type: "image/jpeg" }));
+        const type = blob.type.startsWith("image/") ? blob.type : "image/jpeg";
+        out.push(new File([blob], `${String(i + 1).padStart(2, "0")}.${type === "image/png" ? "png" : "jpg"}`, { type }));
       }
       if (!off) setFiles(out);
     })().catch(() => !off && setFiles([]));
@@ -110,7 +112,7 @@ function Go({ id, k }: { id: string; k: Lang }) {
   const l = LANGS.find((x) => x.k === k)!;
   const v = post.variants[k];
   const caption = buildCaption(v);
-  const missingEnd = !data.settings.langs[k].tradrSlide;
+  const missingEnd = !isStory && !data.settings.langs[k].tradrSlide;
   const next = nextAfter(data.posts, range, post.id, k);
   const goNext = () => router.push(next ? `/go/${next.post.id}/${next.k}?${rangeQuery(range)}` : "/");
 
@@ -147,7 +149,7 @@ function Go({ id, k }: { id: string; k: Lang }) {
     }
     // No share sheet (desktop): download them one by one.
     for (const [i, s] of slides.entries()) {
-      await downloadUrl(s.url, `${post.date || "idea"}_${k.toUpperCase()}_${String(i + 1).padStart(2, "0")}.jpg`);
+      await downloadUrl(s.url, `${post.date || "idea"}_${k.toUpperCase()}_${String(i + 1).padStart(2, "0")}.${files[i]?.name.split(".").pop() || "jpg"}`);
       await new Promise((r) => setTimeout(r, 300));
     }
   };
@@ -195,14 +197,14 @@ function Go({ id, k }: { id: string; k: Lang }) {
       ) : <>
       <div className="flex gap-1.5 scroll-x -mx-4 px-4">
         {slides.map((s, i) => (
-          <PreviewImg key={s.id + i} post={post} lang={k} index={i} hover={false} src={s.url} alt={`Slide ${i + 1}`} className="h-[150px] aspect-[4/5] object-cover rounded-lg flex-none" style={i === slides.length - 1 && !missingEnd ? { outline: "2px solid var(--s-posted)", outlineOffset: -2 } : undefined} />
+          <PreviewImg key={s.id + i} post={post} lang={k} index={i} hover={false} src={s.url} alt={`Slide ${i + 1}`} className={`h-[150px] ${isStory ? "aspect-[9/16]" : "aspect-[4/5]"} object-cover rounded-lg flex-none`} style={!isStory && i === slides.length - 1 && !missingEnd ? { outline: "2px solid var(--s-posted)", outlineOffset: -2 } : undefined} />
         ))}
         {!slides.length && <div className="text-[14px] muted py-6">No slides yet. <Link className="underline" href={`/posts/${post.id}?lang=${k}`}>Add them</Link></div>}
       </div>
       {missingEnd && <div className="text-[13px]" style={{ color: "var(--warn)" }}>The {l.code} Tradr slide isn’t set. <Link className="underline" href="/settings">Add it in Settings</Link>.</div>}
 
       <button className={big} style={{ background: "var(--accent)", color: "var(--accent-ink)" }} onClick={save} disabled={!files?.length}>
-        {files === null && slides.length ? <><Spinner size={18} /> Preparing {slides.length} slides…</> : <><Icon name="download" size={20} /> Save {slides.length} slides to Photos</>}
+        {files === null && slides.length ? <><Spinner size={18} /> Preparing {slides.length} slides…</> : <><Icon name="download" size={20} /> Save {slides.length} {isStory ? "stories" : "slides"} to Photos</>}
       </button>
       </>}
       {isReel && v.video && (

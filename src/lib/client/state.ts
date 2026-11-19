@@ -83,7 +83,7 @@ export async function patchPost(id: string, patch: PostPatch) {
   }
 }
 
-export async function createPost(init: { title?: string; date?: string | null; slot?: Slot; kind?: "post" | "reel"; inspoId?: string; planId?: string; slides?: Partial<Record<Lang, unknown[]>> }) {
+export async function createPost(init: { title?: string; date?: string | null; slot?: Slot; kind?: "post" | "reel" | "story"; inspoId?: string; planId?: string; slides?: Partial<Record<Lang, unknown[]>> }) {
   const p = await api<Post>("/api/posts", { body: init });
   await putPost(p);
   return p;
