@@ -9,7 +9,10 @@
   <key>Label</key><string>me.tradr.news-scout</string>
   <key>WorkingDirectory</key><string>/Users/mohamedharchi/Desktop/tradrig</string>
   <key>ProgramArguments</key><array>
-    <string>/bin/zsh</string><string>/Users/mohamedharchi/Desktop/tradrig/scripts/news/scout.sh</string><string>run</string>
+    <!-- Started through node, which already has macOS's Desktop permission (as the poster agent): /bin/zsh started by
+         launchd can't read ~/Desktop, and the shell and claude inherit node's access. -->
+    <string>/Users/mohamedharchi/.nvm/versions/node/v20.19.5/bin/node</string><string>-e</string>
+    <string>process.exitCode = require("child_process").spawnSync("/bin/zsh", ["/Users/mohamedharchi/Desktop/tradrig/scripts/news/scout.sh", "run"], { stdio: "inherit" }).status ?? 1</string>
   </array>
   <key>StartCalendarInterval</key><array>
     <dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>0</integer></dict>
