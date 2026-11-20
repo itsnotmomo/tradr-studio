@@ -17,6 +17,8 @@ LOCK=$STATE/lock
 LAST=$STATE/last-start
 export PATH="$HOME/.local/bin:$HOME/.nvm/versions/node/v20.19.5/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 mkdir -p "$STATE" "$LOGDIR"
+# Long-lived sign-in for unattended runs (`claude setup-token`), kept outside the repo.
+[[ -f $HOME/.config/tradr/claude-token ]] && export CLAUDE_CODE_OAUTH_TOKEN="$(<$HOME/.config/tradr/claude-token)"
 cd "$REPO" || exit 1
 
 say() { print -r -- "$(date '+%Y-%m-%d %H:%M:%S') $*" >> "$LOGDIR/scout.log"; }
