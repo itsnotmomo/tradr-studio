@@ -34,7 +34,7 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
   const post = data?.posts.find((p) => p.id === id);
 
   if (!data) return <div className="p-6 flex items-center gap-2 muted"><Spinner /> Loading…</div>;
-  if (!post) return <div className="p-6">This post doesn’t exist anymore. <Link className="underline" href="/">Back to the planner</Link></div>;
+  if (!post) return <div className="p-6">This post doesn’t exist anymore. <Link className="underline" href="/planner">Back to the planner</Link></div>;
   return <Editor key={post.id} post={post} data={data} k={k} setK={setK} />;
 }
 
@@ -81,7 +81,7 @@ function Editor({ post, data, k, setK }: { post: Post; data: AppState; k: Lang; 
     try {
       await api(`/api/posts/${post.id}`, { method: "DELETE" });
       await dropPost(post.id);
-      router.push("/");
+      router.push("/planner");
     } catch (e) {
       toast((e as Error).message, { tone: "error" });
     }
@@ -90,7 +90,7 @@ function Editor({ post, data, k, setK }: { post: Post; data: AppState; k: Lang; 
   return (
     <div className="pb-16">
       <div className="sticky top-0 z-20 border-b px-3 md:px-6 py-2.5 flex flex-wrap items-end gap-2 md:gap-3" style={{ background: "color-mix(in srgb, var(--bg) 90%, transparent)", backdropFilter: "blur(10px)", borderColor: "var(--line)" }}>
-        <button className="btn small ghost self-center" onClick={() => (history.length > 1 ? router.back() : router.push("/"))} aria-label="Back"><Icon name="back" size={18} /></button>
+        <button className="btn small ghost self-center" onClick={() => (history.length > 1 ? router.back() : router.push("/planner"))} aria-label="Back"><Icon name="back" size={18} /></button>
         <div className="flex-1 min-w-[180px]">
           <label className="label" htmlFor="p_title">Post</label>
           <input id="p_title" className="field !bg-[var(--panel)] font-semibold text-[15px]" placeholder="What's this post about?" value={title}

@@ -107,7 +107,7 @@ function Go({ id, k }: { id: string; k: Lang }) {
   }, [slidesKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!data) return <div className="p-6 flex items-center gap-2 muted"><Spinner /> Loading…</div>;
-  if (!post) return <div className="p-6">This post doesn’t exist anymore. <Link className="underline" href="/">Back to the Planner</Link></div>;
+  if (!post) return <div className="p-6">This post doesn’t exist anymore. <Link className="underline" href="/planner">Back to the Planner</Link></div>;
 
   const l = LANGS.find((x) => x.k === k)!;
   const v = post.variants[k];
@@ -174,7 +174,7 @@ function Go({ id, k }: { id: string; k: Lang }) {
   return (
     <div className="max-w-[520px] mx-auto px-4 pt-3 pb-8 flex flex-col gap-4">
       <header className="flex items-center gap-2">
-        <Link href="/" className="btn small ghost" aria-label="Back to the Planner"><Icon name="back" size={18} /></Link>
+        <Link href="/planner" className="btn small ghost" aria-label="Back to the Planner"><Icon name="back" size={18} /></Link>
         <div className="flex-1 min-w-0">
           <div className="font-bold text-[17px] break-words">{post.title || "Untitled"}</div>
           <div className="text-[13px] muted">

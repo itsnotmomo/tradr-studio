@@ -3,12 +3,12 @@ import { IG_MAX_LEAD_MS, IG_MIN_LEAD_MS } from "@/lib/news";
 import { deleteNews, getNews, mutateNews, UserError } from "@/lib/server/store";
 
 type Ctx = { params: Promise<{ id: string }> };
-type Action = "approve" | "reject" | "changes" | "posted" | "unpost" | "reopen" | "post" | "post-cancel";
+type Action = "approve" | "reject" | "changes" | "posted" | "unpost" | "reopen" | "post" | "post-cancel" | "edit" | "swapSlide";
 
 // Review actions. Changes are made by the next "make news posts" run, which reads changeNote.
 export const POST = route<Ctx>(async (req, { params }) => {
   const { id } = await params;
-  const b = await body<{ action: Action; note?: string; igAt?: number }>(req);
+  const b = await body<{ action: Action; note?: string; igAt?: number; field?: "caption" | "x"; value?: string; index?: number; url?: string; w?: number; h?: number }>(req);
   const note = String(b.note || "").trim().slice(0, 2000);
   return mutateNews(id, (d) => {
     const now = Date.now();
@@ -55,6 +55,36 @@ export const POST = route<Ctx>(async (req, { params }) => {
         d.post = { state: "queued", requestedAt: now, igAt, igScheduledAt: keep?.igScheduledAt ?? null, tweetUrl, error: null, updatedAt: now };
         if (d.status !== "approved") { d.status = "approved"; d.approvedAt = now; }
         d.history.push({ at: now, what: keep ? "Post retried" : again ? "Post pressed again (Instagram rescheduled)" : "Post pressed" });
+        break;
+      }
+      case "edit": {
+        // A hand edit of the caption or the X text. Kept as before/after so the scout learns from it (taste file).
+        if (d.post && (d.post.state === "queued" || d.post.state === "running")) throw new UserError("It's being posted right now. Edit it after.");
+        if (b.field !== "caption" && b.field !== "x") throw new UserError("Unknown field");
+        const value = String(b.value ?? "").replace(/\r\n/g, "\n").trim();
+        if (!value) throw new UserError(b.field === "x" ? "The X text can't be empty." : "The caption can't be empty.");
+        if (b.field === "x" && value.length > 280) throw new UserError(`The X text is ${value.length} characters (max 280).`);
+        if (b.field === "x" && /https?:\/\//.test(value)) throw new UserError("No links in the X text.");
+        if (b.field === "caption" && value.length > 2200) throw new UserError("Instagram captions stop at 2,200 characters.");
+        const before = d[b.field];
+        if (before === value) break;
+        d[b.field] = value;
+        const spec = (d as unknown as { spec?: Record<string, unknown> }).spec;
+        if (spec) spec[b.field] = value; // a redo starts from the edited text
+        (d.edits ??= []).push({ at: now, field: b.field, before, after: value });
+        d.history.push({ at: now, what: `Edited the ${b.field === "x" ? "X text" : "caption"} by hand` });
+        break;
+      }
+      case "swapSlide": {
+        // A slide replaced by hand with an uploaded image (Blob). The old one is kept in edits.
+        if (d.post && (d.post.state === "queued" || d.post.state === "running")) throw new UserError("It's being posted right now. Edit it after.");
+        const i = Number(b.index);
+        if (!Number.isInteger(i) || i < 0 || i >= d.slides.length) throw new UserError("Unknown slide");
+        if (!b.url || !/\.public\.blob\.vercel-storage\.com\//.test(b.url)) throw new UserError("Upload the image first.");
+        const before = d.slides[i].url;
+        d.slides[i] = { kind: "image", url: b.url, w: Number(b.w) || 1080, h: Number(b.h) || 1350 };
+        (d.edits ??= []).push({ at: now, field: "slide", slide: i + 1, before, after: b.url });
+        d.history.push({ at: now, what: `Swapped slide ${i + 1} by hand` });
         break;
       }
       case "post-cancel":

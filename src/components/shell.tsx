@@ -10,17 +10,19 @@ import { LANGS, LK } from "@/lib/langs";
 import { relTime } from "@/lib/time";
 import { AUTO_PUBLISH } from "@/lib/features";
 
-// Tradr Media: one place for all marketing. Instagram posts (Planner, Inspo), news posts and tweets (News);
-// scheduling and posting slot in here later.
+// Tradr Media (20 Nov 2026): one screen per platform, Instagram and X, each with To review / Scheduled / Posted / Pitches.
+// Planner and Inspo are archived (Settings → Archived), their data untouched.
 const NAV: { href: string; label: string; icon: IconName }[] = [
-  { href: "/", label: "Planner", icon: "planner" },
-  { href: "/news", label: "News", icon: "news" },
-  { href: "/inspo", label: "Inspo", icon: "inspo" },
+  { href: "/instagram", label: "Instagram", icon: "instagram" },
+  { href: "/x", label: "X", icon: "xlogo" },
+  { href: "/style", label: "Style", icon: "style" },
 ];
-/** Phone and portrait-tablet tab bar: the three sections plus Settings. The sidebar starts at 1024 px so a portrait iPad keeps the full width for the Planner. */
+/** Phone and portrait-tablet tab bar: the sections plus Settings. */
 const PHONE_TABS = [...NAV, { href: "/settings", label: "Settings", icon: "settings" as IconName }];
+/** The archived Planner's own screens: they keep their warnings. */
+const PLANNER_PATHS = /^\/(planner|posts|go)(\/|$)/;
 
-const active = (path: string, href: string) => (href === "/" ? path === "/" || path.startsWith("/posts/") || path.startsWith("/go/") : path.startsWith(href));
+const active = (path: string, href: string) => path === href || path.startsWith(href + "/") || (href === "/settings" && (PLANNER_PATHS.test(path) || path.startsWith("/inspo")));
 
 /** Hides or shows the desktop sidebar and remembers it on this device (as in Tradr HQ). */
 function toggleSidebar() {
@@ -55,7 +57,7 @@ export function Shell({ children }: { children: ReactNode }) {
       <aside className="media-sidebar hidden lg:flex w-[220px] flex-none sticky top-0 h-dvh border-r" style={{ background: "var(--side)", borderColor: "var(--line)" }}>
         <nav aria-label="Sections" className="flex flex-col h-full w-full px-3 pb-3">
           <div className="flex items-center gap-2 px-2 h-14 flex-none">
-            <Link href="/" className="serif text-[19px] leading-none">Tradr Media</Link>
+            <Link href="/instagram" className="serif text-[19px] leading-none">Tradr Media</Link>
             <div className="flex-1" />
             <button className="icon-btn !w-8 !h-8 -mr-1" aria-label="Hide sidebar" title="Hide sidebar (⌘\)" onClick={toggleSidebar}><Icon name="panel" size={16} /></button>
           </div>
@@ -74,7 +76,7 @@ export function Shell({ children }: { children: ReactNode }) {
       </button>
 
       <main className="flex-1 min-w-0 pt-safe lg:pt-0 pb-[calc(58px+env(safe-area-inset-bottom))] lg:pb-0">
-        <Banners />
+        {PLANNER_PATHS.test(path) && <Banners />}
         {children}
       </main>
 

@@ -41,6 +41,43 @@ export type NewsDraft = {
   bestTime?: { at: number; why: string } | null;
   /** Made by the scheduled news-scout run (20 Nov 2026), not by hand. */
   scout?: boolean;
+  /** Hand edits in Tradr Media (caption, X text, a swapped slide): before/after, read by the scout as taste feedback. */
+  edits?: NewsEdit[];
+};
+
+export type NewsEdit = { at: number; field: "caption" | "x" | "slide"; slide?: number; before: string; after: string };
+
+// ---------- Per platform (20 Nov 2026): every draft goes to both, each platform has its own state ----------
+
+export type Platform = "ig" | "x";
+export type PlatformState = "review" | "changes" | "ready" | "failed" | "posting" | "scheduled" | "posted" | "rejected";
+export type BoardTab = "review" | "scheduled" | "posted" | "pitches";
+
+/** Where a draft stands on one platform. Instagram is scheduled at a time (Instagram's own scheduler); the tweet goes out at once. */
+export function platformState(d: NewsDraft, p: Platform, now: number): PlatformState {
+  if (d.status === "rejected") return "rejected";
+  const post = d.post;
+  if (p === "ig") {
+    if (post?.igScheduledAt) return post.igAt > now ? "scheduled" : "posted";
+    if (post && (post.state === "queued" || post.state === "running")) return "posting";
+    if (post?.state === "failed") return "failed";
+  } else {
+    if (post?.tweetUrl) return "posted";
+    if (post && (post.state === "queued" || post.state === "running")) return "posting";
+    if (post?.state === "failed") return "failed";
+  }
+  if (d.status === "posted") return "posted"; // marked posted by hand (before the Post button)
+  if (d.status === "changes") return "changes";
+  if (d.status === "approved") return "ready";
+  return "review";
+}
+
+export const tabOf = (s: PlatformState): Exclude<BoardTab, "pitches"> =>
+  s === "scheduled" || s === "posting" ? "scheduled" : s === "posted" ? "posted" : "review";
+
+export const PLATFORM_STATE_LABEL: Record<PlatformState, string> = {
+  review: "To review", changes: "Changes asked", ready: "Approved · ready to post", failed: "Posting failed",
+  posting: "Posting…", scheduled: "Scheduled", posted: "Posted", rejected: "Rejected",
 };
 
 /** Instagram's web scheduler takes posts from 20 minutes ahead up to 29 days ahead (its calendar greys out day 30;

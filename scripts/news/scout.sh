@@ -79,7 +79,7 @@ if (( code == 0 && after > before )); then
   say "done ($(( ($(date +%s) - $(cat "$LAST")) / 60 )) min)"
 else
   say "FAILED (exit $code, summary $( (( after > before )) && print written || print 'not written'))"
-  desk notify "Tradr News" "The $slot news run didn't finish (exit $code). Log: $runlog" "/news" >/dev/null 2>&1
+  desk notify "Tradr News" "The $slot news run didn't finish (exit $code). Log: $runlog" "/instagram" >/dev/null 2>&1
 fi
 # Keep two weeks of run logs.
 find "$LOGDIR" -name 'run-*.log' -mtime +14 -delete 2>/dev/null

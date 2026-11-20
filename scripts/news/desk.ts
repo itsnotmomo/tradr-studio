@@ -218,6 +218,8 @@ async function main() {
           slides: (spec(d)?.slides ?? []).slice(1).map((s) => { const st = s.story as { title?: string; body?: string } | undefined; return st ? `${st.title ?? ""} — ${st.body ?? ""}` : (s.text as string) || (s.type as string); }),
           caption: d.caption.slice(0, 400),
           events: events.map((h) => ({ at: new Date(h.at).toISOString(), what: h.what })),
+          // His own hand edits in Tradr Media: before/after (a slide swap gives both image URLs; download and look at them).
+          handEdits: (d.edits ?? []).filter((e) => e.at > since).map((e) => ({ at: new Date(e.at).toISOString(), field: e.field, slide: e.slide ?? null, before: e.before, after: e.after })),
           suggestedTime: d.bestTime ? new Date(d.bestTime.at).toISOString() : null,
           pickedInstagramTime: d.post ? new Date(d.post.igAt).toISOString() : null,
         }));
@@ -242,7 +244,7 @@ async function main() {
       break;
     }
     case "notify": {
-      const [title, msg, p = "/news"] = args;
+      const [title, msg, p = "/instagram"] = args;
       if (!title || !msg) throw new Error('notify "<title>" "<message>" [path]');
       await sendNtfy(title, msg, p);
       console.log("sent");
@@ -256,7 +258,7 @@ async function main() {
     case "weekly": {
       const text = args.join(" ").trim();
       if (!text) throw new Error('weekly "<five lines>"');
-      await sendNtfy("Tradr News: what I learned this week", text.slice(0, 3500), "/news?tab=style");
+      await sendNtfy("Tradr News: what I learned this week", text.slice(0, 3500), "/style");
       await mutateNewsDesk((d) => { d.weeklyAt = Date.now(); });
       console.log("weekly sent");
       break;

@@ -1,6 +1,6 @@
 # News desk — the "make news posts" run
 
-Studio → **News** (`/news`) shows drafts for @tradr__app (Instagram) and @tradr_app (X). This round everything is made
+Tradr Media → **Instagram** (`/instagram`) and **X** (`/x`) show drafts for @tradr__app (Instagram) and @tradr_app (X). This round everything is made
 locally on Mohamed's Mac by Claude Code and posted by hand. No cloud runs, no X API, no Meta API.
 
 Trigger: in any Claude Code session on the Mac (including Remote Control from the phone), say **make news posts**

@@ -2,6 +2,8 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { Icon } from "@/components/icons";
 import { ErrorBox, PageHeader, Spinner, Warn, n } from "@/components/ui";
 import { ConfirmButton } from "@/components/publish";
 import { useToast } from "@/components/toast";
@@ -32,6 +34,7 @@ function Settings_() {
     <div className="max-w-[1200px] pb-16">
       <PageHeader title="Settings" />
       <div className="px-4 md:px-6 flex flex-col gap-6">
+        <Archived />
         <Accounts data={data} />
         <section>
           <h2 className="font-bold text-[15px] mb-1">Per account</h2>
@@ -44,6 +47,20 @@ function Settings_() {
         <Security />
       </div>
     </div>
+  );
+}
+
+/** Screens taken out of the nav on 20 Nov 2026 (Tradr Media is Instagram + X now). Their data is untouched. */
+function Archived() {
+  return (
+    <section id="archived" className="card p-4 flex flex-col gap-2 scroll-mt-4">
+      <h2 className="font-bold text-[15px]">Archived</h2>
+      <p className="text-[13px] muted">Out of the menu, with all their data kept. The Planner settings below still belong to it.</p>
+      <div className="flex flex-wrap gap-2">
+        <Link href="/planner" className="btn"><Icon name="planner" size={16} /> Planner</Link>
+        <Link href="/inspo" className="btn"><Icon name="inspo" size={16} /> Inspo</Link>
+      </div>
+    </section>
   );
 }
 
