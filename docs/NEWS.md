@@ -6,6 +6,10 @@ locally on Mohamed's Mac by Claude Code and posted by hand. No cloud runs, no X 
 Trigger: in any Claude Code session on the Mac (including Remote Control from the phone), say **make news posts**
 (or `/make-news-posts`). The skill at `~/.claude/skills/make-news-posts/SKILL.md` runs the steps below.
 
+Since 20 Nov 2026 the **news scout** also runs on its own at 08:00 and 17:00 Rome (skill `news-scout`, launchd
+`me.tradr.news-scout`, `scripts/news/scout.sh pause|resume|status|now`): drafts + Pitches + a push, never posts.
+Details: `docs/media-playbook.md` §15.
+
 ## Pieces
 
 | Piece | What |

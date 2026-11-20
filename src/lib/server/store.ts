@@ -242,9 +242,9 @@ export async function deleteNews(id: string) {
 }
 
 export const listSuggestions = () => readAll<NewsSuggestion>("newsq");
-export async function createSuggestion(text: string, url: string | null): Promise<NewsSuggestion> {
+export async function createSuggestion(text: string, url: string | null, status: "queued" | "pitch" = "queued", note = ""): Promise<NewsSuggestion> {
   const now = Date.now();
-  const doc: NewsSuggestion = { id: uid(), text, url, status: "queued", note: "", draftId: null, createdAt: now, updatedAt: now, rev: 0 };
+  const doc: NewsSuggestion = { id: uid(), text, url, status, note, draftId: null, createdAt: now, updatedAt: now, rev: 0 };
   doc.rev = await cas("newsq", doc.id, 0, doc);
   return doc;
 }

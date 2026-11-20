@@ -8,13 +8,20 @@
 //   guide <guide.md>               save the style guide (marks every current reference as covered)
 //   ends <ends.json>               render + upload the last-slide wording options [{line, sub}]
 //   summary "<text>"               store the run summary shown at the top of News
+//   known [days]                   every story drafted, pitched or suggested in the last <days> (default 30), to skip repeats
+//   pitches <pitches.json>         add one-line pitches [{text, url?, why?}] to the Pitches list ("Make this one")
+//   feedback                       review events (approve / reject / notes / posts / pitches made) since the taste file was last updated
+//   taste <taste.md>               save the taste file copy to Tradr Media and mark the feedback as learned
+//   notify "<title>" "<msg>" [path] push through ntfy (tap opens Tradr Media at <path>, default /news)
+//   weekly "<text>"                send the weekly "what I learned" push and stamp it (weekly-due tells if it's due)
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { put } from "@vercel/blob";
 import {
-  createNews, deleteNews, getNews, getNewsDesk, listNews, listSuggestions, mutateNews, mutateNewsDesk, mutateSuggestion, uid,
+  createNews, createSuggestion, deleteNews, getNews, getNewsDesk, listNews, listSuggestions, mutateNews, mutateNewsDesk, mutateSuggestion, uid,
 } from "@/lib/server/store";
-import type { EndOption, NewsSlide } from "@/lib/news";
+import { sendNtfy } from "@/lib/server/notify";
+import type { EndOption, NewsDraft, NewsSlide } from "@/lib/news";
 import { renderEnds, renderSpec, type Spec } from "./render";
 
 const [cmd, ...args] = process.argv.slice(2);
@@ -55,9 +62,15 @@ async function publish(specPath: string) {
       });
     } else out.push({ kind: "image", w: 1080, h: 1350, url: await upload(s.file, key + ".jpg", "image/jpeg") });
   }
+  // Optional extras (news-scout, 20 Nov 2026): bestTime {at: ISO or ms, why} = the suggested Instagram slot; scout = made by the scheduled run.
+  const extra = raw as Spec & { bestTime?: { at: string | number; why?: string }; scout?: boolean };
+  const bestAt = extra.bestTime ? new Date(extra.bestTime.at).getTime() : NaN;
+  if (extra.bestTime && !Number.isFinite(bestAt)) throw new Error("bestTime.at isn't a date");
   const fields = {
     title: spec.title, tag: spec.tag, slides: out, caption: spec.caption.trim(), x: spec.x.trim(),
     sources: spec.sources, photos: spec.photos, confirmed: spec.confirmed || [], reported: spec.reported || [],
+    bestTime: extra.bestTime ? { at: bestAt, why: String(extra.bestTime.why || "").slice(0, 200) } : null,
+    ...(extra.scout ? { scout: true } : {}),
   };
   let draftId: string;
   if (existing) {
@@ -166,6 +179,93 @@ async function main() {
       console.log(`deleted ${d.id} (${d.title})`);
       break;
     }
+    case "known": {
+      const days = Number(args[0] || 30);
+      const since = Date.now() - days * 864e5;
+      const [drafts, sugs] = await Promise.all([listNews(), listSuggestions()]);
+      const hook = (d: NewsDraft) => {
+        const sl = (d as unknown as { spec?: { slides?: { headline?: string }[] } }).spec?.slides?.[0];
+        return sl?.headline ?? null;
+      };
+      console.log(JSON.stringify({
+        drafts: drafts.filter((d) => d.createdAt >= since).sort((a, b) => b.createdAt - a.createdAt)
+          .map((d) => ({ title: d.title, hook: hook(d), status: d.status, at: new Date(d.createdAt).toISOString(), sources: d.sources.map((x) => x.url) })),
+        suggestionsAndPitches: sugs.filter((x) => x.createdAt >= since).map((x) => ({ text: x.text, url: x.url, status: x.status, at: new Date(x.createdAt).toISOString() })),
+      }, null, 2));
+      break;
+    }
+    case "pitches": {
+      const list = JSON.parse(await readFile(args[0], "utf8")) as { text: string; url?: string; why?: string }[];
+      for (const p of list) {
+        if (!p.text?.trim()) continue;
+        await createSuggestion(p.text.trim().slice(0, 300), p.url || null, "pitch", String(p.why || "").slice(0, 300));
+      }
+      console.log(`${list.length} pitches added`);
+      break;
+    }
+    case "feedback": {
+      // Everything Mohamed did on the desk since the taste file was last updated: the run learns from it.
+      const desk = await getNewsDesk();
+      const since = desk.tasteSeenAt ?? Date.now() - 14 * 864e5;
+      const [drafts, sugs] = await Promise.all([listNews(), listSuggestions()]);
+      const spec = (d: NewsDraft) => (d as unknown as { spec?: { slides?: Record<string, unknown>[] } }).spec;
+      const reviewed = drafts
+        .map((d) => ({ d, events: d.history.filter((h) => h.at > since && !/^Drafted|^Redone|^Marked as the/.test(h.what)) }))
+        .filter((x) => x.events.length)
+        .map(({ d, events }) => ({
+          draftId: d.id, title: d.title, tag: d.tag, status: d.status, version: d.version, scout: !!d.scout,
+          hook: spec(d)?.slides?.[0] ?? null,
+          slides: (spec(d)?.slides ?? []).slice(1).map((s) => { const st = s.story as { title?: string; body?: string } | undefined; return st ? `${st.title ?? ""} — ${st.body ?? ""}` : (s.text as string) || (s.type as string); }),
+          caption: d.caption.slice(0, 400),
+          events: events.map((h) => ({ at: new Date(h.at).toISOString(), what: h.what })),
+          suggestedTime: d.bestTime ? new Date(d.bestTime.at).toISOString() : null,
+          pickedInstagramTime: d.post ? new Date(d.post.igAt).toISOString() : null,
+        }));
+      // Drafts nobody touched for 2+ days are a signal too (not interesting enough to review).
+      const ignored = drafts.filter((d) => d.status === "draft" && d.history.length === 1 && Date.now() - d.createdAt > 2 * 864e5 && d.createdAt > since - 7 * 864e5)
+        .map((d) => ({ title: d.title, at: new Date(d.createdAt).toISOString() }));
+      const recent = sugs.filter((x) => x.updatedAt > since);
+      console.log(JSON.stringify({
+        since: new Date(since).toISOString(), reviewed, ignored,
+        pitchesChosen: recent.filter((x) => x.pitch === "chosen").map((x) => x.text),
+        pitchesDismissed: recent.filter((x) => x.pitch === "dismissed").map((x) => x.text),
+        storiesHeSuggested: recent.filter((x) => !x.pitch && x.status !== "pitch").map((x) => x.text),
+        currentTaste: desk.taste ?? "",
+      }, null, 2));
+      break;
+    }
+    case "taste": {
+      const md = await readFile(args[0], "utf8");
+      const at = Date.now();
+      await mutateNewsDesk((d) => { d.taste = md; d.tasteUpdatedAt = at; d.tasteSeenAt = at; });
+      console.log("taste saved");
+      break;
+    }
+    case "notify": {
+      const [title, msg, p = "/news"] = args;
+      if (!title || !msg) throw new Error('notify "<title>" "<message>" [path]');
+      await sendNtfy(title, msg, p);
+      console.log("sent");
+      break;
+    }
+    case "weekly-due": {
+      const desk = await getNewsDesk();
+      console.log(!desk.weeklyAt || Date.now() - desk.weeklyAt > 6.5 * 864e5 ? "due" : `not due (last ${new Date(desk.weeklyAt).toISOString()})`);
+      break;
+    }
+    case "weekly": {
+      const text = args.join(" ").trim();
+      if (!text) throw new Error('weekly "<five lines>"');
+      await sendNtfy("Tradr News: what I learned this week", text.slice(0, 3500), "/news?tab=style");
+      await mutateNewsDesk((d) => { d.weeklyAt = Date.now(); });
+      console.log("weekly sent");
+      break;
+    }
+    case "last-run": {
+      const desk = await getNewsDesk();
+      console.log(String(desk.lastRunAt ?? 0));
+      break;
+    }
     case "summary":
       await mutateNewsDesk((d) => {
         d.lastRunAt = Date.now(); d.lastRunSummary = args.join(" ").slice(0, 2000);
@@ -173,7 +273,7 @@ async function main() {
       console.log("ok");
       break;
     default:
-      console.log("commands: inbox | publish <spec> | collab <draftId> [day] [handle] | skip <id> <reason> | refs <dir> | guide <md> | ends <json> | delete <draftId> | summary <text>");
+      console.log("commands: known [days] | pitches <json> | feedback | taste <md> | notify <title> <msg> [path] | weekly-due | weekly <text> | inbox | publish <spec> | collab <draftId> [day] [handle] | skip <id> <reason> | refs <dir> | guide <md> | ends <json> | delete <draftId> | summary <text>");
   }
 }
 

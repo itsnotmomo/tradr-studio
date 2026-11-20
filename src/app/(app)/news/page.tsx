@@ -77,6 +77,7 @@ function NewsView() {
       </header>
 
       <Suggest data={data} onAdded={() => mutate()} />
+      <Pitches data={data} onChange={() => mutate()} />
 
       <nav className="news-tabs scroll-x" aria-label="News">
         {TABS.map(([t, label]) => (
@@ -117,7 +118,7 @@ function Suggest({ data, onAdded }: { data?: Data; onAdded: () => void }) {
   const [open, setOpen] = useState(false);
   const toast = useToast();
   const queued = (data?.suggestions ?? []).filter((s) => s.status === "queued");
-  const recent = (data?.suggestions ?? []).filter((s) => s.status !== "queued" && data && data.now - s.updatedAt < 3 * 864e5);
+  const recent = (data?.suggestions ?? []).filter((s) => s.status !== "queued" && s.status !== "pitch" && s.pitch !== "dismissed" && data && data.now - s.updatedAt < 3 * 864e5);
   const add = async () => {
     if (!text.trim()) return;
     setBusy(true);
@@ -161,6 +162,60 @@ function Suggest({ data, onAdded }: { data?: Data; onAdded: () => void }) {
                 {s.status === "done" && <span className="block muted text-[12px] mt-0.5">Drafted</span>}
               </span>
               {s.status === "queued" && <button className="icon-btn" aria-label="Remove" onClick={() => del(s.id)}><Icon name="x" size={15} /></button>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+// ---------- Pitches: one-line ideas from the news-scout run ----------
+
+/** Pitches older than this are hidden (news goes stale); they stay in the data. */
+const PITCH_FRESH = 3 * 864e5;
+
+function Pitches({ data, onChange }: { data?: Data; onChange: () => void }) {
+  const [open, setOpen] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
+  const toast = useToast();
+  const list = (data?.suggestions ?? []).filter((s) => s.status === "pitch" && data && data.now - s.createdAt < PITCH_FRESH);
+  if (!list.length) return null;
+  const make = async (id: string) => {
+    setBusy(id);
+    try {
+      await api(`${KEY}/suggest`, { body: { action: "make", id } });
+      toast("Queued. The next run makes it (or say “make news posts”).", { ms: 3000 });
+      onChange();
+    } catch (e) {
+      toast((e as Error).message, { tone: "error" });
+    } finally {
+      setBusy(null);
+    }
+  };
+  const drop = async (id: string) => {
+    await api(`${KEY}/suggest?id=${id}`, { method: "DELETE" }).catch(() => {});
+    onChange();
+  };
+  return (
+    <section className="news-suggest">
+      <button className="news-link" onClick={() => setOpen((o) => !o)}>Pitches · {list.length} {open ? "▴" : "▾"}</button>
+      {open && (
+        <ul className="mt-1.5 flex flex-col gap-1">
+          {list.map((s) => (
+            <li key={s.id} className="news-sug">
+              <span className="news-sug-dot pitch" />
+              <span className="flex-1 min-w-0 break-words">
+                {s.text}
+                {(s.note || s.url) && (
+                  <span className="block muted text-[12px] mt-0.5">
+                    {s.note}{s.note && s.url ? " · " : ""}
+                    {s.url && <a href={s.url} target="_blank" rel="noreferrer" className="underline underline-offset-2">source</a>}
+                  </span>
+                )}
+              </span>
+              <button className="btn sm" disabled={!!busy} onClick={() => make(s.id)}>{busy === s.id ? <Spinner /> : "Make this one"}</button>
+              <button className="icon-btn" aria-label="Dismiss" onClick={() => drop(s.id)}><Icon name="x" size={15} /></button>
             </li>
           ))}
         </ul>
@@ -239,6 +294,10 @@ function DraftCard({ d, end, now, act, remove }: {
             ))}
           </ul>
         </div>
+
+        {d.bestTime && !d.post && d.bestTime.at - now > EARLIEST && (
+          <div className="text-[13px]"><span className="news-label inline mr-1.5">Best time</span><b>{WHEN_FMT.format(d.bestTime.at)} Rome</b>{d.bestTime.why ? <span className="muted"> · {d.bestTime.why}</span> : null}</div>
+        )}
 
         {d.post && <PostStatus d={d} now={now} />}
 
@@ -327,19 +386,22 @@ const HM = new Intl.DateTimeFormat("en-GB", { timeZone: TZ, hour: "2-digit", min
 const pad = (n: number) => String(n).padStart(2, "0");
 const toLocalInput = (ms: number) => { const r = romeParts(ms); return `${r.y}-${pad(r.mo)}-${pad(r.d)}T${pad(r.h)}:${pad(r.mi)}`; };
 
-type WhenKey = "30m" | "1h" | "3h" | "tonight" | "tomorrow" | "24h" | "custom";
+type WhenKey = "best" | "30m" | "1h" | "3h" | "tonight" | "tomorrow" | "24h" | "custom";
 
 /** The choices, worked out from "now". Tonight = 21:00 Rome (15:00 New York), shown while it's at least 30 minutes away;
  *  tomorrow = 18:00 Rome (noon New York), inside Polymarket's posting window (playbook §2). */
-function whenChoices(now: number): { key: WhenKey; label: string; at: number }[] {
+function whenChoices(now: number, best?: NewsDraft["bestTime"]): { key: WhenKey; label: string; at: number }[] {
   const r = romeParts(now);
   const tonight = romeTime(r.y, r.mo, r.d, 21, 0);
   const tmr = romeParts(now + 24 * HOUR);
-  const out: { key: WhenKey; label: string; at: number }[] = [
+  const out: { key: WhenKey; label: string; at: number }[] = [];
+  // The run's suggested slot comes first while it's still far enough ahead.
+  if (best && best.at - now >= EARLIEST && best.at - now <= IG_MAX_LEAD_MS) out.push({ key: "best", label: `Best: ${WHEN_FMT.format(best.at)}`, at: best.at });
+  out.push(
     { key: "30m", label: "In 30 minutes", at: ceil5(now + 30 * MIN) },
     { key: "1h", label: "In 1 hour", at: ceil5(now + HOUR) },
     { key: "3h", label: "In 3 hours", at: ceil5(now + 3 * HOUR) },
-  ];
+  );
   if (tonight - now >= EARLIEST) out.push({ key: "tonight", label: `Tonight ${HM.format(tonight)}`, at: tonight });
   out.push({ key: "tomorrow", label: `Tomorrow ${HM.format(romeTime(tmr.y, tmr.mo, tmr.d, 18, 0))}`, at: romeTime(tmr.y, tmr.mo, tmr.d, 18, 0) });
   out.push({ key: "24h", label: "In 24 hours", at: ceil5(now + 24 * HOUR) });
@@ -352,11 +414,11 @@ function PostWhen({ d, busy, onPost, onCancel }: {
 }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 20_000); return () => clearInterval(t); }, []);
-  const [key, setKey] = useState<WhenKey>("24h");
+  const [key, setKey] = useState<WhenKey>(() => (whenChoices(Date.now(), d.bestTime).some((c) => c.key === "best") ? "best" : "24h"));
   const [custom, setCustom] = useState(() => toLocalInput(ceil5(Date.now() + 2 * HOUR)));
   const already = d.post?.state === "failed" && d.post.igScheduledAt ? d.post : null; // a retry: Instagram is done
   const tweeted = !!d.post?.tweetUrl; // posting again never sends the tweet twice
-  const choices = whenChoices(now);
+  const choices = whenChoices(now, d.bestTime);
   const parseCustom = () => {
     const m = custom.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
     return m ? romeTime(+m[1], +m[2], +m[3], +m[4], +m[5]) : NaN;
@@ -398,7 +460,7 @@ function PostWhen({ d, busy, onPost, onCancel }: {
           onClick={() => {
             // Relative choices are worked out again at the moment of the tap.
             const t = Date.now();
-            const fresh = key === "custom" ? parseCustom() : whenChoices(t).find((c) => c.key === key)?.at ?? at;
+            const fresh = key === "custom" ? parseCustom() : whenChoices(t, d.bestTime).find((c) => c.key === key)?.at ?? at;
             onPost(already ? null : fresh, `${WHEN_FMT.format(already ? already.igAt : fresh)} Rome`);
           }}>
           {busy ? <Spinner /> : already ? "Post the tweet" : "Post"}
@@ -648,6 +710,12 @@ function StylePanel({ desk, onChange }: { desk: NewsDesk; onChange: () => void }
             ))}
           </div>
         )}
+      </section>
+
+      <section>
+        <h3 className="news-h3">Taste</h3>
+        <p className="text-[13px] muted mb-2.5">What the news-scout run has learned from your approvals, rejections and notes. It reads this every run.{desk.tasteUpdatedAt ? ` Updated ${new Date(desk.tasteUpdatedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}.` : ""}</p>
+        <div className="news-guide">{desk.taste ? <Markdown text={desk.taste} /> : <span className="muted">Nothing learned yet.</span>}</div>
       </section>
 
       <section>

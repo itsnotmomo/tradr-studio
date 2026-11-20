@@ -37,6 +37,10 @@ export type NewsDraft = {
   postedAt: number | null;
   /** One-button posting (16 Nov 2026): set by the Post button, worked by the poster on the Mac (scripts/news/poster.ts). */
   post?: NewsPost | null;
+  /** The run's suggested Instagram go-live time (ms) and why; the Post picker offers it first. */
+  bestTime?: { at: number; why: string } | null;
+  /** Made by the scheduled news-scout run (20 Nov 2026), not by hand. */
+  scout?: boolean;
 };
 
 /** Instagram's web scheduler takes posts from 20 minutes ahead up to 29 days ahead (its calendar greys out day 30;
@@ -63,7 +67,10 @@ export type NewsSuggestion = {
   rev: number;
   text: string;
   url: string | null;
-  status: "queued" | "done" | "skipped";
+  /** pitch = a one-line idea from the news-scout run, waiting for "Make this one" (→ queued). */
+  status: "queued" | "done" | "skipped" | "pitch";
+  /** Started as a pitch: "chosen" (Make this one) or "dismissed" (×). The run learns from both. */
+  pitch?: "chosen" | "dismissed";
   /** Why it was skipped, or the draft it became. */
   note: string;
   draftId: string | null;
@@ -88,6 +95,13 @@ export type NewsDesk = {
   endChoice: string | null;
   lastRunAt: number | null;
   lastRunSummary: string;
+  /** The taste file (what Mohamed approves, rejects and changes), kept by the news-scout run; a copy of .news/taste.md. */
+  taste?: string;
+  tasteUpdatedAt?: number | null;
+  /** Review events up to this time are already learned into the taste file. */
+  tasteSeenAt?: number | null;
+  /** The last weekly "what I learned" push. */
+  weeklyAt?: number | null;
 };
 
 export const NEWS_DESK_DEFAULTS: NewsDesk = {
