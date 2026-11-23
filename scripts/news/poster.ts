@@ -20,7 +20,7 @@ import path from "node:path";
 import { chromium, type BrowserContext, type Page } from "playwright-core";
 import { getNews, getNewsDesk, listNews, mutateNews } from "../../src/lib/server/store";
 import { sendNtfy } from "../../src/lib/server/notify";
-import { endSlideOf, type NewsDraft } from "../../src/lib/news";
+import { endSlideOf, isReel, type NewsDraft } from "../../src/lib/news";
 
 const PROFILE = path.join(os.homedir(), "Library/Application Support/TradrMediaPoster");
 const IG_HANDLE = "tradr__app";
@@ -50,7 +50,8 @@ function rome(ms: number) {
 
 async function files(d: NewsDraft) {
   const desk = await getNewsDesk();
-  const end = endSlideOf(desk);
+  // A Reel (24 Nov 2026) is its one video, with no end slide.
+  const end = isReel(d) ? null : endSlideOf(desk);
   const urls = [...d.slides.map((s) => s.url), ...(end ? [end.url] : [])];
   // Video slides go up as .mp4 (18 Nov 2026): Instagram's carousel and X both take them.
   const kinds = [...d.slides.map((s) => s.kind), ...(end ? ["image"] : [])];
@@ -91,6 +92,14 @@ async function dismiss(page: Page) {
     await b.click().catch(() => {});
     await sleep(800);
   }
+}
+
+/** Whether x.com is signed in as @tradr_app. X dropped the side-nav account button (Nov 2026); the nav's Profile link
+ *  (href "/tradr_app") is the signal now, with the old button kept as a fallback. */
+async function xSignedIn(page: Page) {
+  if (await page.locator(`nav a[href="/${X_HANDLE}" i]`).count().catch(() => 0)) return true;
+  const who = await page.locator('[data-testid="SideNav_AccountSwitcher_Button"]').innerText({ timeout: 3000 }).catch(() => "");
+  return who.includes(`@${X_HANDLE}`);
 }
 
 async function igSignedIn(page: Page) {
@@ -223,13 +232,12 @@ async function scheduleInstagram(page: Page, d: NewsDraft, slides: string[], igA
   await page.getByRole("button", { name: "Done", exact: true }).first().click().catch(() => {});
 }
 
-/** Posts the tweet with the hook slide from x.com and returns its URL. */
+/** Posts the tweet with the hook slide (a Reel: its video) from x.com and returns its URL. */
 async function postTweet(page: Page, d: NewsDraft, hook: string) {
   await page.goto("https://x.com/compose/post", { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(4000);
   await dismiss(page);
-  const who = await page.locator('[data-testid="SideNav_AccountSwitcher_Button"]').innerText().catch(() => "");
-  if (!who.includes(`@${X_HANDLE}`)) throw new Error(`X isn't signed in as @${X_HANDLE} in the poster's Chrome. Run the login step.`);
+  if (!(await xSignedIn(page))) throw new Error(`X isn't signed in as @${X_HANDLE} in the poster's Chrome. Run the login step.`);
   const box = page.locator('[data-testid="tweetTextarea_0"]').first();
   await box.waitFor({ timeout: 20000 });
   await box.click();
@@ -268,7 +276,8 @@ async function work(ctx: BrowserContext, id: string) {
       await scheduleInstagram(page, d, slides, d.post!.igAt);
       await set({ igScheduledAt: Date.now() }, `Instagram scheduled for ${new Date(d.post!.igAt).toISOString()}`);
     }
-    if (!d.post!.tweetUrl) {
+    if (d.xOff) log(id, "x: off for this draft (Instagram only), no tweet");
+    else if (!d.post!.tweetUrl) {
       log(id, "x: posting");
       const url = await postTweet(page, d, slides[0]);
       await set({ tweetUrl: url }, `Tweet posted: ${url}`);
@@ -279,7 +288,7 @@ async function work(ctx: BrowserContext, id: string) {
       x.history.push({ at: Date.now(), what: "Posted with the Post button" });
     });
     const p = (await getNews(id))!.post!;
-    await sendNtfy("News posted", `${d.title}\nInstagram goes live ${new Intl.DateTimeFormat("en-GB", { timeZone: TZ, dateStyle: "medium", timeStyle: "short" }).format(p.igAt)} (Rome). Add the music.\nTweet: ${p.tweetUrl}`, `/news?id=${id}`).catch(() => {});
+    await sendNtfy("News posted", `${d.title}\nInstagram goes live ${new Intl.DateTimeFormat("en-GB", { timeZone: TZ, dateStyle: "medium", timeStyle: "short" }).format(p.igAt)} (Rome).${isReel(d) ? "" : " Add the music."}\n${d.xOff ? "X: off (Instagram only)" : `Tweet: ${p.tweetUrl}`}`, `/news?id=${id}`).catch(() => {});
     log(id, "done");
   } catch (e) {
     const msg = (e as Error).message.split("\n")[0].slice(0, 400);
@@ -311,7 +320,7 @@ async function main() {
     const page = ctx.pages()[0] ?? (await ctx.newPage());
     const ig = await igSignedIn(page);
     await page.goto("https://x.com/home"); await page.waitForTimeout(4000);
-    const x = (await page.locator('[data-testid="SideNav_AccountSwitcher_Button"]').innerText().catch(() => "")).includes(`@${X_HANDLE}`);
+    const x = await xSignedIn(page);
     console.log(JSON.stringify({ instagram: ig, x }));
     await ctx.close();
     return;

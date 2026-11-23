@@ -43,7 +43,16 @@ export type NewsDraft = {
   scout?: boolean;
   /** Hand edits in Tradr Media (caption, X text, a swapped slide): before/after, read by the scout as taste feedback. */
   edits?: NewsEdit[];
+  /** "reel" (24 Nov 2026): one 9:16 1080x1920 video with its own sound, posted as an Instagram Reel (no end slide);
+   *  its tweet carries the same video. Unset = a carousel. */
+  kind?: "reel";
+  /** Instagram only (24 Nov 2026): the X part is off, so this draft never goes to X and isn't on the X board. */
+  xOff?: boolean;
 };
+
+export const isReel = (d: Pick<NewsDraft, "kind">) => d.kind === "reel";
+/** Whether a draft belongs on a platform's board (an X-off draft is Instagram only). */
+export const onPlatform = (d: Pick<NewsDraft, "xOff">, p: Platform) => !(p === "x" && d.xOff);
 
 export type NewsEdit = { at: number; field: "caption" | "x" | "slide"; slide?: number; before: string; after: string };
 

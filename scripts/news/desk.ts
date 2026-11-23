@@ -3,6 +3,8 @@
 //
 //   inbox                          what to do: queued suggestions, change requests, style guide, recent stories
 //   publish <spec.json>            render + upload + create the draft (or redo it when spec.draftId is set)
+//   reel <reel.json>               a Reel draft: one finished 9:16 1080x1920 mp4 with sound, no end slide (see reel())
+//   xoff <draftId>                 Instagram only: turn the draft's X part off (it never goes to X)
 //   skip <suggestionId> <reason>   close a suggestion that can't become a post, with the reason shown in Studio
 //   refs <dir>                     download the style references to <dir> (to read them when updating the guide)
 //   guide <guide.md>               save the style guide (marks every current reference as covered)
@@ -15,6 +17,7 @@
 //   notify "<title>" "<msg>" [path] push through ntfy (tap opens Tradr Media at <path>, default /news)
 //   weekly "<text>"                send the weekly "what I learned" push and stamp it (weekly-due tells if it's due)
 import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { put } from "@vercel/blob";
 import {
@@ -101,6 +104,63 @@ async function publish(specPath: string) {
   console.log(JSON.stringify({ draftId, version, slides: out.length }));
 }
 
+/** A Reel draft (24 Nov 2026) from a finished video, uploaded as it is (no render, no end slide).
+ *  reel.json: {title, video, poster, caption, x, sources, photos, confirmed?, reported?, bestTime?, draftId?}; video and
+ *  poster are paths next to the json. With draftId set, the same draft is redone. */
+async function reel(jsonPath: string) {
+  const dir = path.dirname(path.resolve(jsonPath));
+  const raw = JSON.parse(await readFile(jsonPath, "utf8")) as Spec & { video: string; poster: string; draftId?: string; bestTime?: { at: string | number; why?: string } };
+  const errs: string[] = [];
+  if (!raw.title?.trim()) errs.push("title");
+  if (!raw.video) errs.push("video");
+  if (!raw.poster) errs.push("poster");
+  if (!raw.caption?.trim()) errs.push("caption");
+  if (!raw.x?.trim()) errs.push("X text");
+  if (raw.x && raw.x.length > 280) errs.push(`X text is ${raw.x.length} characters (max 280)`);
+  if (/https?:\/\//.test(raw.x || "")) errs.push("X text must have no links");
+  if (!raw.sources?.length) errs.push("at least one source link");
+  if (!raw.photos?.length) errs.push("photo/video sources");
+  if (errs.length) throw new Error("Reel spec incomplete: " + errs.join("; "));
+  const video = path.resolve(dir, raw.video), poster = path.resolve(dir, raw.poster);
+  const probe = JSON.parse(execFileSync("ffprobe", ["-v", "error", "-show_entries", "stream=codec_type,width,height:format=duration", "-of", "json", video], { encoding: "utf8" }));
+  const v = probe.streams.find((x: { codec_type: string }) => x.codec_type === "video");
+  if (!v || v.width !== 1080 || v.height !== 1920) throw new Error(`The Reel must be 1080x1920 (it is ${v?.width}x${v?.height}).`);
+  if (!probe.streams.some((x: { codec_type: string }) => x.codec_type === "audio")) throw new Error("The Reel has no sound track.");
+  const duration = Math.round(Number(probe.format.duration) * 100) / 100;
+  const bestAt = raw.bestTime ? new Date(raw.bestTime.at).getTime() : NaN;
+  if (raw.bestTime && !Number.isFinite(bestAt)) throw new Error("bestTime.at isn't a date");
+  const existing = raw.draftId ? await getNews(raw.draftId) : null;
+  const id = existing?.id ?? uid();
+  const version = (existing?.version ?? 0) + 1;
+  const key = `news/${id}/v${version}-1`;
+  const slides: NewsSlide[] = [{
+    kind: "video", w: 1080, h: 1920, duration,
+    url: await upload(video, key + ".mp4", "video/mp4"), poster: await upload(poster, key + ".poster.jpg", "image/jpeg"),
+  }];
+  const fields = {
+    kind: "reel" as const, title: raw.title.trim(), tag: raw.tag || "", slides, caption: raw.caption.trim(), x: raw.x.trim(),
+    sources: raw.sources, photos: raw.photos, confirmed: raw.confirmed || [], reported: raw.reported || [],
+    bestTime: raw.bestTime ? { at: bestAt, why: String(raw.bestTime.why || "").slice(0, 200) } : null,
+  };
+  let draftId: string;
+  if (existing) {
+    const d = await mutateNews(existing.id, (d) => {
+      Object.assign(d, fields);
+      d.status = "draft"; d.changeNote = ""; d.version = version;
+      d.history.push({ at: Date.now(), what: `Redone (v${version}, Reel)` });
+    });
+    draftId = d.id;
+  } else {
+    const d = await createNews({
+      ...fields, status: "draft", changeNote: "", history: [{ at: Date.now(), what: "Drafted (Reel)" }], version,
+      suggestionId: null, approvedAt: null, postedAt: null,
+    });
+    draftId = d.id;
+  }
+  await writeFile(jsonPath, JSON.stringify({ ...raw, draftId }, null, 2));
+  console.log(JSON.stringify({ draftId, version, kind: "reel", duration }));
+}
+
 async function main() {
   switch (cmd) {
     case "inbox": {
@@ -121,6 +181,18 @@ async function main() {
     case "publish":
       await publish(args[0]);
       break;
+    case "reel":
+      await reel(args[0]);
+      break;
+    case "xoff": {
+      // Instagram only: the X part is off (the poster never tweets it, the X board doesn't list it). Nothing else changes.
+      const d = await mutateNews(args[0], (x) => {
+        if (x.xOff) return;
+        x.xOff = true; x.history.push({ at: Date.now(), what: "X turned off (Instagram only)" });
+      });
+      console.log(`xoff: ${d.id} (${d.title})`);
+      break;
+    }
     case "collab": {
       // collab <draftId> [YYYY-MM-DD] [handle]: the day's one collab post; any other draft marked for that day is cleared.
       const [id, dayArg, handle = "range.fx"] = args;

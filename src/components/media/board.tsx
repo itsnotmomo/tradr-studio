@@ -17,7 +17,7 @@ import { copyText } from "@/components/publish";
 import { api, fetcher } from "@/lib/client/api";
 import { imageFiles, toJpeg, uploadBlob } from "@/lib/client/upload";
 import {
-  IG_MAX_LEAD_MS, endSlideOf, platformState, tabOf, PLATFORM_STATE_LABEL,
+  IG_MAX_LEAD_MS, endSlideOf, isReel, onPlatform, platformState, tabOf, PLATFORM_STATE_LABEL,
   type BoardTab, type NewsDesk, type NewsDraft, type NewsSlide, type NewsSuggestion, type Platform, type PlatformState,
 } from "@/lib/news";
 import { relTime } from "@/lib/time";
@@ -83,7 +83,7 @@ function BoardView({ platform }: { platform: Platform }) {
   };
 
   const now = data?.now ?? 0;
-  const rows = useMemo(() => (data?.drafts ?? []).map((d) => ({ d, s: platformState(d, platform, now) })), [data, platform, now]);
+  const rows = useMemo(() => (data?.drafts ?? []).filter((d) => onPlatform(d, platform)).map((d) => ({ d, s: platformState(d, platform, now) })), [data, platform, now]);
   const pitches = (data?.suggestions ?? []).filter((s) => s.status === "pitch" && now - s.createdAt < PITCH_FRESH);
   const counts: Record<BoardTab, number> = {
     review: rows.filter((r) => r.s !== "rejected" && tabOf(r.s) === "review").length,
@@ -169,9 +169,12 @@ function PostCard({ d, s, platform, end, now, act, remove }: {
     return ok;
   };
   const copy = async (what: string, text: string) => toast((await copyText(text)) ? `${what} copied.` : "Copy failed.", { ms: 1800 });
-  const slides: (NewsSlide & { fixed?: boolean })[] = [...d.slides, ...(end ? [{ url: end, kind: "image" as const, w: 1080, h: 1350, fixed: true }] : [])];
+  // A Reel is its one video: no shared end slide.
+  const reel = isReel(d);
+  const slides: (NewsSlide & { fixed?: boolean })[] = [...d.slides, ...(end && !reel ? [{ url: end, kind: "image" as const, w: 1080, h: 1350, fixed: true }] : [])];
   const other: Platform = platform === "ig" ? "x" : "ig";
   const otherState = platformState(d, other, now);
+  const otherLabel = !onPlatform(d, other) ? "off" : PLATFORM_STATE_LABEL[otherState].replace(" · ready to post", "");
   const busyPost = inFlight(d);
 
   // The one obvious action for this state; everything else is quiet.
@@ -186,17 +189,18 @@ function PostCard({ d, s, platform, end, now, act, remove }: {
   return (
     <article className={`media-card ${platform}`} data-state={s}>
       <div className="media-card-preview">
-        {platform === "ig" ? <Carousel slides={slides} /> : <TweetPreview d={d} hook={d.slides[0]} />}
+        {platform === "ig" ? <Carousel slides={slides} reel={reel} /> : <TweetPreview d={d} hook={d.slides[0]} reel={reel} />}
       </div>
 
       <div className="media-card-body">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="media-state" style={{ "--s": STATE_TONE[s] } as React.CSSProperties}>{PLATFORM_STATE_LABEL[s]}</span>
+          {reel && <span className="media-chip">Reel</span>}
           {d.tag && <span className="media-tag">{d.tag}</span>}
           {d.collab && <span className="news-collab">Collab @{d.collab.handle}</span>}
           {d.scout && <span className="media-chip">Scout</span>}
           <span className="flex-1" />
-          <span className="text-[12px] faint whitespace-nowrap">{PLATFORMS[other].name}: {PLATFORM_STATE_LABEL[otherState].replace(" · ready to post", "")}</span>
+          <span className="text-[12px] faint whitespace-nowrap">{PLATFORMS[other].name}: {otherLabel}</span>
         </div>
         <h2 className="media-title">{d.title}</h2>
 
@@ -207,7 +211,7 @@ function PostCard({ d, s, platform, end, now, act, remove }: {
             onPost={async (igAt, label) => {
               if (await run("post", undefined, igAt == null ? undefined : { igAt })) {
                 setMode("view");
-                toast(`Sent to the poster. Instagram goes live ${label}; ${d.post?.tweetUrl ? "the tweet already went out, so it isn't sent again" : "the tweet goes out now"}.`, { ms: 4000 });
+                toast(`Sent to the poster. Instagram goes live ${label}; ${d.xOff ? "it doesn't go to X (Instagram only)" : d.post?.tweetUrl ? "the tweet already went out, so it isn't sent again" : "the tweet goes out now"}.`, { ms: 4000 });
               }
             }} />
         ) : mode === "changes" ? (
@@ -240,7 +244,7 @@ function PostCard({ d, s, platform, end, now, act, remove }: {
 
         {platform === "ig"
           ? <TextBlock label="Caption" text={d.caption} onCopy={() => copy("Caption", d.caption)} />
-          : <div className="flex items-center gap-2 text-[12.5px] muted">{d.x.length}/280 · the hook slide goes with it<span className="flex-1" /><button className="btn sm" onClick={() => copy("X text", d.x)}><Icon name="copy" size={14} /> Copy</button></div>}
+          : <div className="flex items-center gap-2 text-[12.5px] muted">{d.x.length}/280 · {reel ? "the video goes with it" : "the hook slide goes with it"}<span className="flex-1" /><button className="btn sm" onClick={() => copy("X text", d.x)}><Icon name="copy" size={14} /> Copy</button></div>}
 
         <details className="media-details">
           <summary>Sources and facts · {d.sources.length}</summary>
@@ -291,7 +295,7 @@ function Status({ d, s, platform, now }: { d: NewsDraft; s: PlatformState; platf
 // ---------- Previews ----------
 
 /** Instagram: the carousel at a size you can read, swipe or arrows, tap for full screen. */
-function Carousel({ slides }: { slides: (NewsSlide & { fixed?: boolean })[] }) {
+function Carousel({ slides, reel = false }: { slides: (NewsSlide & { fixed?: boolean })[]; reel?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const [i, setI] = useState(0);
   const [open, setOpen] = useState<number | null>(null);
@@ -302,7 +306,7 @@ function Carousel({ slides }: { slides: (NewsSlide & { fixed?: boolean })[] }) {
     el.scrollTo({ left: k * el.clientWidth, behavior: "smooth" });
   };
   return (
-    <div className="media-carousel">
+    <div className={`media-carousel${reel ? " reel" : ""}`}>
       <div ref={ref} className="media-carousel-track" onScroll={(e) => setI(Math.round(e.currentTarget.scrollLeft / Math.max(1, e.currentTarget.clientWidth)))}>
         {slides.map((s, k) => (
           <button key={s.url + k} className="media-carousel-slide" onClick={() => setOpen(k)} aria-label={`Slide ${k + 1}, full screen`}>
@@ -312,17 +316,17 @@ function Carousel({ slides }: { slides: (NewsSlide & { fixed?: boolean })[] }) {
           </button>
         ))}
       </div>
-      <span className="media-count">{i + 1}/{slides.length}{slides[i]?.fixed ? " · fixed" : ""}</span>
+      <span className="media-count">{reel ? "Reel · 9:16" : <>{i + 1}/{slides.length}{slides[i]?.fixed ? " · fixed" : ""}</>}</span>
       {i > 0 && <button className="media-arrow l" onClick={() => go(i - 1)} aria-label="Previous slide"><Icon name="left" size={18} /></button>}
       {i < slides.length - 1 && <button className="media-arrow r" onClick={() => go(i + 1)} aria-label="Next slide"><Icon name="right" size={18} /></button>}
       <div className="media-dots" aria-hidden>{slides.map((_, k) => <i key={k} data-on={k === i || undefined} />)}</div>
-      {open !== null && <Lightbox slides={slides} start={open} onClose={() => setOpen(null)} />}
+      {open !== null && <Lightbox slides={slides} start={open} reel={reel} onClose={() => setOpen(null)} />}
     </div>
   );
 }
 
 /** X: the tweet as it will look, with the hook slide attached. */
-function TweetPreview({ d, hook }: { d: NewsDraft; hook?: NewsSlide }) {
+function TweetPreview({ d, hook, reel = false }: { d: NewsDraft; hook?: NewsSlide; reel?: boolean }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="media-tweet">
@@ -336,7 +340,7 @@ function TweetPreview({ d, hook }: { d: NewsDraft; hook?: NewsSlide }) {
           <img src={hook.kind === "video" ? hook.poster || "" : hook.url} alt="" />
         </button>
       )}
-      {open && hook && <Lightbox slides={[hook]} start={0} onClose={() => setOpen(false)} />}
+      {open && hook && <Lightbox slides={[hook]} start={0} reel={reel} onClose={() => setOpen(false)} />}
     </div>
   );
 }
@@ -637,7 +641,7 @@ function PostStatus({ d, now }: { d: NewsDraft; now: number }) {
 }
 
 
-function Lightbox({ slides, start, onClose }: { slides: NewsSlide[]; start: number; onClose: () => void }) {
+function Lightbox({ slides, start, reel = false, onClose }: { slides: NewsSlide[]; start: number; reel?: boolean; onClose: () => void }) {
   const [i, setI] = useState(start);
   const ref = useRef<HTMLDialogElement>(null);
   const touch = useRef<number | null>(null);
@@ -660,7 +664,7 @@ function Lightbox({ slides, start, onClose }: { slides: NewsSlide[]; start: numb
         if (Math.abs(dx) > 40) setI((x) => Math.max(0, Math.min(slides.length - 1, x + (dx < 0 ? 1 : -1))));
         touch.current = null;
       }}>
-      <div className="news-lb-frame">
+      <div className={`news-lb-frame${reel ? " reel" : ""}`}>
         {s.kind === "video"
           ? <video key={s.url} src={s.url} poster={s.poster || undefined} controls autoPlay playsInline />
           : <img key={s.url} src={s.url} alt="" />}
