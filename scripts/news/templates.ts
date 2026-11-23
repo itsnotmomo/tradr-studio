@@ -12,8 +12,8 @@ export const GREEN = "#00C16A";
 export const RED = "#E5262B";
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-/** *word* → highlighted (green on the hook, bold elsewhere). */
-const marks = (s: string) => esc(s).replace(/\*(.+?)\*/g, '<em>$1</em>');
+/** *word* → highlighted (green on the hook, bold elsewhere); ^^word^^ → always red, for a loss next to a gain on one slide (21 Nov 2026). */
+const marks = (s: string) => esc(s).replace(/\*(.+?)\*/g, '<em>$1</em>').replace(/\^\^(.+?)\^\^/g, '<em class="rd">$1</em>');
 const src = (p: string) => (/^(https?:|data:|file:)/.test(p) ? p : pathToFileURL(path.resolve(p)).href);
 
 export const MARK = `<svg viewBox="0 0 260 290" aria-hidden="true"><path fill="${GREEN}" d="M4 0H260L242 52H153L135 243L67 290L91 52H0Z"/></svg>`;
@@ -26,6 +26,7 @@ export const SAFE_BOTTOM = 180;
 
 const BASE = `
 @font-face { font-family: Anton; src: url(${f("Anton-Regular.ttf")}); }
+@font-face { font-family: LeagueGothic; src: url(${f("LeagueGothic.ttf")}); }
 @font-face { font-family: Inter; src: url(${f("Inter.ttf")}); font-weight: 100 900; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { width: ${W}px; height: ${H}px; overflow: hidden; }
@@ -39,7 +40,7 @@ function fit(el, max, min, lines) {
   for (let s = max; s >= min; s -= 2) {
     el.style.fontSize = s + 'px';
     const lh = parseFloat(getComputedStyle(el).lineHeight);
-    if (el.scrollHeight <= lh * lines + 2 && el.scrollWidth <= el.clientWidth + 1) return s;
+    if (el.scrollHeight <= lh * lines + Math.max(2, lh * 0.1) && el.scrollWidth <= el.clientWidth + 1) return s;
   }
   return min;
 }
@@ -62,6 +63,14 @@ function cover(el) {
   }; im.onerror = ok; im.src = url; });
 }
 Promise.all([document.fonts.ready, ...[...document.querySelectorAll('[data-cover]')].map(cover)]).then(() => {
+  document.querySelectorAll('[data-block]').forEach((h) => {
+    const [maxPx, maxH] = h.dataset.block.split(',').map(Number);
+    const cw = h.clientWidth, ls = [...h.querySelectorAll('.ln')];
+    ls.forEach((l) => { l.style.fontSize = '100px'; const w = l.getBoundingClientRect().width; l.style.fontSize = Math.min(maxPx, (100 * cw) / w) + 'px'; });
+    const H = h.getBoundingClientRect().height;
+    if (H > maxH) ls.forEach((l) => { l.style.fontSize = (parseFloat(l.style.fontSize) * maxH) / H + 'px'; });
+    h.dataset.size = ls.map((l) => Math.round(parseFloat(l.style.fontSize))).join('/');
+  });
   document.querySelectorAll('[data-fit]').forEach((el) => {
     // "max,min,lines" or "max,min,lines,min2,lines2": the biggest size that fits in \`lines\`, else in \`lines2\`.
     const [max, min, lines, min2, lines2] = el.dataset.fit.split(',').map(Number);
@@ -106,9 +115,25 @@ export type Hook = {
   /** Headline size override, "max,min,lines[,min2,lines2]" (default "184,112,3,84,4"): e.g. a long headline that
    *  should fill 4 lines bigger than the default's 112 px cap. The text box stays inside the safe area either way. */
   fit?: string;
-  /** Headline distance from the bottom edge in px (default SAFE_BOTTOM). Lower only on Mohamed's ask: under 180 the
+  /** "poly" = Polymarket's hook type (Mohamed, 18 Nov 2026): League Gothic thickened, all white (no green), a bigger
+   *  white tag, line breaks where the headline has "\n" (balanced lines of ~15 characters fill the width). */
+  look?: "poly";
+  /** Headline distance from the bottom edge in px (default SAFE_BOTTOM). Lower it whenever the headline would otherwise cover the face (Mohamed, 20 Nov 2026), down to 96; under 180 the
    *  last line can sit under the grid's view counter. */
   bottom?: number;
+  /** A real clip as the hook's background (Mohamed, 18 Nov 2026): a local file or any page yt-dlp reads, cut to
+   *  [start, end] and cover-fitted to 4:5 (prepare a 1080x1350 clip first when the framing needs care). The headline,
+   *  fades and T mark are drawn on top; `photo` (a frame of the clip) gives the still/poster. Silent unless `audio: true` (the clip's own sound). */
+  video?: { src: string; start?: string; end?: string; audio?: boolean };
+  /** Internal (render.ts): draw only the layer over the video (fades, tag, headline, T mark) on a transparent page. */
+  overlay?: boolean;
+  /** false = no top/bottom fades: the background (e.g. a proof screenshot that fades to black on its own) carries them (21 Nov 2026). */
+  fades?: boolean;
+  /** poly look only: keep the *highlighted* words in the accent colour instead of all white (advicefromtraders-style proof hook, 21 Nov 2026). */
+  polyColor?: boolean;
+  /** poly look only: every "\n" line is sized on its own to fill the full text width (a justified block, as @advicefromtraders
+   *  sets its hooks), capped at `max` px per line and `height` px for the whole block: "max,height" (21 Nov 2026). */
+  polyBlock?: string;
   /** Kept in Studio only (photos[]); never drawn on the slide. */
   credit?: string;
 };
@@ -144,7 +169,7 @@ const bgImg = (file: string, zoom = 1, fx = 0.5, fy = 0.25) =>
 
 export function hookHtml(s: Hook) {
   const scale = s.scale ?? 0.86;
-  const bg = s.mode === "chart" && s.chart ? chartSvg(s.chart) : s.mode === "cutout" && s.cutout
+  const bg = s.overlay ? "" : s.mode === "chart" && s.chart ? chartSvg(s.chart) : s.mode === "cutout" && s.cutout
     ? `<div class="bgblur" style="background-image:url('${src(s.photo!)}')"></div>
        <img class="cut" src="${src(s.cutout)}" style="height:${Math.round(H * scale)}px; transform: translateX(calc(-50% + ${s.offsetX ?? 0}px))">`
     : `<div class="full" data-cover="${s.zoom ?? 1}"${s.face ? ` data-face="${[s.face.x, s.face.y, s.face.w, s.face.h, s.faceSize ?? 0.5, ...(s.faceAt ?? [0.5, 0.34])].join(",")}"` : ""} style="${bgImg(s.photo!, 1, s.focusX ?? 0.5, s.focusY ?? 0.25)}"></div>`;
@@ -155,7 +180,7 @@ export function hookHtml(s: Hook) {
     ? `<div class="inset" data-cover="${i.zoom ?? 1}" style="left:${i.x ?? 640}px; top:${i.y ?? 200}px; width:${i.size ?? 360}px; height:${i.size ?? 360}px; background-color:${i.bg ?? "#fff"}; ${bgImg(i.src!, 1, i.focusX ?? 0.5, i.focusY ?? 0.3)}"></div>`
     : "";
   return `<!doctype html><html><head><meta charset="utf-8"><style>${BASE}
-body { background: #070808; color: #fff; }
+body { background: ${s.overlay ? "transparent" : "#070808"}; color: #fff; }
 .full { position: absolute; inset: 0; background-repeat: no-repeat; }
 .bgblur { position: absolute; inset: -60px; background: center/cover; filter: blur(30px) saturate(.95) brightness(.5); }
 .cut { position: absolute; bottom: 0; left: 50%; width: auto; }
@@ -173,6 +198,10 @@ body { background: #070808; color: #fff; }
 .tag.br { background: ${RED}; color: #fff; border: 3px solid #fff; padding: 9px 17px 8px; }
 .tag.q { background: ${GREEN}; color: #070808; padding: 14px 26px; display: flex; }
 .tag.q svg { width: 62px; height: 42px; }
+.poly h1 { font-family: LeagueGothic; line-height: .84; letter-spacing: .01em; -webkit-text-stroke: .022em #fff; white-space: nowrap; text-wrap: nowrap; }
+.poly h1 em { color: ${s.polyColor ? (s.accent === "red" ? "#ff3b40" : GREEN) : "#fff"}; }
+.poly h1.block .ln { display: block; width: max-content; margin: 0 auto; line-height: .86; }
+.poly .tag { font: 400 62px/1 LeagueGothic; letter-spacing: .02em; -webkit-text-stroke: .02em #070808; padding: 10px 22px 8px; border-radius: 12px; }
 h1 { font-family: Anton; font-weight: 400; text-transform: uppercase; text-align: center; line-height: .93; width: 100%; letter-spacing: -.003em; text-wrap: balance; text-shadow: 0 4px 30px rgba(0,0,0,.4); }
 h1 em { font-style: normal; color: ${s.accent === "red" || (s.accent !== "green" && s.mode === "chart" && s.chart?.down !== false) ? "#ff3b40" : GREEN}; }
 .logo { position: absolute; top: 56px; left: ${SAFE_X - 12}px; width: 44px; height: 49px; z-index: 10; filter: drop-shadow(0 2px 10px rgba(0,0,0,.45)); }
@@ -184,9 +213,11 @@ h1 em { font-style: normal; color: ${s.accent === "red" || (s.accent !== "green"
 .px span { font: 800 40px/1 Inter; padding: 12px 18px; border-radius: 12px; }
 .cnote { position: absolute; left: ${SAFE_X + 2}px; top: 312px; font: 500 24px/1.2 Inter; color: rgba(255,255,255,.55); }
 </style></head><body>
-${bg}${inset}${s.mode === "chart" ? "" : '<div class="topfade"></div><div class="fade"></div>'}
+${bg}${inset}${s.mode === "chart" || s.fades === false ? "" : '<div class="topfade"></div><div class="fade"></div>'}
 <div class="logo">${MARK}</div>
-<div class="text"${s.bottom != null ? ` style="bottom:${Math.round(s.bottom)}px"` : ""}>${tagHtml(s.tag)}<h1 data-fit="${esc(s.fit || "184,112,3,84,4")}">${marks(s.headline)}</h1></div>
+<div class="text${s.look === "poly" ? " poly" : ""}"${s.bottom != null ? ` style="bottom:${Math.round(s.bottom)}px"` : ""}>${tagHtml(s.tag)}${s.look === "poly" && s.polyBlock
+  ? `<h1 class="block" data-block="${esc(s.polyBlock)}">${marks(s.headline).split("\n").map((l) => `<span class="ln">${l}</span>`).join("")}</h1>`
+  : `<h1 data-fit="${esc(s.fit || (s.look === "poly" ? "400,100,4" : "184,112,3,84,4"))}">${marks(s.headline).replace(/\n/g, "<br>")}</h1>`}</div>
 ${FIT}</body></html>`;
 }
 
@@ -229,8 +260,22 @@ export type Story = {
   fit?: "cover" | "width";
   /** Or a full-bleed chart from real data (oldest → newest), red when down. */
   chart?: { points: number[]; down?: boolean; mark?: { at: number; label: string }; end?: string };
+  /** Where the dark shade under the title starts, px from the top (default 380). Lower it for a screenshot that must
+   *  stay fully readable down to its last line (17 Nov 2026). */
+  shadeTop?: number;
   /** Colour of the *highlighted* words (default green). */
   accent?: "green" | "red";
+  /** Layout (21 Nov 2026, Mohamed: not every slide needs a title; vary slides so the carousel doesn't feel robotic).
+   *  "classic" = title + rule + body (default; with an empty title it becomes "lead"). "lead" = no title, the body is the
+   *  slide, set bigger. "quote" = a big real quote (`title`, without the quote marks) under a small `kicker` line. */
+  layout?: "classic" | "lead" | "quote";
+  /** Small line above the title (e.g. a date "12 NOVEMBER", or "The CEO, this week:"). *word* = accent. */
+  kicker?: string;
+  /** quote layout only: "inline" = no big quote glyph, the “ ” go around the words in the same font (21 Nov 2026). */
+  quoteStyle?: "glyph" | "inline";
+  /** Running date widget across the top, the same on every slide of a story told day by day, so the slides link:
+   *  `days` labels (e.g. "12"), `at` = this slide's day, `month` small label ("NOV"). */
+  track?: { days: string[]; at: number; month?: string };
 };
 
 function storyChart(c: NonNullable<Story["chart"]>) {
@@ -250,13 +295,24 @@ ${mk ? `<circle cx="${mk[0]}" cy="${mk[1]}" r="14" fill="#fff"/><circle cx="${mk
 ${c.end ? `<div class="send" style="left:${last[0]}px; top:${last[1] - 130}px">${esc(c.end)}</div>` : ""}</div>`;
 }
 
+function trackHtml(t: Story, accent: string) {
+  const k = t.track; if (!k || !k.days.length) return "";
+  const x0 = 84, x1 = W - 84, n = k.days.length, x = (i: number) => x0 + (n === 1 ? 0 : (i / (n - 1)) * (x1 - x0 - 0));
+  const xi = (i: number) => 107.5 + (n === 1 ? 0 : (i / (n - 1)) * 870);
+  void x;
+  const dots = k.days.map((d, i) => { const c = i < k.at ? "past" : i === k.at ? "now" : "";
+    return `<div class="dt ${c}" style="left:${xi(i)}px"></div><div class="lb ${i === k.at ? "now" : ""}" style="left:${xi(i)}px">${esc(d)}</div>`; }).join("");
+  return `<div class="trk">${k.month ? `<div class="mo">${esc(k.month)}</div>` : ""}<div class="ln"></div><div class="fl" style="width:${xi(k.at) - x0}px"></div>${dots}</div>`;
+}
+
 function storyHtml(s: Card) {
   const t = s.story!;
   const accent = t.accent === "red" ? "#ff3b40" : GREEN;
   const bg = t.chart ? storyChart(t.chart)
     : t.fit === "width"
-    ? `<div class="sbg" style="background-image:url('${src(t.image!)}'); background-size: 100% auto; background-position: 50% 0; -webkit-mask-image: linear-gradient(180deg, #000 48%, transparent 76%)"></div>`
+    ? `<div class="sbg" style="background-image:url('${src(t.image!)}'); background-size: 100% auto; background-position: 50% 0; -webkit-mask-image: linear-gradient(180deg, #000 ${t.shadeTop != null ? Math.round((t.shadeTop / 900) * 100) : 48}%, transparent ${t.shadeTop != null ? Math.min(100, Math.round((t.shadeTop / 900) * 100) + 12) : 76}%)"></div>`
     : `<div class="sbg" data-cover="${t.zoom ?? 1}" style="${bgImg(t.image!, 1, t.focusX ?? 0.5, t.focusY ?? 0.4)}"></div>`;
+  const layout = t.layout ?? (t.title.trim() ? "classic" : "lead");
   const [at, n] = s.progress ?? [0, 0];
   const bar = n >= 1 ? `<div class="prog">${Array.from({ length: n }, (_, i) => `<i class="${i === at ? "on" : ""}"></i>`).join("")}</div>` : "";
   return `<!doctype html><html><head><meta charset="utf-8"><style>${BASE}
@@ -273,15 +329,53 @@ body { background: #070808; color: #fff; }
 .copy { position: absolute; left: 84px; right: 84px; bottom: 124px; }
 h2 { font: 850 104px/1.0 Inter; letter-spacing: -.035em; text-wrap: balance; }
 h2 em, p em { font-style: normal; color: ${accent}; }
+h2 em.rd, p em.rd { color: #ff3b40; }
 hr { border: 0; height: 2px; background: rgba(255,255,255,.22); margin: 34px 0 30px; }
 p { font: 500 41px/1.34 Inter; letter-spacing: -.012em; color: rgba(255,255,255,.9); text-wrap: pretty; }
 p em { font-weight: 750; }
+.kick { font: 850 50px/1 Inter; letter-spacing: .04em; text-transform: uppercase; color: ${accent}; margin-bottom: 22px; }
+.kick em { font-style: normal; color: #fff; }
+.lead p, p.lead { font: 650 54px/1.24 Inter; letter-spacing: -.02em; color: #fff; }
+p.lead em { font-weight: 850; }
+.qm { font: 900 170px/0.6 Georgia, serif; color: ${accent}; height: 70px; margin: 10px 0 0 -6px; }
+h2.q { font: 900 76px/1.04 Inter; letter-spacing: -.03em; text-transform: uppercase; }
+p.qs { margin-top: 30px; font: 500 38px/1.3 Inter; color: rgba(255,255,255,.72); }
+.trk { position: absolute; left: 0; right: 0; top: 0; height: 250px; background: linear-gradient(180deg, #070808, rgba(7,8,8,.97) 72%, rgba(7,8,8,0)); z-index: 4; }
+.trk .mo { position: absolute; left: 84px; top: 54px; font: 800 26px/1 Inter; letter-spacing: .14em; color: rgba(255,255,255,.6); }
+.trk .ln { position: absolute; left: 84px; right: 84px; top: 112px; height: 4px; border-radius: 4px; background: rgba(255,255,255,.22); }
+.trk .fl { position: absolute; left: 84px; top: 112px; height: 4px; border-radius: 4px; background: ${accent}; }
+.trk .dt { position: absolute; top: 114px; transform: translate(-50%, -50%); width: 22px; height: 22px; border-radius: 50%; background: #070808; border: 4px solid rgba(255,255,255,.4); }
+.trk .dt.past { background: #fff; border-color: #fff; }
+.trk .dt.now { width: 40px; height: 40px; background: ${accent}; border: 6px solid #fff; box-shadow: 0 0 34px ${accent}; }
+.trk .lb { position: absolute; top: 146px; transform: translateX(-50%); font: 700 28px/1 Inter; color: rgba(255,255,255,.5); }
+.trk .lb.now { font-weight: 900; font-size: 34px; color: #fff; top: 150px; }
 .prog { position: absolute; left: 84px; right: 84px; bottom: 56px; display: flex; gap: 14px; }
 .prog i { flex: 1; height: 9px; border-radius: 9px; background: rgba(255,255,255,.28); }
 .prog i.on { background: ${GREEN}; }
-</style></head><body>
-${bg}<div class="shade"></div>
-<div class="copy"><h2 data-fit="112,72,2">${marks(t.title)}</h2><hr><p data-fit="44,34,5">${marks(t.body)}</p></div>
+body.tl .trk { height: 300px; background: linear-gradient(180deg, #070808 0%, rgba(7,8,8,.92) 48%, rgba(7,8,8,0) 100%); }
+body.tl .trk .mo { left: 83px; top: 50px; font: 700 29px/1 Inter; letter-spacing: .2em; color: rgba(255,255,255,.85); }
+body.tl .trk .ln { left: 107px; right: 102px; top: 112px; height: 3px; background: rgba(255,255,255,.42); }
+body.tl .trk .fl { display: none; }
+body.tl .trk .dt, body.tl .trk .dt.past { top: 113.5px; width: 22px; height: 22px; background: #0b0c0c; border: 3px solid rgba(255,255,255,.62); box-shadow: none; }
+body.tl .trk .dt.now { width: 41px; height: 41px; background: #ff3b40; border: 6px solid #fff; box-shadow: 0 0 22px 4px rgba(255,59,64,.75), 0 0 60px rgba(255,59,64,.45); }
+body.tl .trk .lb { top: 145px; font: 600 33px/1 Inter; color: rgba(255,255,255,.72); }
+body.tl .trk .lb.now { top: 145px; font: 800 35px/1 Inter; color: #fff; }
+body.tl .sbg { top: 150px; height: 760px; filter: saturate(1.18) contrast(1.1) brightness(.94); -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 110px); }
+body.tl .shade { top: 350px; background: linear-gradient(180deg, rgba(7,8,8,0) 0%, rgba(7,8,8,.3) 17%, rgba(7,8,8,.55) 30%, rgba(7,8,8,.78) 35%, rgba(7,8,8,.92) 40%, rgba(7,8,8,.98) 45%, #070808 52%); }
+body.tl .copy { left: 72px; right: 64px; bottom: 140px; }
+body.tl .kick { font: 850 60px/1 Inter; letter-spacing: .035em; margin: 0 0 18px; text-shadow: 0 2px 24px rgba(0,0,0,.65); }
+body.tl h2 { font-weight: 850; letter-spacing: -.02em; line-height: .86; text-shadow: 0 4px 30px rgba(0,0,0,.5); }
+body.tl hr { margin: 30px 8px 28px 0; height: 3px; background: rgba(255,255,255,.3); }
+body.tl p { font: 420 48.5px/55px Inter; color: #fff; letter-spacing: -.016em; text-wrap: wrap; }
+body.tl p em { font-weight: 680; }
+body.tl .prog { left: 79px; right: 80px; bottom: 62px; gap: 16px; }
+body.tl .prog i { height: 10px; }
+</style></head><body${t.track ? ' class="tl"' : ""}>
+${bg}<div class="shade"${t.shadeTop != null ? ` style="top:${Math.round(t.shadeTop)}px"` : ""}></div>
+${trackHtml(t, accent)}<div class="copy ${layout}">${t.kicker ? `<div class="kick">${marks(t.kicker)}</div>` : ""}${layout === "quote"
+  ? `${t.quoteStyle === "inline" ? "" : `<div class="qm">\u201C</div>`}<h2 class="q" data-fit="78,56,4">${t.quoteStyle === "inline" ? `\u201C${marks(t.title)}\u201D` : marks(t.title)}</h2>${t.body ? `<p class="qs" data-fit="38,30,3">${marks(t.body)}</p>` : ""}`
+  : layout === "lead" ? `<p class="lead" data-fit="56,40,6">${marks(t.body)}</p>`
+  : `<h2 data-fit="${t.track ? "108,80,3" : "112,72,2"}">${marks(t.title)}</h2><hr><p data-fit="${t.track ? "48.5,38,4" : "44,34,5"}">${marks(t.body)}</p>`}</div>
 ${bar}
 ${FIT}</body></html>`;
 }

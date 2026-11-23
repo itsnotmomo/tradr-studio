@@ -67,7 +67,7 @@ async function cutout(input: string) {
   return out;
 }
 
-async function shoot(browser: Browser, html: string, file: string, type: "jpeg" | "png", workdir: string) {
+async function shoot(browser: Browser, html: string, file: string, type: "jpeg" | "png", workdir: string, transparent = false) {
   const page = await browser.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
   const htmlFile = file.replace(/\.\w+$/, ".html");
   await writeFile(htmlFile, html);
@@ -80,7 +80,7 @@ async function shoot(browser: Browser, html: string, file: string, type: "jpeg" 
     const r = v.getBoundingClientRect();
     return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) };
   });
-  await page.screenshot({ path: file, type, ...(type === "jpeg" ? { quality: 93 } : {}) });
+  await page.screenshot({ path: file, type, ...(type === "jpeg" ? { quality: 93 } : {}), ...(transparent ? { omitBackground: true } : {}) });
   await page.close();
   void workdir;
   return box;
@@ -142,6 +142,27 @@ export async function renderSpec(specPath: string, opts: { end?: End } = {}) {
         if (s.mode === "cutout" && s.photo) s.cutout = await cutout(s.photo);
         if ((s.mode ?? "photo") === "photo" && s.photo && s.face === undefined) s.face = await findFace(s.photo);
         if (s.inset?.src) s.inset = { ...s.inset, src: await local(dir, s.inset.src) };
+        if (s.video) {
+          // Video hook: the clip cover-fitted to 4:5 under the same fades, tag, headline and T mark.
+          const src = await clip(dir, s.video);
+          const layer = path.join(outDir, `${n}.layer.png`);
+          await shoot(browser, hookHtml({ ...s, overlay: true }), layer, "png", dir, true);
+          const file = path.join(outDir, `${n}.mp4`);
+          const d = Math.min(59, await duration(src));
+          await run("ffmpeg", [
+            "-y", "-i", src, "-loop", "1", "-i", layer, "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
+            "-filter_complex", `[0:v]scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},setsar=1[v];[v][1:v]overlay=0:0:shortest=1,format=yuv420p[o]`,
+            // Silent by default (music is added on Instagram); `audio: true` keeps the clip's own sound (20 Nov 2026).
+            "-map", "[o]", "-map", s.video.audio ? "0:a:0" : "2:a:0", "-t", String(d), "-r", "30", "-c:v", "libx264", "-profile:v", "high", "-preset", "medium",
+            "-crf", "18", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-ar", "44100", "-movflags", "+faststart", file,
+          ], { maxBuffer: 1 << 26 });
+          // The still (Studio thumbnail / poster): the full hook drawn over `photo`, else a frame of the result.
+          const poster = file.replace(/\.mp4$/, ".poster.jpg");
+          if (s.photo) await shoot(browser, hookHtml(s), poster, "jpeg", dir);
+          else await run("ffmpeg", ["-y", "-ss", String(Math.min(1, d / 2)), "-i", file, "-frames:v", "1", "-q:v", "3", poster]);
+          done.push({ file, kind: "video", poster, duration: d });
+          continue;
+        }
         const file = path.join(outDir, `${n}.jpg`);
         await shoot(browser, hookHtml(s), file, "jpeg", dir);
         done.push({ file, kind: "image" });

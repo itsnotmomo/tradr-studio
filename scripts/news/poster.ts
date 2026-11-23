@@ -52,14 +52,15 @@ async function files(d: NewsDraft) {
   const desk = await getNewsDesk();
   const end = endSlideOf(desk);
   const urls = [...d.slides.map((s) => s.url), ...(end ? [end.url] : [])];
-  if (d.slides.some((s) => s.kind !== "image")) throw new Error("Video slides aren't supported by the Post button yet.");
+  // Video slides go up as .mp4 (18 Nov 2026): Instagram's carousel and X both take them.
+  const kinds = [...d.slides.map((s) => s.kind), ...(end ? ["image"] : [])];
   const dir = path.join(os.tmpdir(), "tradr-poster", d.id);
   await mkdir(dir, { recursive: true });
   const out: string[] = [];
   for (const [i, u] of urls.entries()) {
     const r = await fetch(u);
     if (!r.ok) throw new Error(`Couldn't download slide ${i + 1} (${r.status}).`);
-    const f = path.join(dir, `${String(i + 1).padStart(2, "0")}.jpg`);
+    const f = path.join(dir, `${String(i + 1).padStart(2, "0")}.${kinds[i] === "video" ? "mp4" : "jpg"}`);
     await writeFile(f, Buffer.from(await r.arrayBuffer()));
     out.push(f);
   }
@@ -78,6 +79,12 @@ const lines = (t: string) => t.replace(/\u00a0/g, " ").split(/\n+/).map((l) => l
 
 /** Closes Instagram's and X's one-off pop-ups ("Turn on notifications", "Save your login info"…) with their "Not now". */
 async function dismiss(page: Page) {
+  // X's personalised-ads consent sheet (18 Nov 2026) covers the compose box: take the "less relevant ads" option.
+  const ads = page.getByRole("button", { name: /^(Continua con annunci meno pertinenti|Continue with less relevant ads)$/ }).first();
+  if (await ads.isVisible({ timeout: 1500 }).catch(() => false)) { await ads.click().catch(() => {}); await sleep(1000); }
+  // X's one-off notices after a video upload ("Ecco i video scaricabili" → "Ho capito").
+  const got = page.getByRole("button", { name: /^(Ho capito|Got it)$/ }).first();
+  if (await got.isVisible({ timeout: 1500 }).catch(() => false)) { await got.click().catch(() => {}); await sleep(1000); }
   for (let i = 0; i < 3; i++) {
     const b = page.getByRole("button", { name: /^(Not now|Not Now)$/ }).first();
     if (!(await b.isVisible({ timeout: 1500 }).catch(() => false))) return;
@@ -108,6 +115,11 @@ async function scheduleInstagram(page: Page, d: NewsDraft, slides: string[], igA
   }
   await page.locator('[role="dialog"] input[type="file"]').first().waitFor({ state: "attached", timeout: 15000 });
   await page.locator('[role="dialog"] input[type="file"]').first().setInputFiles(slides);
+  // A carousel with a video brings up "Video posts are now shared as reels" first: OK it.
+  if (slides.some((f) => f.endsWith(".mp4"))) {
+    const ok = page.locator('[role="dialog"]').filter({ hasText: "Video posts are now shared as reels" }).last().getByText("OK", { exact: true });
+    if (await ok.waitFor({ timeout: 20000 }).then(() => true, () => false)) { await ok.click(); await sleep(1000); }
+  }
   // Crop → Original (the default 1:1 would cut the 4:5 slides).
   const crop = page.locator('[role="dialog"] svg[aria-label="Select crop" i]:visible').first();
   await crop.waitFor({ timeout: 30000 });
@@ -223,11 +235,12 @@ async function postTweet(page: Page, d: NewsDraft, hook: string) {
   await box.click();
   await typeLines(page, d.x);
   await page.locator('input[data-testid="fileInput"]').first().setInputFiles(hook);
-  await page.locator('[data-testid="attachments"] img, [data-testid="attachments"] [role="img"]').first().waitFor({ timeout: 30000 });
+  await page.locator('[data-testid="attachments"] img, [data-testid="attachments"] [role="img"], [data-testid="attachments"] video').first().waitFor({ timeout: 60000 });
   if (lines(await box.innerText()) !== lines(d.x)) throw new Error("The tweet text didn't come out exactly as written.");
   const btn = page.locator('[data-testid="tweetButton"]').first();
-  await page.waitForFunction(() => document.querySelector('[data-testid="tweetButton"]')?.getAttribute("aria-disabled") !== "true", null, { timeout: 30000 });
+  await page.waitForFunction(() => document.querySelector('[data-testid="tweetButton"]')?.getAttribute("aria-disabled") !== "true", null, { timeout: 180000 });
   const posted = page.waitForResponse((r) => /CreateTweet/.test(r.url()) && r.request().method() === "POST", { timeout: 60000 });
+  await dismiss(page);
   await btn.click();
   const res = await posted;
   const body = await res.json().catch(() => null);
@@ -311,7 +324,12 @@ async function main() {
     const ctx = await browser();
     try {
       const page = ctx.pages()[0] ?? (await ctx.newPage());
-      await scheduleInstagram(page, d, await files(d), igAt, true);
+      try {
+        await scheduleInstagram(page, d, await files(d), igAt, true);
+      } catch (e) {
+        await page.screenshot({ path: path.join(os.tmpdir(), "tradr-poster", `${d.id}-dry-fail.png`) }).catch(() => {});
+        throw e;
+      }
       console.log(JSON.stringify({ ok: true, igAt, rome: rome(igAt) }));
     } finally { await ctx.close(); }
     return;
