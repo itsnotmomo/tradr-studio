@@ -1,18 +1,14 @@
 # Weekly Instagram scheduling (Claude in Chrome)
 
 Trigger: **"schedule next week"**. That means Monday to Sunday of the following week.
-Claude schedules every Ready post and reel in Instagram's own web scheduler at instagram.com, in Chrome, where all three accounts are logged in.
+Claude schedules every Ready post and reel in Instagram's own web scheduler at instagram.com, in Chrome, where @tradr__app is logged in.
 Meta's API can't add music, so the owner adds the songs on the phone afterwards. Never add music, location or the AI label.
 
-## Accounts (never mix these up)
+## The account
 
-| Language | Account |
-|---|---|
-| English | **@tradr__app** (two underscores) |
-| Italian | **@tradrsocial** |
-| Spanish | **@tradr.social** (with a dot) |
+Tradr posts in English only, on one account: **@tradr__app** (two underscores). Nothing is scheduled anywhere else.
 
-Before **every single item**, check that the account name shown in the Create dialog matches the language. If it doesn't, stop and switch.
+Before **every single item**, check that the account name shown in the Create dialog is @tradr__app. If it isn't, stop and switch.
 
 ## Reels are not part of this routine
 
@@ -35,13 +31,13 @@ npx tsx --env-file=.env.local --conditions=react-server scripts/schedule-plan.ts
 
 The plan script does the following:
 
-- Lists every version per account in run order, English → Italian → Spanish. Each version is Morning, then Reel, then Afternoon, day by day.
+- Lists every post for @tradr__app in order: Morning, then Reel, then Afternoon, day by day.
 - Skips anything that isn't **Ready**, has no name, has no slides or video, has no caption, is over the caption or hashtag limits, or is less than 30 minutes away. Every skip is listed with its reason, and all of them go in the report.
 - Resolves each slot's real time with Tradr Studio's resolver. It cross-checks that time two ways: an independent brute-force conversion, and the owner's Rome table (October 2026). **If it prints "TIME CHECK FAILED" (exit code 2), stop and tell the owner before scheduling anything.**
 - Prints the **date and time to type** in the scheduler's time zone, with Rome time next to it.
 - Downloads every file to `.schedule/<from>_<to>/<lang>/<date>_<n>-<slot>/`. Slides are `01.jpg`, `02.jpg` and so on, with the Tradr slide last (`NN-tradr.jpg`). Reels get `video.mp4`, plus `cover.jpg` if one exists. Each folder also gets the exact `caption.txt`. A `plan.json` covers the whole run.
 
-**Time zone: check it, don't assume.** Instagram's web scheduler uses the browser's time zone. In the Instagram tab, run `Intl.DateTimeFormat().resolvedOptions().timeZone`, and confirm that the scheduler's default time is "now + about 20 min" in that zone. Pass it with `--tz` (the default is `Asia/Makassar`). On 2026-10-09 this Mac was on **Asia/Makassar (Bali)**, not Rome. Spanish Afternoon slots then land on the **next calendar day** in Bali time (14:00 Buenos Aires = 01:00 Bali).
+**Time zone: check it, don't assume.** Instagram's web scheduler uses the browser's time zone. In the Instagram tab, run `Intl.DateTimeFormat().resolvedOptions().timeZone`, and confirm that the scheduler's default time is "now + about 20 min" in that zone. Pass it with `--tz` (the default is `Asia/Makassar`). On 2026-10-09 this Mac was on **Asia/Makassar (Bali)**, not Rome.
 
 **Never re-compress a video. Never resize or re-export any file.** Upload the exact file stored in Tradr Studio. If an original can't be uploaded as-is, stop and tell the owner. Never make a smaller copy. (On 2026-10-09 the Sunday reels were re-encoded to get under the 10 MB limit, and the owner saw the quality drop.)
 
@@ -78,29 +74,22 @@ The plan script does the following:
 10. Click **Schedule** and wait for "Your post/reel has been scheduled". Reels take 30–60 s. Click **Done**.
 11. Add a line to `.schedule/<range>/run.log`, then pause a random **45–120 s** before the next item.
 
-Between accounts: **wait 10 minutes**, then switch:
+If another account is active, switch to @tradr__app first (left sidebar → **More** → **Switch accounts**), then **confirm the name on the profile page** before doing anything.
 
-1. Move to the left sidebar so the menu shows.
-2. Click **More** (bottom left).
-3. Click **Switch accounts**.
-4. Pick the account. Then **confirm the name on the profile page** before doing anything.
-
-**Known quirk (seen twice on 2026-10-09):** switching *away from* @tradr.social to another account gives "Something went wrong" (URL `#reactivated`) and logs @tradr.social out of the browser. The order English → Italian → Spanish leaves Spanish last for scheduling. At the end of the run, check Spanish's Scheduled content **first**, while it's still the active account, and only then switch to Italian and English. If @tradr.social has dropped out of the switcher, tell the owner so they can log it back in before the next run.
-
-**Never log into an account yourself.** If an account isn't in the switcher, stop and ask the owner to log it in.
+**Never log into an account yourself.** If @tradr__app isn't in the switcher, stop and ask the owner to log it in.
 
 **Generic page errors are not a stop.** For "Something went wrong" or "Page couldn't load": do **one** hard reload (Cmd+Shift+R), wait, confirm the active account, and continue.
 
 **Stop immediately** and tell the owner if:
 - the same error comes back right after that reload
-- anything is account-related: action blocked, "try again later", captcha, a login or verification challenge, or an account missing from the switcher
+- anything is account-related: action blocked, "try again later", captcha, a login or verification challenge, or @tradr__app missing from the switcher
 
 Don't retry quickly.
 
 ## 3. End of run, in one pass
 
-1. For each account, open **Scheduled content** (`instagram.com/scheduled_content/`, weekly view; use › for the next week; read each item's day column and time). Start with the account that's currently active (Profile → ⋯ / Dashboard → Scheduled content, or the "View scheduled content" link). Check that every item is there with the right date and time.
-2. Write each confirmed item as `<postId> <lang>` into `.schedule/<range>/confirmed.txt`. List only items you actually saw.
+1. Open @tradr__app's **Scheduled content** (`instagram.com/scheduled_content/`, weekly view; use › for the next week; read each item's day column and time; or Profile → ⋯ / Dashboard → Scheduled content, or the "View scheduled content" link). Check that every item is there with the right date and time.
+2. Write each confirmed item as `<postId> en` into `.schedule/<range>/confirmed.txt`. List only items you actually saw.
 3. Mark them and send the summary:
 
 ```bash
@@ -108,8 +97,8 @@ npx tsx --env-file=.env.local --conditions=react-server scripts/schedule-finish.
   --plan .schedule/<range>/plan.json --confirmed .schedule/<range>/confirmed.txt --label "Mon–Sun"
 ```
 
-This sets each confirmed version to **Scheduled in Instagram** and leaves everything else alone. It sends one ntfy message: "Scheduled <label>: X EN · X IT · X ES. X posts need audio."
+This sets each confirmed post to **Scheduled in Instagram** and leaves everything else alone. It sends one ntfy message: "Scheduled <label>: X EN. X posts need audio."
 
 ## 4. Report
 
-For each account, list what was scheduled with Rome times, what was skipped and why, and anything Instagram complained about.
+List what was scheduled with Rome times, what was skipped and why, and anything Instagram complained about.

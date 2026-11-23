@@ -10,8 +10,8 @@ export function StatusPill({ s }: { s: DisplayStatus }) {
   return <span className={`pill s-${s}`}>{STATUS_LABEL[s]}</span>;
 }
 
-/** Three tiny "EN ● ES ● IT ●" markers. */
-export function LangDots({ post, langs = ["it", "es", "en"], labels = true }: { post: Post; langs?: Lang[]; labels?: boolean }) {
+/** A tiny "EN ●" status marker. */
+export function LangDots({ post, langs = ["en"], labels = true }: { post: Post; langs?: Lang[]; labels?: boolean }) {
   const { data } = useAppState();
   return (
     <span className="inline-flex items-center gap-2">

@@ -5,8 +5,8 @@ import { SLOT_ORDER } from "../slots";
 import { addDays, ymd } from "../time";
 import type { Lang, Post } from "../types";
 
-/** Posting order inside a post: Italian, Spanish, English (earliest local time first). */
-export const POST_ORDER: Lang[] = ["it", "es", "en"];
+/** The accounts a post goes to: English only (@tradr__app). */
+export const POST_ORDER: Lang[] = ["en"];
 
 export type Range = { from: string; to: string };
 export const defaultRange = (days = 7): Range => ({ from: ymd(new Date()), to: ymd(addDays(new Date(), days - 1)) });

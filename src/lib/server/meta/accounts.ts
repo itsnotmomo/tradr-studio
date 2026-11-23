@@ -110,8 +110,8 @@ export async function connectWithUserToken(raw: string) {
     const seen = unmatched.map((u) => "@" + u.username).join(", ");
     throw new Error(
       seen
-        ? `Connected, but none of the Instagram accounts matched @tradr__app, @tradr.social or @tradrsocial. Found: ${seen}.`
-        : "Connected, but the token can't see any Facebook Page with a linked Instagram account. Make sure each account is linked to a Page and that you ticked all Pages and accounts in the Facebook dialog.",
+        ? `Connected, but none of the Instagram accounts matched @tradr__app. Found: ${seen}.`
+        : "Connected, but the token can't see any Facebook Page with a linked Instagram account. Make sure @tradr__app is linked to a Page and that you ticked all Pages and accounts in the Facebook dialog.",
     );
   }
   const conn = await mutateConnection((c) => {

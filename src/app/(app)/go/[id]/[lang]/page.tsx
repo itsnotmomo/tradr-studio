@@ -24,7 +24,7 @@ import type { Lang, PostStatus } from "@/lib/types";
 
 export default function GoPage({ params }: { params: Promise<{ id: string; lang: string }> }) {
   const { id, lang } = use(params);
-  return <Suspense><Go key={`${id}:${lang}`} id={id} k={isLang(lang) ? lang : "it"} /></Suspense>;
+  return <Suspense><Go key={`${id}:${lang}`} id={id} k={isLang(lang) ? lang : "en"} /></Suspense>;
 }
 
 /** One post, one account: save slides, copy caption, mark it. Built for one hand. */
@@ -235,7 +235,7 @@ function Go({ id, k }: { id: string; k: Lang }) {
 
       <div className="flex items-center justify-between text-[13px] pt-1">
         <Link href={`/posts/${post.id}?lang=${k}`} className="muted underline underline-offset-4">Edit post</Link>
-        <button className="muted underline underline-offset-4" onClick={goNext}>{next ? `Skip to next (${next.post.title || "Untitled"} · ${LANGS.find((x) => x.k === next.k)!.code})` : "Back to the Planner"}</button>
+        <button className="muted underline underline-offset-4" onClick={goNext}>{next ? `Skip to next (${next.post.title || "Untitled"})` : "Back to the Planner"}</button>
       </div>
       <details className="text-[13px]">
         <summary className="muted cursor-pointer">Change status by hand</summary>

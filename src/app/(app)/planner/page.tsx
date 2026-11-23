@@ -18,7 +18,7 @@ import { createPost, patchPost, useAppState, type AppState } from "@/lib/client/
 import { buildCaption } from "@/lib/caption";
 import { STATUS_LABEL, statusOf } from "@/lib/status";
 import { fmtDuration } from "@/lib/client/upload";
-import { LANGS, LK } from "@/lib/langs";
+import { LANGS, LK, isLang } from "@/lib/langs";
 import { ALL_SLOTS, SLOT_ORDER, SLOTS, slotName, slotTaken, slotTimes } from "@/lib/slots";
 import { addDays, fmtDate, parseYmd, weekStart, ymd } from "@/lib/time";
 import type { DisplayStatus, Lang, Post, Settings, Slot } from "@/lib/types";
@@ -70,7 +70,9 @@ export default function PlannerPage() {
   const toast = useToast();
   const named = useNamed();
   const [view, setView] = usePersisted<View>("studio.view", "week");
-  const [filter, setFilter] = usePersisted<Filter>("studio.filter", "all");
+  const [stored, setFilter] = usePersisted<Filter>("studio.filter", "all");
+  // A filter saved on this device for an account that no longer exists falls back to All.
+  const filter: Filter = stored === "all" || isLang(stored) ? stored : "all";
   const [cursor, setCursor] = useState(() => new Date());
   const [dragId, setDragId] = useState<string | null>(null);
   const justDragged = useRef(0);
@@ -129,7 +131,7 @@ export default function PlannerPage() {
     if (p.date === date && (!date || p.slot === slot)) return;
     const other = date ? slotTaken(data.posts, date, slot, id) : null;
     if (other) {
-      toast(`${slotName(slot)} on ${fmtDate(date!, { weekday: "short", day: "numeric", month: "short" })} is taken by “${other.title || "Untitled"}”. ${slot === "reel" ? "One reel per day." : "Each account posts at most once per slot."}`, { tone: "error" });
+      toast(`${slotName(slot)} on ${fmtDate(date!, { weekday: "short", day: "numeric", month: "short" })} is taken by “${other.title || "Untitled"}”. ${slot === "reel" ? "One reel per day." : "One post per slot."}`, { tone: "error" });
       return;
     }
     try {
@@ -209,12 +211,6 @@ function Toolbar(p: {
       <div className="seg max-md:order-2" role="group" aria-label="View">
         {(["day", "week", "month"] as View[]).map((v) => (
           <button key={v} aria-pressed={p.view === v} onClick={() => p.setView(v)}>{v[0].toUpperCase() + v.slice(1)}</button>
-        ))}
-      </div>
-      <div className="seg max-md:order-2" role="group" aria-label="Account">
-        <button aria-pressed={p.filter === "all"} onClick={() => p.setFilter("all")}>All</button>
-        {LANGS.map((l) => (
-          <button key={l.k} aria-pressed={p.filter === l.k} onClick={() => p.setFilter(l.k)} title={l.handle}>{l.code}</button>
         ))}
       </div>
       <div className="hidden xl:flex flex-1">{p.summary}</div>

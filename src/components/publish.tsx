@@ -182,7 +182,7 @@ export function PublishControls({ post, k, data, compact }: { post: Post; k: Lan
   );
 }
 
-/** Schedule / post all three languages at once. */
+/** Schedule / post the post at once. */
 export function PublishAll({ post, data }: { post: Post; data: AppState }) {
   const toast = useToast();
   const [busy, setBusy] = useState(false);

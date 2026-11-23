@@ -1,16 +1,15 @@
 # Tradr Studio
 
-Private Instagram content platform for the three Tradr accounts (@tradr__app EN, @tradr.social ES, @tradrsocial IT).
-One user, one email. Every post is a carousel published to all three accounts, each ending with that language's Tradr slide.
+Private Instagram content platform for Tradr's English Instagram account, @tradr__app.
+One user, one email. Every post is a carousel, ending with the Tradr slide.
 Live at https://tradr-studio.vercel.app (the old tradr-tape.vercel.app redirects there).
 
 ## Slots
 
-Each day has a Morning and an Afternoon slot; a post sits in one. Each account publishes it at its own local time
-(defaults: IT 10:00/14:00 Europe/Rome, ES 10:00/14:00 America/Argentina/Buenos_Aires, EN 12:00/18:00 UTC, editable in
-Settings). A post stores only its day + slot; the UTC publish time per account is resolved with that account's zone when
-it's scheduled and again when the scheduler claims it (`src/lib/slots.ts`), so DST shifts are always applied.
-Every post goes to all three accounts, so one post per slot per day.
+Each day has a Morning and an Afternoon slot; a post sits in one. It publishes at the account's local time
+(default 12:00/18:00 Asia/Makassar, editable in Settings). A post stores only its day + slot; the UTC publish time is
+resolved with the account's zone when it's scheduled and again when the scheduler claims it (`src/lib/slots.ts`), so DST
+shifts are always applied. One post per slot per day.
 
 ## Inspo
 

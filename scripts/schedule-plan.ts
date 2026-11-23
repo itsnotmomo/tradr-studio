@@ -1,11 +1,11 @@
 // Builds the plan for scheduling a date range in Instagram's web scheduler (see SCHEDULING.md):
-// every Ready version per account in posting order, its Rome time (cross-checked two ways),
+// every Ready post for @tradr__app in posting order, its Rome time (cross-checked two ways),
 // collaborator, and its files + caption downloaded to .schedule/<from>_<to>/.
 //
 // Usage:
 //   npx tsx --env-file=.env.local --conditions=react-server scripts/schedule-plan.ts --from 2026-10-09 --to 2026-10-11
 //   npx tsx --env-file=.env.local --conditions=react-server scripts/schedule-plan.ts --next-week
-// Flags: --langs en,it (only these accounts), --no-download (plan only), --tz <zone> = the time zone Instagram's scheduler uses, i.e. the
+// Flags: --no-download (plan only), --tz <zone> = the time zone Instagram's scheduler uses, i.e. the
 // browser's zone (check it first: Intl.DateTimeFormat().resolvedOptions().timeZone in the Instagram tab).
 // Default Asia/Makassar (the Mac was on Bali time on 2026-10-09). Rome times are always printed too.
 //
@@ -17,14 +17,14 @@ import { getSettings } from "@/lib/server/settings";
 import { buildCaption, charCount, hashtagCount } from "@/lib/caption";
 import { collabOf } from "@/lib/collab";
 import { reelMediaProblems } from "@/lib/reel";
-import { isLang, langInfo } from "@/lib/langs";
+import { langInfo } from "@/lib/langs";
 import { CAPTION_MAX, HASHTAG_MAX } from "@/lib/rules";
 import { publishAt, SLOT_ORDER, slotName } from "@/lib/slots";
 import { addDays, parseYmd, utcToZoned, weekStart, ymd } from "@/lib/time";
 import type { Lang, Post, Settings } from "@/lib/types";
 
-/** Scheduling order: English, then Italian, then Spanish. */
-const RUN_ORDER: Lang[] = ["en", "it", "es"];
+/** The one account: English, @tradr__app. */
+const RUN_ORDER: Lang[] = ["en"];
 const MIN_LEAD_MS = 30 * 60_000;
 
 const arg = (name: string) => {
@@ -53,8 +53,8 @@ function ownerTable(date: string, k: Lang, slot: Post["slot"]) {
   if (date < "2026-10-01" || date > "2026-11-30") return null;
   const before = date < "2026-10-25";
   const t: Record<Lang, [string, string, string]> = before
-    ? { en: ["06:00", "09:00", "12:00"], it: ["10:00", "12:00", "14:00"], es: ["15:00", "17:00", "19:00"] }
-    : { en: ["05:00", "08:00", "11:00"], it: ["10:00", "12:00", "14:00"], es: ["14:00", "16:00", "18:00"] };
+    ? { en: ["06:00", "09:00", "12:00"] }
+    : { en: ["05:00", "08:00", "11:00"] };
   return t[k][{ morning: 0, reel: 1, afternoon: 2 }[slot]];
 }
 
@@ -113,9 +113,7 @@ async function main() {
   const root = join(process.cwd(), ".schedule", `${from}_${to}`);
   const items: Item[] = [], skips: Skip[] = [], mismatches: string[] = [];
 
-  // --langs en (or en,it) limits the run to some accounts.
-  const only = arg("langs")?.split(",").filter(isLang);
-  const runLangs = only?.length ? RUN_ORDER.filter((k) => only.includes(k)) : RUN_ORDER;
+  const runLangs = RUN_ORDER;
   for (const k of runLangs) {
     for (const p of inRange) {
       const sc = s.schedule[k];

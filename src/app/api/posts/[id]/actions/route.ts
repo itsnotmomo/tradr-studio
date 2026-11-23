@@ -19,7 +19,7 @@ export const POST = route<Ctx>(async (req, { params }) => {
   const { id } = await params;
   const b = await body<{ action: Action; langs: string[] }>(req);
   const langs = (b.langs || []).filter(isLang) as Lang[];
-  if (!langs.length) throw new UserError("Pick at least one language");
+  if (!langs.length) throw new UserError("Pick the account");
   const [s, conn, cur] = await Promise.all([getSettings(), getConnection(), getPost(id)]);
   if (!cur) throw new NotFoundError();
   const now = Date.now();

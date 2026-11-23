@@ -2,18 +2,18 @@
 
 import { use, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { Icon } from "@/components/icons";
 import { ConfirmButton, PublishAll, PublishControls, copyText, slotTimeLabel } from "@/components/publish";
-import { ErrorBox, Spinner, StatusPill, Warn } from "@/components/ui";
+import { ErrorBox, Spinner, Warn } from "@/components/ui";
 import { useToast } from "@/components/toast";
 import { api, fetcher } from "@/lib/client/api";
 import { dropPost, patchPost, useAppState, type AppState } from "@/lib/client/state";
 import { downloadUrl, fmtDuration, imageFiles, imageSize, isVideoFile, probeVideo, reelSizeProblem, uploadSlide, uploadSlides, uploadVideo } from "@/lib/client/upload";
 import { buildCaption, charCount, hashtagCount } from "@/lib/caption";
 import { CAPTION_MAX, HASHTAG_MAX } from "@/lib/rules";
-import { isLocked, statusOf } from "@/lib/status";
+import { isLocked } from "@/lib/status";
 import { AUTO_PUBLISH } from "@/lib/features";
 import { StatusSetter } from "@/components/status";
 import { COLLAB_HANDLE, collabDefault, collabOf } from "@/lib/collab";
@@ -21,21 +21,19 @@ import { reelMediaProblems } from "@/lib/reel";
 import { PreviewImg } from "@/components/slide-viewer";
 import { useAskName } from "@/components/name-prompt";
 import { ApiError } from "@/lib/client/api";
-import { LANGS, isLang } from "@/lib/langs";
+import { LANGS } from "@/lib/langs";
 import { SLOTS, slotTimes } from "@/lib/slots";
 import type { Inspo, Lang, Post, Slide } from "@/lib/types";
 
 export default function PostPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { data } = useAppState();
-  const search = useSearchParams();
-  const q = search.get("lang");
-  const [k, setK] = useState<Lang>(isLang(q) ? q : "en");
+  const k: Lang = "en";
   const post = data?.posts.find((p) => p.id === id);
 
   if (!data) return <div className="p-6 flex items-center gap-2 muted"><Spinner /> Loading…</div>;
   if (!post) return <div className="p-6">This post doesn’t exist anymore. <Link className="underline" href="/planner">Back to the planner</Link></div>;
-  return <Editor key={post.id} post={post} data={data} k={k} setK={setK} />;
+  return <Editor key={post.id} post={post} data={data} k={k} />;
 }
 
 function useSaver(onNamed?: (title: string) => void) {
@@ -70,7 +68,7 @@ function useSaver(onNamed?: (title: string) => void) {
   return { state, save };
 }
 
-function Editor({ post, data, k, setK }: { post: Post; data: AppState; k: Lang; setK: (k: Lang) => void }) {
+function Editor({ post, data, k }: { post: Post; data: AppState; k: Lang }) {
   const router = useRouter();
   const toast = useToast();
   const [title, setTitle] = useState(post.title);
@@ -133,18 +131,6 @@ function Editor({ post, data, k, setK }: { post: Post; data: AppState; k: Lang; 
 
       <div className="px-3 md:px-6 pt-4 flex flex-col gap-4 max-w-[1280px]">
         {AUTO_PUBLISH && <PublishAll post={post} data={data} />}
-
-        <div className="flex gap-1.5 scroll-x" role="tablist" aria-label="Language">
-          {LANGS.map((l) => (
-            <button key={l.k} role="tab" aria-selected={k === l.k} onClick={() => { setK(l.k); router.replace(`/posts/${post.id}?lang=${l.k}`, { scroll: false }); }}
-              className="flex items-center gap-2 rounded-xl border px-3 py-2 flex-none"
-              style={{ background: "var(--panel)", borderColor: k === l.k ? "var(--ink)" : "var(--line)", boxShadow: k === l.k ? "inset 0 0 0 1px var(--ink)" : undefined }}>
-              <span className="font-bold text-[13.5px]">{l.name}</span>
-              <span className="text-[12px] muted hidden sm:inline">{l.handle}</span>
-              <StatusPill s={statusOf(post, l.k, data.settings)} />
-            </button>
-          ))}
-        </div>
 
         <LangEditor key={k} post={post} k={k} data={data} save={save} />
 
@@ -214,7 +200,6 @@ function Slides({ post, k, data, locked, save }: { post: Post; k: Lang; data: Ap
   const shape = story ? "aspect-[9/16]" : "aspect-[4/5]";
   const [uploading, setUploading] = useState(0);
   const [over, setOver] = useState(false);
-  const [copyFrom, setCopyFrom] = useState<Lang>(k === "en" ? "es" : "en");
   const slidesRef = useRef(v.slides);
   useEffect(() => {
     slidesRef.current = v.slides;
@@ -309,18 +294,6 @@ function Slides({ post, k, data, locked, save }: { post: Post; k: Lang; data: Ap
           </span>
         </div>}
       </div>
-      {!locked && (
-        <div className="flex flex-wrap items-center gap-2 pt-1">
-          <span className="flex-1" />
-          <select className="field !w-auto !min-h-[28px] !py-1 text-[12px]" value={copyFrom} onChange={(e) => setCopyFrom(e.target.value as Lang)} aria-label="Copy slides from">
-            {LANGS.filter((l) => l.k !== k).map((l) => <option key={l.k} value={l.k}>{l.name}</option>)}
-          </select>
-          <button className="btn small" disabled={!post.variants[copyFrom].slides.length}
-            onClick={() => setSlides([...v.slides, ...post.variants[copyFrom].slides.map((s) => ({ ...s, id: crypto.randomUUID() }))])}>
-            Copy slides from {LANGS.find((l) => l.k === copyFrom)!.code}
-          </button>
-        </div>
-      )}
       {locked && <Warn>{v.state === "posted" ? "Posted. Slides can’t change anymore." : "Publishing. Slides are locked."}</Warn>}
     </>
   );

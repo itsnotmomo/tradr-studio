@@ -19,7 +19,7 @@ const KEY = "/api/inspo";
 const PLANS = "/api/plans";
 const STATUSES: [InspoStatus, string][] = [["todo", "To do"], ["skip", "No"], ["done", "Done"]];
 const STATUS_COLOR: Record<InspoStatus, string> = { todo: "var(--s-scheduled)", skip: "var(--s-draft)", done: "var(--s-posted)" };
-const PLAN_LANGS: Lang[] = ["en", "it", "es"];
+const PLAN_LANGS: Lang[] = ["en"];
 type Tab = "library" | "plan" | "notes" | "playbook";
 type SortKey = "viral" | "new" | "comments";
 
@@ -485,7 +485,7 @@ function Plan({ plans, intro, items, onOpen }: { plans: PlanItem[]; intro: strin
                       <button className="btn small primary" onClick={() => makePost(p)} disabled={busy === p.id}>{busy === p.id ? <Spinner /> : <Icon name="plus" size={14} />} Make post</button>
                     </>}
                 </header>
-                <div className="grid md:grid-cols-3 gap-2">
+                <div className="grid gap-2">
                   {PLAN_LANGS.map((k) => (
                     <div key={k} className="rounded-lg p-2.5 text-[13px] flex flex-col gap-1.5" style={{ background: "var(--soft)" }}>
                       <div className="flex items-center justify-between">

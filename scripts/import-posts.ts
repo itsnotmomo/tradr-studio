@@ -1,5 +1,5 @@
 // One-off import of the first three posts from "Tradr Insta Posts/".
-// Each language folder holds 1.png, 2.png, 3.png: the same three posts, translated.
+// The English folder holds 1.png, 2.png, 3.png: the three posts.
 // Usage: npx tsx --env-file=.env.local --conditions=react-server scripts/import-posts.ts "<folder>"
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -9,7 +9,7 @@ import { createPost, listPosts } from "@/lib/server/store";
 import { getSettings } from "@/lib/server/settings";
 import type { Lang, Slide } from "@/lib/types";
 
-const FOLDERS: Record<Lang, string> = { en: "TRADR ENG", es: "TRADR ES", it: "TRADR ITA" };
+const FOLDERS: Record<Lang, string> = { en: "TRADR ENG" };
 const TITLES = ["S&P since 1921: you'd also be dead", "The iceberg: what others see", "Risk:reward, 1:1 to 1:10"];
 
 async function slideFrom(file: string): Promise<Slide> {

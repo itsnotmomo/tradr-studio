@@ -37,9 +37,9 @@ function Settings_() {
         <Archived />
         <Accounts data={data} />
         <section>
-          <h2 className="font-bold text-[15px] mb-1">Per account</h2>
+          <h2 className="font-bold text-[15px] mb-1">Tradr slide and caption defaults</h2>
           <p className="text-[13px] muted mb-3">The Tradr slide is added as the last slide of every post. The caption parts below prefill every new post, and stay editable per post.</p>
-          <div className="grid md:grid-cols-3 gap-3">{LANGS.map((l) => <LangColumn key={l.k} k={l.k} data={data} />)}</div>
+          <div className="grid md:grid-cols-2 gap-3">{LANGS.map((l) => <LangColumn key={l.k} k={l.k} data={data} />)}</div>
         </section>
         <General data={data} />
         <Notifications data={data} />
@@ -94,7 +94,7 @@ function Accounts({ data }: { data: AppState }) {
   return (
     <section id="accounts" className="card p-4 flex flex-col gap-3 scroll-mt-4">
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="font-bold text-[15px] flex-1">Instagram accounts <span className="muted font-medium text-[13px]">· for stats</span></h2>
+        <h2 className="font-bold text-[15px] flex-1">Instagram account <span className="muted font-medium text-[13px]">· for stats</span></h2>
         {m.configured && <a className="btn primary" href="/api/meta/connect">{Object.keys(m.accounts).length ? "Reconnect with Facebook" : "Connect with Facebook"}</a>}
       </div>
       {ok && <div className="text-[13px]" style={{ color: "var(--s-posted)" }}>Connected {ok.split(",").map((k) => LANGS.find((l) => l.k === k)?.handle).join(", ")}.</div>}
@@ -102,7 +102,7 @@ function Accounts({ data }: { data: AppState }) {
       {!m.configured && (
         <Warn>You post from the Instagram app, so the Meta connection is only for Instagram stats. It’s not set up yet. Once META_APP_ID and META_APP_SECRET are set, a “Connect with Facebook” button appears here.</Warn>
       )}
-      <div className="grid md:grid-cols-3 gap-2">
+      <div className="grid md:grid-cols-2 gap-2">
         {LANGS.map((l) => {
           const a = m.accounts[l.k];
           return (
@@ -212,7 +212,7 @@ function LangColumn({ k, data }: { k: Lang; data: AppState }) {
   );
 }
 
-const ZONE_ORDER: Lang[] = ["it", "es", "en"];
+const ZONE_ORDER: Lang[] = ["en"];
 
 function General({ data }: { data: AppState }) {
   const toast = useToast();
@@ -231,9 +231,9 @@ function General({ data }: { data: AppState }) {
     <section id="slots" className="card p-4 flex flex-col gap-3 scroll-mt-4">
       <div>
         <h2 className="font-bold text-[15px]">Posting slots</h2>
-        <p className="text-[12.5px] muted mt-0.5">Each day has a Morning and an Afternoon slot for posts, with an optional Reel slot in between. Each account publishes at its own local time. Daylight saving is handled per zone.</p>
+        <p className="text-[12.5px] muted mt-0.5">Each day has a Morning and an Afternoon slot for posts, with an optional Reel slot in between. Times are in the account’s time zone. Daylight saving is handled.</p>
       </div>
-      {/* A table on desktop; one block per account on a phone. */}
+      {/* A table on desktop; one block on a phone. */}
       <div className="flex flex-col">
         <div className="hidden md:grid grid-cols-[170px_minmax(0,1fr)_repeat(3,110px)] gap-3 text-[12px] muted font-medium pb-1.5">
           <span>Account</span><span>Time zone</span>{ALL_SLOTS.map((c) => <span key={c.k}>{c.name}</span>)}
@@ -313,7 +313,7 @@ function Notifications({ data }: { data: AppState }) {
           <span className="muted">{data.settings.timezone}</span>
         </div>
       )}
-      {row("slots", "Slot reminders", "One per account at its local slot time: “post it now”, or “goes live now” if it’s scheduled in Instagram.")}
+      {row("slots", "Slot reminders", "One at each slot time: “post it now”, or “goes live now” if it’s scheduled in Instagram.")}
       {row("missed", "Missed", "One follow-up if a slot is 2 hours past and still not scheduled or posted.")}
       <div className="pt-2"><button className="btn" onClick={test} disabled={sending}>{sending ? <Spinner /> : null} Send test notification</button></div>
     </section>

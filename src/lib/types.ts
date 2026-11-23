@@ -1,4 +1,5 @@
-export type Lang = "en" | "es" | "it";
+/** Instagram is English only, on @tradr__app (Mohamed, 23 Nov 2026). */
+export type Lang = "en";
 export type Slot = "morning" | "afternoon" | "reel";
 /** "story": a set of 9:16 Instagram stories, posted by hand from the phone (no Tradr end slide, never auto-published, lives in Ideas). */
 export type PostKind = "post" | "reel" | "story";

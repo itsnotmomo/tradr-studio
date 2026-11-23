@@ -51,7 +51,7 @@ async function main() {
   const n = (k: Lang) => confirmed.filter((x) => x.lang === k).length;
   // Only carousel posts need a song added on the phone; reels already have their own sound.
   const label = arg("label") || `${plan.from} → ${plan.to}`;
-  const counts = (["en", "it", "es"] as Lang[]).filter((k) => n(k)).map((k) => `${n(k)} ${k.toUpperCase()}`).join(" · ");
+  const counts = (["en"] as Lang[]).filter((k) => n(k)).map((k) => `${n(k)} ${k.toUpperCase()}`).join(" · ");
   const msg = `Scheduled ${label}: ${counts}. ${confirmed.filter((x) => x.kind !== "reel").length} posts need audio.`;
   console.log(msg);
   if (!dry) await sendNtfy("Instagram scheduled", msg, "/");

@@ -14,8 +14,6 @@ export const isSlot = (v: unknown): v is Slot => v === "morning" || v === "after
 export const isPostSlot = (v: unknown): v is Slot => v === "morning" || v === "afternoon";
 
 export const DEFAULT_SCHEDULE: Settings["schedule"] = {
-  it: { zone: "Europe/Rome", morning: "10:00", afternoon: "14:00", reel: "12:00" },
-  es: { zone: "America/Argentina/Buenos_Aires", morning: "10:00", afternoon: "14:00", reel: "12:00" },
   en: { zone: "Asia/Makassar", morning: "12:00", afternoon: "18:00", reel: "15:00" },
 };
 
@@ -23,7 +21,7 @@ export const DEFAULT_SCHEDULE: Settings["schedule"] = {
 export const publishAt = (s: Settings, k: Lang, date: string, slot: Slot) =>
   zonedToUtc(date, s.schedule[k][slot], s.schedule[k].zone);
 
-/** Short zone label, e.g. "Rome", "Buenos Aires", "UTC". */
+/** Short zone label, e.g. "Makassar", "UTC". */
 export const zoneLabel = (z: string) => (z === "UTC" ? "UTC" : (z.split("/").pop() || z).replace(/_/g, " "));
 
 /** Old posts had an HH:MM time; map it to the nearest slot. */
@@ -33,7 +31,7 @@ export const slotFromTime = (t: string | undefined): Slot => {
   return h * 60 + m < 12 * 60 ? "morning" : "afternoon";
 };
 
-/** Another post already in this day + slot (every post goes to all three accounts). */
+/** Another post already in this day + slot (one post per slot). */
 export function slotTaken(posts: Post[], date: string, slot: Slot, exceptId?: string) {
   return posts.find((p) => p.id !== exceptId && p.date === date && p.slot === slot) || null;
 }
@@ -45,9 +43,7 @@ export function freeSlot(posts: Post[], date: string, exceptId?: string, prefer?
 }
 
 
-const ORDER: Lang[] = ["it", "es", "en"];
-
-/** "IT 10:00 · ES 10:00 · EN 12:00" (each in its own zone). */
+/** "EN 12:00" (in the account's zone). */
 export function slotTimes(s: Settings, slot: Slot, only?: Lang[]) {
-  return ORDER.filter((k) => !only || only.includes(k)).map((k) => `${k.toUpperCase()} ${s.schedule[k][slot]}`).join(" · ");
+  return (["en"] as Lang[]).filter((k) => !only || only.includes(k)).map((k) => `${k.toUpperCase()} ${s.schedule[k][slot]}`).join(" · ");
 }

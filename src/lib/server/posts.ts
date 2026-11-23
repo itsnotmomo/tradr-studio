@@ -52,7 +52,7 @@ const day = (d: string) => fmtDate(d, { weekday: "short", day: "numeric", month:
 
 /** "Morning on Thu 9 Oct is taken by “Title”." */
 export function slotConflictMessage(other: Post, date: string, slot: Slot) {
-  return `${slotName(slot)} on ${day(date)} is taken by “${other.title || "Untitled"}”. Each account posts at most once per slot. Pick the other slot or another day.`;
+  return `${slotName(slot)} on ${day(date)} is taken by “${other.title || "Untitled"}”. One post per slot. Pick the other slot or another day.`;
 }
 
 /** Recomputes each scheduled version's publish time from the post's day + slot. */
