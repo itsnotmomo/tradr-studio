@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!-- The News scout (scripts/news/scout.sh run), 08:00 and 17:00 in the Mac's time zone (Europe/Rome).
-     launchd runs a slot missed while the Mac slept as soon as it wakes. Install:
+     Also at load (boot/login) and every 15 min: scout.sh runs a missed slot once if it is < 12 h old (Mac off, asleep
+     with the lid closed, or a failed run), and otherwise exits quietly. Install:
      cp scripts/news/scout.plist ~/Library/LaunchAgents/me.tradr.news-scout.plist
      launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/me.tradr.news-scout.plist
      Change the times: edit Hour/Minute below, copy again, then bootout + bootstrap. See docs/media-playbook.md §15. -->
@@ -18,7 +19,8 @@
     <dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>0</integer></dict>
     <dict><key>Hour</key><integer>17</integer><key>Minute</key><integer>0</integer></dict>
   </array>
-  <key>RunAtLoad</key><false/>
+  <key>StartInterval</key><integer>900</integer>
+  <key>RunAtLoad</key><true/>
   <key>StandardOutPath</key><string>/Users/mohamedharchi/Library/Logs/tradr-news-scout/launchd.log</string>
   <key>StandardErrorPath</key><string>/Users/mohamedharchi/Library/Logs/tradr-news-scout/launchd.log</string>
 </dict></plist>
