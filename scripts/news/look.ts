@@ -77,7 +77,7 @@ const indent = (s: string, pad = "      ") => s.split("\n").map((l) => pad + l).
 async function main() {
   // Same reads as GET /api/news (src/app/api/news/route.ts), which feeds both boards and the Style screen.
   const { listNews, listSuggestions, getNewsDesk } = await import("@/lib/server/store");
-  const { platformState, tabOf, endSlideOf, PLATFORM_STATE_LABEL } = await import("@/lib/news");
+  const { platformState, tabOf, endSlideOf, onPlatform, stateLabel, xFailed } = await import("@/lib/news");
   const { relTime } = await import("@/lib/time");
   type NewsDraft = import("@/lib/news").NewsDraft;
   type NewsSuggestion = import("@/lib/news").NewsSuggestion;
@@ -109,7 +109,8 @@ async function main() {
   const REVIEW_ORDER: Record<PlatformState, number> = { failed: 0, ready: 1, review: 2, changes: 3, posting: 4, scheduled: 5, posted: 6, rejected: 7 };
   const igAt = (d: NewsDraft) => d.post?.igAt ?? 0;
   const board = (platform: Platform) => {
-    const rows = drafts.map((d) => ({ d, s: platformState(d, platform, now) }));
+    // An Instagram-only (xOff) draft isn't on the X board, exactly as board.tsx filters it.
+    const rows = drafts.filter((d) => onPlatform(d, platform)).map((d) => ({ d, s: platformState(d, platform, now) }));
     const tab = (t: "review" | "scheduled" | "posted") => {
       const list = rows.filter((r) => r.s !== "rejected" && tabOf(r.s) === t);
       if (t === "review") return list.sort((a, b) => REVIEW_ORDER[a.s] - REVIEW_ORDER[b.s] || b.d.createdAt - a.d.createdAt);
@@ -129,7 +130,7 @@ async function main() {
 
   const draftJson = (d: NewsDraft, full = false) => ({
     id: d.id, title: d.title, hook: hookOf(d), tag: d.tag,
-    instagram: PLATFORM_STATE_LABEL[platformState(d, "ig", now)], x: PLATFORM_STATE_LABEL[platformState(d, "x", now)],
+    instagram: stateLabel(d, "ig", now), x: stateLabel(d, "x", now), xOff: !!d.xOff, xFailed: xFailed(d, now),
     status: d.status, version: d.version, scout: !!d.scout, collab: d.collab ?? null,
     createdAt: iso(d.createdAt), updatedAt: iso(d.updatedAt), approvedAt: iso(d.approvedAt), postedAt: iso(d.postedAt),
     bestTime: d.bestTime ? { at: iso(d.bestTime.at), why: d.bestTime.why } : null,
@@ -149,8 +150,7 @@ async function main() {
   const sugJson = (s: NewsSuggestion) => ({ id: s.id, text: s.text, url: s.url, why: s.note || null, status: s.status, pitch: s.pitch ?? null, draftId: s.draftId, createdAt: iso(s.createdAt), updatedAt: iso(s.updatedAt), shown: sugLine(s) });
 
   const statusLine = (d: NewsDraft) => {
-    const ig = platformState(d, "ig", now), x = platformState(d, "x", now);
-    const bits = [`Instagram: ${PLATFORM_STATE_LABEL[ig]}`, `X: ${PLATFORM_STATE_LABEL[x]}`];
+    const bits = [`Instagram: ${stateLabel(d, "ig", now)}`, `X: ${stateLabel(d, "x", now)}`];
     return bits.join(" · ");
   };
   const datesLine = (d: NewsDraft) => {
@@ -169,7 +169,7 @@ async function main() {
     console.log(`    ${datesLine(d)}`);
     if (d.bestTime?.why && !d.post) console.log(`    best time why: ${d.bestTime.why}`);
     if (d.status === "changes" && d.changeNote) console.log(`    changes asked: “${d.changeNote}”`);
-    if (d.post?.state === "failed" && d.post.error) console.log(`    posting stopped: ${d.post.error}`);
+    if (d.post?.state === "failed" && d.post.error) console.log(`    ${xFailed(d, now) ? "X FAILED (on Instagram only, not on purpose)" : "posting stopped"}: ${d.post.error}`);
     if (d.post?.tweetUrl) console.log(`    tweet: ${d.post.tweetUrl}`);
     console.log(`    caption:\n${indent(full ? d.caption : clip(d.caption, 400))}`);
     console.log(`    X text (${d.x.length}/280):\n${indent(d.x)}`);
@@ -303,8 +303,12 @@ async function main() {
   section("REJECTED", ig.rejected, "None.");
 
   const xOnly = (["review", "scheduled", "posted"] as const).flatMap((t) =>
-    x[t].filter((r) => !ig[t].some((y) => y.d.id === r.d.id)).map((r) => `  ${r.d.title} (${r.d.id.slice(0, 8)}): X ${PLATFORM_STATE_LABEL[r.s]}`));
+    x[t].filter((r) => !ig[t].some((y) => y.d.id === r.d.id)).map((r) => `  ${r.d.title} (${r.d.id.slice(0, 8)}): X ${stateLabel(r.d, "x", now)}`));
   if (xOnly.length) console.log(`\n=== WHERE THE X BOARD DIFFERS ===\n${xOnly.join("\n")}`);
+  const xFails = drafts.filter((d) => xFailed(d, now));
+  if (xFails.length) console.log(`\n=== X FAILED: ON INSTAGRAM ONLY, NOT ON PURPOSE (${xFails.length}) ===\n${xFails.map((d) => `  ${d.title} (${d.id.slice(0, 8)}): ${d.post?.error ?? ""}`).join("\n")}`);
+  const xOffs = drafts.filter((d) => !onPlatform(d, "x"));
+  if (xOffs.length) console.log(`\n=== INSTAGRAM ONLY ON PURPOSE (X off) (${xOffs.length}) ===\n${xOffs.map((d) => `  ${d.title} (${d.id.slice(0, 8)})`).join("\n")}`);
 
   console.log(`\n=== PITCHES (${pitches.length}) ===`);
   if (!pitches.length) console.log("  No pitches right now.");

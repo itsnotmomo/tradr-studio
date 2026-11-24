@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- The daily X sign-in check (scripts/news/poster.ts xcheck, 24 Nov 2026): every day at 09:00 (the Mac's time = Rome),
+     one x.com page load in the poster's Chrome; if X isn't signed in as @tradr_app, Sara gets a note in HQ. Never posts.
+     Install: cp to ~/Library/LaunchAgents/me.tradr.media-xcheck.plist,
+     then launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/me.tradr.media-xcheck.plist -->
+<plist version="1.0"><dict>
+  <key>Label</key><string>me.tradr.media-xcheck</string>
+  <key>WorkingDirectory</key><string>/Users/mohamedharchi/Desktop/tradrig</string>
+  <key>ProgramArguments</key><array>
+    <string>/Users/mohamedharchi/.nvm/versions/node/v20.19.5/bin/node</string><string>/Users/mohamedharchi/Desktop/tradrig/node_modules/tsx/dist/cli.mjs</string>
+    <string>--env-file=.env.local</string><string>--conditions=react-server</string><string>scripts/news/poster.ts</string><string>xcheck</string>
+  </array>
+  <key>EnvironmentVariables</key><dict><key>PATH</key><string>/Users/mohamedharchi/.nvm/versions/node/v20.19.5/bin:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string></dict>
+  <key>StartCalendarInterval</key><dict><key>Hour</key><integer>9</integer><key>Minute</key><integer>0</integer></dict>
+  <key>StandardOutPath</key><string>/Users/mohamedharchi/Library/Logs/tradr-media-xcheck.log</string>
+  <key>StandardErrorPath</key><string>/Users/mohamedharchi/Library/Logs/tradr-media-xcheck.log</string>
+</dict></plist>

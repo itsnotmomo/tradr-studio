@@ -89,6 +89,19 @@ export const PLATFORM_STATE_LABEL: Record<PlatformState, string> = {
   posting: "Posting…", scheduled: "Scheduled", posted: "Posted", rejected: "Rejected",
 };
 
+/** The X half failed after the Instagram half went through (24 Nov 2026): the post is on Instagram only, NOT on
+ *  purpose. Never true for an Instagram-only (xOff) draft. */
+export const xFailed = (d: NewsDraft, now: number) =>
+  onPlatform(d, "x") && !!d.post?.igScheduledAt && platformState(d, "x", now) === "failed";
+
+/** A platform's state in words, knowing Instagram-only drafts ("Off (Instagram only)") and X failures ("X failed"). */
+export function stateLabel(d: NewsDraft, p: Platform, now: number) {
+  if (!onPlatform(d, p)) return "Off (Instagram only)";
+  const s = platformState(d, p, now);
+  if (p === "x" && s === "failed") return "X failed";
+  return PLATFORM_STATE_LABEL[s];
+}
+
 /** Instagram's web scheduler takes posts from 20 minutes ahead up to 29 days ahead (its calendar greys out day 30;
  *  tested 17 Nov 2026, though Meta's help says 75 days). The picker's earliest choice is 30 minutes
  *  (the poster needs a minute or two to pick it up and fill the form); the server refuses anything under 25. */

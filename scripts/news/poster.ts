@@ -10,19 +10,24 @@
 //   npx tsx --env-file=.env.local --conditions=react-server scripts/news/poster.ts login        sign in once
 //   npx tsx --env-file=.env.local --conditions=react-server scripts/news/poster.ts run          keep working the queue
 //   npx tsx --env-file=.env.local --conditions=react-server scripts/news/poster.ts once <id>   one draft, now
+//   npx tsx --env-file=.env.local --conditions=react-server scripts/news/poster.ts xdry <id>     X test: fill, attach, discard
+//   npx tsx --env-file=.env.local --conditions=react-server scripts/news/poster.ts xcheck       daily X sign-in check
 //   npx tsx --env-file=.env.local --conditions=react-server scripts/news/poster.ts dry <id> [igAt ms]
 //        test run: fills Instagram's scheduler for the draft's picked time (or igAt) and checks it, then closes the
 //        dialog WITHOUT scheduling; no tweet, nothing saved on the draft.
-// The launchd agent `me.tradr.media-poster` runs `run` in the background (scripts/news/poster.plist).
+// The launchd agent `me.tradr.media-poster` runs `run` in the background (scripts/news/poster.plist);
+// `me.tradr.media-xcheck` runs `xcheck` every day at 09:00 (scripts/news/xcheck.plist).
 import { mkdir, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { chromium, type BrowserContext, type Page } from "playwright-core";
+import { chromium, type BrowserContext, type Locator, type Page, type Response } from "playwright-core";
+import { noteSara } from "./office-note";
 import { getNews, getNewsDesk, listNews, mutateNews } from "../../src/lib/server/store";
 import { sendNtfy } from "../../src/lib/server/notify";
 import { endSlideOf, isReel, type NewsDraft } from "../../src/lib/news";
 
-const PROFILE = path.join(os.homedir(), "Library/Application Support/TradrMediaPoster");
+// POSTER_PROFILE: another profile folder, for tests on a COPY of the real one (24 Nov 2026).
+const PROFILE = process.env.POSTER_PROFILE || path.join(os.homedir(), "Library/Application Support/TradrMediaPoster");
 const IG_HANDLE = "tradr__app";
 const X_HANDLE = "tradr_app";
 const TZ = "Europe/Rome";
@@ -94,12 +99,20 @@ async function dismiss(page: Page) {
   }
 }
 
-/** Whether x.com is signed in as @tradr_app. X dropped the side-nav account button (Nov 2026); the nav's Profile link
- *  (href "/tradr_app") is the signal now, with the old button kept as a fallback. */
+/** Whether x.com is signed in as @tradr_app: the nav's Profile link (href "/tradr_app"), language-free, with the old
+ *  account button as a fallback (X dropped it in Nov 2026). Waits up to 15 s for the nav; a login page is a plain no. */
 async function xSignedIn(page: Page) {
-  if (await page.locator(`nav a[href="/${X_HANDLE}" i]`).count().catch(() => 0)) return true;
-  const who = await page.locator('[data-testid="SideNav_AccountSwitcher_Button"]').innerText({ timeout: 3000 }).catch(() => "");
-  return who.includes(`@${X_HANDLE}`);
+  const own = page.locator(`nav a[href="/${X_HANDLE}" i], [role="navigation"] a[href="/${X_HANDLE}" i]`).first();
+  const old = page.locator('[data-testid="SideNav_AccountSwitcher_Button"]').first();
+  const login = page.locator('a[href="/login"], a[href*="/i/flow/login"], input[autocomplete="username"]').first();
+  for (let i = 0; i < 30; i++) {
+    if (/\/(login|i\/flow\/login|logout)/.test(new URL(page.url()).pathname)) return false;
+    if (await own.count().catch(() => 0)) return true;
+    if ((await old.innerText({ timeout: 200 }).catch(() => "")).includes(`@${X_HANDLE}`)) return true;
+    if (i > 10 && (await login.count().catch(() => 0))) return false;
+    await sleep(500);
+  }
+  return false;
 }
 
 async function igSignedIn(page: Page) {
@@ -232,29 +245,194 @@ async function scheduleInstagram(page: Page, d: NewsDraft, slides: string[], igA
   await page.getByRole("button", { name: "Done", exact: true }).first().click().catch(() => {});
 }
 
-/** Posts the tweet with the hook slide (a Reel: its video) from x.com and returns its URL. */
-async function postTweet(page: Page, d: NewsDraft, hook: string) {
-  await page.goto("https://x.com/compose/post", { waitUntil: "domcontentloaded" });
-  await page.waitForTimeout(4000);
-  await dismiss(page);
-  if (!(await xSignedIn(page))) throw new Error(`X isn't signed in as @${X_HANDLE} in the poster's Chrome. Run the login step.`);
-  const box = page.locator('[data-testid="tweetTextarea_0"]').first();
-  await box.waitFor({ timeout: 20000 });
-  await box.click();
-  await typeLines(page, d.x);
-  await page.locator('input[data-testid="fileInput"]').first().setInputFiles(hook);
-  await page.locator('[data-testid="attachments"] img, [data-testid="attachments"] [role="img"], [data-testid="attachments"] video').first().waitFor({ timeout: 60000 });
-  if (lines(await box.innerText()) !== lines(d.x)) throw new Error("The tweet text didn't come out exactly as written.");
-  const btn = page.locator('[data-testid="tweetButton"]').first();
-  await page.waitForFunction(() => document.querySelector('[data-testid="tweetButton"]')?.getAttribute("aria-disabled") !== "true", null, { timeout: 180000 });
-  const posted = page.waitForResponse((r) => /CreateTweet/.test(r.url()) && r.request().method() === "POST", { timeout: 60000 });
-  await dismiss(page);
-  await btn.click();
-  const res = await posted;
-  const body = await res.json().catch(() => null);
-  const id = body?.data?.create_tweet?.tweet_results?.result?.rest_id as string | undefined;
-  if (!res.ok() || !id) throw new Error(`X didn't confirm the tweet (${res.status()}).`);
-  return `https://x.com/${X_HANDLE}/status/${id}`;
+// ---------- X (rewritten 24 Nov 2026) ----------
+// On 23 Nov 2026 X rebuilt its compose box: a plain <textarea> (aria-label = "What's happening?" in the account's
+// language, "Che c'è di nuovo?" today), no data-testid on the box, the file input, the attachments or the Post button.
+// So nothing below depends on one language or one data-testid: the compose dialog is the [role=dialog] holding a
+// textarea, the file input is the dialog's input[type=file], the upload is confirmed from X's own upload replies
+// (upload.x.com …/media/upload.json: INIT → APPEND → FINALIZE → STATUS succeeded) and the Post button is found by
+// its place in the dialog (the last plain text button; "Post" or a translation preferred).
+
+/** X's upload replies seen on this page: media id → where it stands. */
+function watchUploads(page: Page) {
+  const media = new Map<string, "uploading" | "processing" | "done" | "failed">();
+  let error = "";
+  const on = async (r: Response) => {
+    let u: URL;
+    try { u = new URL(r.url()); } catch { return; }
+    if (!/(^|\.)(x|twitter)\.com$/.test(u.hostname) || !/\/media\/upload(\.json)?$/.test(u.pathname)) return;
+    const cmd = (u.searchParams.get("command") || "").toUpperCase();
+    let id = u.searchParams.get("media_id");
+    if (!r.ok()) { error = `X refused the upload (${cmd || "upload"} ${r.status()})`; if (id) media.set(id, "failed"); return; }
+    const b = await r.json().catch(() => null);
+    if (cmd === "INIT") { id = b?.media_id_string ?? (b?.media_id != null ? String(b.media_id) : id); if (id) media.set(id, "uploading"); return; }
+    if (!id) return;
+    if (cmd.startsWith("APPEND")) { if (!media.has(id)) media.set(id, "uploading"); return; }
+    if (cmd === "FINALIZE" || cmd === "STATUS") {
+      const st = b?.processing_info?.state as string | undefined;
+      if (st === "failed") { media.set(id, "failed"); error = `X couldn't process the media: ${b?.processing_info?.error?.message ?? b?.processing_info?.error?.name ?? "no reason given"}`; }
+      else if (!st || st === "succeeded") media.set(id, "done");
+      else media.set(id, "processing");
+    }
+  };
+  page.on("response", on);
+  return { media, error: () => error, stop: () => page.off("response", on) };
+}
+
+/** The open compose dialog: the [role=dialog] that holds a text box. */
+const composeDialog = (page: Page) =>
+  page.locator('[role="dialog"]').filter({ has: page.locator('textarea, [role="textbox"], [contenteditable="true"]') }).last();
+
+/** Marks the dialog's Post button (data-tradr-post) and returns its state, or null if there isn't one. */
+async function markPostButton(dlg: Locator) {
+  return dlg.evaluate((el) => {
+    el.querySelectorAll("[data-tradr-post]").forEach((b) => b.removeAttribute("data-tradr-post"));
+    const old = el.querySelector<HTMLElement>('[data-testid="tweetButton"], [data-testid="tweetButtonInline"]');
+    const plain = [...el.querySelectorAll<HTMLElement>('button, [role="button"]')].filter((b) => {
+      const t = b.innerText.trim();
+      const r = b.getBoundingClientRect();
+      return t && r.width > 0 && r.height > 0 && !b.getAttribute("aria-haspopup") && (!b.getAttribute("aria-label") || b.getAttribute("aria-label") === t);
+    });
+    const named = plain.filter((b) => /^(post|pubblica|posta|publicar|publier|posten|veröffentlichen|tweet|twitta)$/i.test(b.innerText.trim()));
+    const btn = old ?? named[named.length - 1] ?? plain[plain.length - 1];
+    if (!btn) return null;
+    btn.setAttribute("data-tradr-post", "1");
+    const off = (btn as HTMLButtonElement).disabled || btn.getAttribute("aria-disabled") === "true";
+    return { text: btn.innerText.trim(), enabled: !off };
+  });
+}
+
+/** The new tweet's id in a CreateTweet-style reply (data.create_tweet.tweet_results.result.rest_id, or the note-tweet twin). */
+function restIdOf(body: unknown): string | null {
+  const seen = new Set<unknown>();
+  const walk = (o: unknown, depth: number): string | null => {
+    if (!o || typeof o !== "object" || seen.has(o) || depth > 8) return null;
+    seen.add(o);
+    const r = (o as { tweet_results?: { result?: { rest_id?: unknown; tweet?: { rest_id?: unknown } } } }).tweet_results?.result;
+    const id = r?.rest_id ?? r?.tweet?.rest_id;
+    if (typeof id === "string" && /^\d+$/.test(id)) return id;
+    for (const v of Object.values(o)) { const f = walk(v, depth + 1); if (f) return f; }
+    return null;
+  };
+  return walk((body as { data?: unknown })?.data, 0);
+}
+
+/** Closes the compose dialog and discards what's in it (never "Save"), then checks it's gone. */
+async function discardCompose(page: Page) {
+  const dlg = composeDialog(page);
+  if (!(await dlg.count())) return;
+  // The close (×) is the dialog's first button; "Close"/"Chiudi" preferred.
+  const close = dlg.getByRole("button", { name: /^(close|chiudi|chiudere|cerrar|fermer|schließen)$/i }).first();
+  if (await close.count()) await close.click(); else await dlg.locator('button, [role="button"]').first().click();
+  // "Save post?" → Discard ("Cestina"). The left / first button of that small dialog is Discard; Save is never pressed.
+  const ask = page.locator('[role="dialog"], [role="alertdialog"]').filter({ hasNot: page.locator("textarea") }).last();
+  if (await ask.waitFor({ timeout: 5000 }).then(() => true, () => false)) {
+    const named = ask.getByRole("button", { name: /^(discard|cestina|elimina|scarta|descartar|supprimer|verwerfen)$/i }).first();
+    if (await named.count()) await named.click();
+    else {
+      const btns = ask.locator("button:visible");
+      const texts = await btns.allInnerTexts();
+      const i = texts.findIndex((t) => t.trim() && !/^(save|salva|guardar|enregistrer|speichern)$/i.test(t.trim()));
+      if (i < 0) throw new Error("Couldn't find X's Discard button.");
+      await btns.nth(i).click();
+    }
+  }
+  await page.waitForFunction(() => ![...document.querySelectorAll('[role="dialog"]')].some((d) => d.querySelector("textarea")), null, { timeout: 10000 })
+    .catch(() => { throw new Error("X's compose box didn't close after Discard."); });
+}
+
+/** Posts the tweet with the hook slide (a Reel: its video) from x.com and returns its URL.
+ *  `dry`: does everything (text, media, upload, Post button enabled), then discards the draft instead of posting. */
+async function postTweet(page: Page, d: NewsDraft, hook: string, { dry = false } = {}): Promise<string> {
+  if (process.env.TRADR_POSTER_TEST_X_FAIL) throw new Error(`Test failure (TRADR_POSTER_TEST_X_FAIL): ${process.env.TRADR_POSTER_TEST_X_FAIL}`);
+  const uploads = watchUploads(page);
+  try {
+    await page.goto("https://x.com/compose/post", { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(3000);
+    await dismiss(page);
+    if (!(await xSignedIn(page))) throw new Error(`X isn't signed in as @${X_HANDLE} in the poster's Chrome. Run the login step.`);
+    const dlg = composeDialog(page);
+    await dlg.waitFor({ timeout: 20000 }).catch(() => { throw new Error("X's compose box didn't open (no dialog with a text box on x.com/compose/post)."); });
+    const box = dlg.locator('textarea, [role="textbox"], [contenteditable="true"]').first();
+    const plain = (await box.evaluate((el) => el.tagName)) === "TEXTAREA";
+    const read = () => box.evaluate((el) => (el instanceof HTMLTextAreaElement ? el.value : (el as HTMLElement).innerText));
+    await box.click();
+    if ((await read()).trim()) { await page.keyboard.press("ControlOrMeta+A"); await page.keyboard.press("Backspace"); }
+    // A textarea takes the text in one go, line breaks included; a rich box needs Enter between lines.
+    if (plain) await page.keyboard.insertText(d.x); else await typeLines(page, d.x);
+    await sleep(600);
+    if (lines(await read()) !== lines(d.x)) throw new Error("The tweet text didn't come out exactly as written.");
+
+    const input = dlg.locator('input[type="file"]').first();
+    await input.waitFor({ state: "attached", timeout: 10000 }).catch(() => { throw new Error("Couldn't find X's media input in the compose box."); });
+    await input.setInputFiles(hook);
+    // Uploaded = X confirmed every file (FINALIZE, and STATUS "succeeded" for video), the preview is in the box,
+    // no progress bar is left, and the Post button is on.
+    const until = Date.now() + 5 * 60e3;
+    let last = "";
+    for (;;) {
+      if (uploads.error()) throw new Error(uploads.error());
+      const states = [...uploads.media.values()];
+      const preview = await dlg.locator('img[src^="blob:"], video').count();
+      // The upload's own bar (a <progress>, labelled with the file name); not the character-count ring (role=progressbar, max 280).
+      const busy = await dlg.evaluate((el, name) => [...el.querySelectorAll<HTMLElement>('progress, [role="progressbar"]')]
+        .filter((p) => p.tagName === "PROGRESS" || (p.getAttribute("aria-label") ?? "").includes(name)).length, path.basename(hook));
+      const btn = await markPostButton(dlg);
+      last = `uploads ${states.join(",") || "none"}, preview ${preview}, progress ${busy}, Post ${btn ? (btn.enabled ? "on" : "off") : "missing"}`;
+      if (states.length && states.every((s) => s === "done") && preview && !busy && btn?.enabled) break;
+      if (Date.now() > until) throw new Error(`The ${hook.endsWith(".mp4") ? "video" : "image"} didn't finish uploading to X in 5 minutes (${last}).`);
+      await sleep(1000);
+    }
+    if (lines(await read()) !== lines(d.x)) throw new Error("The tweet text changed while the media uploaded.");
+    log(d.id, `x: ready to post (${last})`);
+    if (dry) {
+      await page.screenshot({ path: path.join(os.tmpdir(), "tradr-poster", `${d.id}-x-dry.png`) }).catch(() => {});
+      await discardCompose(page);
+      return "dry run: not posted";
+    }
+
+    // Post, then read the new tweet's id from X's reply; a toast link, then the profile, as fallbacks.
+    let id: string | null = null;
+    let clicked = Date.now();
+    const onReply = async (r: Response) => {
+      if (id || r.request().method() !== "POST" || !/\/graphql\/[^/]+\/\w*Create\w*Tweet/i.test(r.url())) return;
+      id = restIdOf(await r.json().catch(() => null)) ?? id;
+    };
+    page.on("response", onReply);
+    try {
+      await dismiss(page);
+      clicked = Date.now();
+      await dlg.locator("[data-tradr-post]").click();
+      const toast = page.locator(`[role="alert"] a[href*="/${X_HANDLE}/status/" i], [role="status"] a[href*="/${X_HANDLE}/status/" i]`).first();
+      for (let i = 0; i < 90 && !id; i++) {
+        const href = await toast.getAttribute("href", { timeout: 200 }).catch(() => null);
+        const m = href?.match(/\/status\/(\d+)/);
+        if (m) id = m[1];
+        else await sleep(800);
+      }
+    } finally { page.off("response", onReply); }
+    if (!id) id = await findOwnTweet(page, d.x, clicked);
+    if (!id) throw new Error(`X didn't confirm the tweet. It MAY have gone out: check x.com/${X_HANDLE} before trying again.`);
+    return `https://x.com/${X_HANDLE}/status/${id}`;
+  } finally { uploads.stop(); }
+}
+
+/** When a tweet was made, from its id (X's ids carry the time). */
+const tweetTime = (id: string) => Number(BigInt(id) >> 22n) + 1288834974657;
+
+/** The newest @tradr_app tweet on the profile whose text starts like `text` (fallback when X's reply wasn't read). */
+async function findOwnTweet(page: Page, text: string, since: number) {
+  const first = lines(text).split("\n")[0].slice(0, 60);
+  await page.goto(`https://x.com/${X_HANDLE}`, { waitUntil: "domcontentloaded" }).catch(() => {});
+  await page.locator("article").first().waitFor({ timeout: 20000 }).catch(() => {});
+  return page.locator("article").evaluateAll((arts, [h, f]) => {
+    for (const a of arts.slice(0, 6)) {
+      const t = (a as HTMLElement).innerText.replace(/ /g, " ");
+      const link = [...a.querySelectorAll<HTMLAnchorElement>(`a[href*="/status/"]`)].find((l) => l.getAttribute("href")!.toLowerCase().startsWith(`/${h}/status/`));
+      if (link && t.includes(f)) return link.getAttribute("href")!.match(/\/status\/(\d+)/)?.[1] ?? null;
+    }
+    return null;
+  }, [X_HANDLE.toLowerCase(), first] as const).then((id) => (id && tweetTime(id) >= since - 120e3 ? id : null)).catch(() => null);
 }
 
 async function work(ctx: BrowserContext, id: string) {
@@ -268,8 +446,10 @@ async function work(ctx: BrowserContext, id: string) {
     });
   await set({ state: "running", error: null });
   const page = ctx.pages()[0] ?? (await ctx.newPage());
+  let step: "files" | "ig" | "x" = "files";
   try {
     const slides = await files(d);
+    step = "ig";
     d = (await getNews(id))!;
     if (!d.post!.igScheduledAt) {
       log(id, "instagram: scheduling for", new Date(d.post!.igAt).toISOString());
@@ -278,6 +458,7 @@ async function work(ctx: BrowserContext, id: string) {
     }
     if (d.xOff) log(id, "x: off for this draft (Instagram only), no tweet");
     else if (!d.post!.tweetUrl) {
+      step = "x";
       log(id, "x: posting");
       const url = await postTweet(page, d, slides[0]);
       await set({ tweetUrl: url }, `Tweet posted: ${url}`);
@@ -296,7 +477,29 @@ async function work(ctx: BrowserContext, id: string) {
     await page.screenshot({ path: path.join(os.tmpdir(), "tradr-poster", `${id}-fail.png`) }).catch(() => {});
     await set({ state: "failed", error: msg }, `Post failed: ${msg}`);
     await sendNtfy("News post failed", `${d.title}: ${msg}`, `/news?id=${id}`).catch(() => {});
+    // An X failure is never quiet (24 Nov 2026): Sara gets a note in HQ, the board shows "X failed".
+    if (step === "x") {
+      const igDone = !!(await getNews(id).catch(() => null))?.post?.igScheduledAt;
+      const r = await noteSara(`X post failed: ${d.title}`.slice(0, 200),
+        `The tweet for "${d.title}" (draft ${id}) did not go out.\nError: ${msg}\n${igDone ? "Instagram went through, so the post is on Instagram only for now (not on purpose)." : "Instagram was not scheduled either."} The board shows it as "X failed". Nothing was retried.`,
+        `Tradr Media → X → To review (draft ${id.slice(0, 8)})`);
+      log(id, r.ok ? `note to Sara: left (X failed): ${r.out}` : `note to Sara failed: ${r.out}`);
+    }
   }
+}
+
+/** Waits (up to 10 min) while another Chrome has the profile open (the poster working the queue), so the daily check
+ *  never fights it for the profile. */
+async function waitForProfile() {
+  const { readlink } = await import("node:fs/promises");
+  for (let i = 0; i < 60; i++) {
+    const pid = Number((await readlink(path.join(PROFILE, "SingletonLock")).catch(() => "")).split("-").pop());
+    let alive = false;
+    if (pid) try { process.kill(pid, 0); alive = true; } catch { /* gone */ }
+    if (!alive) return;
+    await sleep(10_000);
+  }
+  throw new Error("the poster's Chrome profile stayed busy for 10 minutes");
 }
 
 async function queued() {
@@ -343,6 +546,45 @@ async function main() {
     } finally { await ctx.close(); }
     return;
   }
+  if (cmd === "xdry") {
+    // X test run (24 Nov 2026): fills X's compose box with the draft's X text and its hook (a Reel: the video), waits for
+    // the upload, checks Post is enabled, then DISCARDS the draft. Never posts, writes nothing on the draft.
+    if (!arg) throw new Error("usage: poster.ts xdry <draftId>");
+    const d = await getNews(arg);
+    if (!d) throw new Error("No such draft.");
+    const ctx = await browser();
+    try {
+      const page = ctx.pages()[0] ?? (await ctx.newPage());
+      try { console.log(await postTweet(page, d, (await files(d))[0], { dry: true })); }
+      catch (e) { await page.screenshot({ path: path.join(os.tmpdir(), "tradr-poster", `${d.id}-x-dry-fail.png`) }).catch(() => {}); throw e; }
+      console.log(JSON.stringify({ ok: true, draft: d.id, posted: false }));
+    } finally { await ctx.close(); }
+    return;
+  }
+  if (cmd === "xcheck") {
+    // The daily check (launchd me.tradr.media-xcheck, 09:00 Rome; 24 Nov 2026): one x.com page load in the poster's
+    // Chrome; if it isn't signed in as @tradr_app (or the check can't run), Sara gets a note. Never posts.
+    let problem = "";
+    try {
+      await waitForProfile();
+      const ctx = await browser();
+      try {
+        const page = ctx.pages()[0] ?? (await ctx.newPage());
+        await page.goto("https://x.com/home", { waitUntil: "domcontentloaded", timeout: 60000 });
+        if (!(await xSignedIn(page))) {
+          await page.screenshot({ path: path.join(os.tmpdir(), "tradr-poster", "xcheck-fail.png") }).catch(() => {});
+          problem = `X isn't signed in as @${X_HANDLE} in the poster's Chrome (the page shows ${new URL(page.url()).pathname}). Every X post will fail until someone signs in again.`;
+        }
+      } finally { await ctx.close(); }
+    } catch (e) { problem = `The daily X check couldn't run: ${(e as Error).message.split("\n")[0].slice(0, 300)}`; }
+    if (process.env.TRADR_XCHECK_TEST_FAIL) problem = `Test failure (TRADR_XCHECK_TEST_FAIL): ${process.env.TRADR_XCHECK_TEST_FAIL}`;
+    if (!problem) { log(`xcheck: signed in as @${X_HANDLE}`); return; }
+    log("xcheck:", problem);
+    const r = await noteSara(`X sign-in check failed (@${X_HANDLE})`, `${problem}\nFix: on the Mac, sign X back in to @${X_HANDLE} in the poster's Chrome (scripts/news/poster.ts login). Nothing was posted.`, "The Mac's poster (me.tradr.media-poster)");
+    log(r.ok ? `note to Sara: left (xcheck): ${r.out}` : `note to Sara failed: ${r.out}`);
+    process.exitCode = 1;
+    return;
+  }
   if (cmd === "once") {
     if (!arg) throw new Error("usage: poster.ts once <draftId>");
     const ctx = await browser();
@@ -364,7 +606,7 @@ async function main() {
       await sleep(30_000);
     }
   }
-  console.log("commands: login | check | once <draftId> | dry <draftId> [igAt] | run");
+  console.log("commands: login | check | once <draftId> | dry <draftId> [igAt] | xdry <draftId> | xcheck | run");
 }
 
-main().then(() => { if (process.argv[2] !== "run") process.exit(0); }, (e) => { console.error(e); process.exit(1); });
+main().then(() => { if (process.argv[2] !== "run") process.exit(process.exitCode ?? 0); }, (e) => { console.error(e); process.exit(1); });

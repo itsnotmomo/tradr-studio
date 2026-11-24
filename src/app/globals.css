@@ -271,7 +271,7 @@ dialog.sheet::backdrop { background: rgba(20, 20, 18, .35); }
 .media-state { --s: var(--s-draft); display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--s); background: color-mix(in srgb, var(--s) 11%, transparent); padding: 4px 10px 4px 9px; border-radius: 999px; white-space: nowrap; }
 .media-state::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .media-card[data-state="ready"] { border-color: color-mix(in srgb, var(--green) 45%, var(--line)); }
-.media-card[data-state="failed"] { border-color: color-mix(in srgb, var(--s-failed) 45%, var(--line)); }
+.media-card[data-state="failed"], .media-card[data-xfail] { border-color: color-mix(in srgb, var(--s-failed) 45%, var(--line)); }
 .media-tag { font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; padding: 4px 7px; border-radius: 6px; background: var(--ink); color: #fff; }
 .media-chip { font-size: 11.5px; font-weight: 650; padding: 3px 9px; border-radius: 999px; background: var(--soft); color: var(--muted); border: 1px solid var(--line); }
 .media-line { font-size: 13.5px; line-height: 1.45; }

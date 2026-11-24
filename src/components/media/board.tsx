@@ -17,7 +17,7 @@ import { copyText } from "@/components/publish";
 import { api, fetcher } from "@/lib/client/api";
 import { imageFiles, toJpeg, uploadBlob } from "@/lib/client/upload";
 import {
-  IG_MAX_LEAD_MS, endSlideOf, isReel, onPlatform, platformState, tabOf, PLATFORM_STATE_LABEL,
+  IG_MAX_LEAD_MS, endSlideOf, isReel, onPlatform, platformState, stateLabel, tabOf, xFailed, PLATFORM_STATE_LABEL,
   type BoardTab, type NewsDesk, type NewsDraft, type NewsSlide, type NewsSuggestion, type Platform, type PlatformState,
 } from "@/lib/news";
 import { relTime } from "@/lib/time";
@@ -173,8 +173,9 @@ function PostCard({ d, s, platform, end, now, act, remove }: {
   const reel = isReel(d);
   const slides: (NewsSlide & { fixed?: boolean })[] = [...d.slides, ...(end && !reel ? [{ url: end, kind: "image" as const, w: 1080, h: 1350, fixed: true }] : [])];
   const other: Platform = platform === "ig" ? "x" : "ig";
-  const otherState = platformState(d, other, now);
-  const otherLabel = !onPlatform(d, other) ? "off" : PLATFORM_STATE_LABEL[otherState].replace(" · ready to post", "");
+  const otherLabel = !onPlatform(d, other) ? "off" : stateLabel(d, other, now).replace(" · ready to post", "").replace(/^X failed$/, "failed");
+  // The tweet failed after Instagram went through (24 Nov 2026): said loudly on both boards, never a quiet Instagram-only.
+  const xFail = xFailed(d, now);
   const busyPost = inFlight(d);
 
   // The one obvious action for this state; everything else is quiet.
@@ -187,14 +188,15 @@ function PostCard({ d, s, platform, end, now, act, remove }: {
   })();
 
   return (
-    <article className={`media-card ${platform}`} data-state={s}>
+    <article className={`media-card ${platform}`} data-state={s} data-xfail={platform === "ig" && xFail ? "" : undefined}>
       <div className="media-card-preview">
         {platform === "ig" ? <Carousel slides={slides} reel={reel} /> : <TweetPreview d={d} hook={d.slides[0]} reel={reel} />}
       </div>
 
       <div className="media-card-body">
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="media-state" style={{ "--s": STATE_TONE[s] } as React.CSSProperties}>{PLATFORM_STATE_LABEL[s]}</span>
+          <span className="media-state" style={{ "--s": STATE_TONE[s] } as React.CSSProperties}>{platform === "x" ? stateLabel(d, "x", now) : PLATFORM_STATE_LABEL[s]}</span>
+          {platform === "ig" && xFail && <span className="media-state" style={{ "--s": STATE_TONE.failed } as React.CSSProperties}>X failed</span>}
           {reel && <span className="media-chip">Reel</span>}
           {d.tag && <span className="media-tag">{d.tag}</span>}
           {d.collab && <span className="news-collab">Collab @{d.collab.handle}</span>}
@@ -205,6 +207,7 @@ function PostCard({ d, s, platform, end, now, act, remove }: {
         <h2 className="media-title">{d.title}</h2>
 
         <Status d={d} s={s} platform={platform} now={now} />
+        {platform === "ig" && xFail && <div className="media-line danger"><b>X failed:</b> the tweet didn&apos;t go out, so this post is on Instagram only for now (the X board has it under To review). {d.post?.error}</div>}
 
         {mode === "post" ? (
           <PostWhen d={d} busy={busy === "post"} onCancel={() => setMode("view")}
@@ -278,7 +281,7 @@ function Status({ d, s, platform, now }: { d: NewsDraft; s: PlatformState; platf
   const p = d.post;
   const when = (ms: number) => `${WHEN_FMT.format(ms)} Rome`;
   if (s === "changes") return <div className="news-note"><b>Changes asked:</b> “{d.changeNote}” The next scout run redoes it, or say <b>fix it</b> in Claude Code.</div>;
-  if (s === "failed") return <div className="media-line danger"><b>Posting stopped:</b> {p?.error}</div>;
+  if (s === "failed") return <div className="media-line danger"><b>{platform === "x" && p?.igScheduledAt ? "X failed (Instagram went through):" : "Posting stopped:"}</b> {p?.error}</div>;
   if (s === "posting") return <div className="media-line flex items-center gap-2"><Spinner /> {p?.state === "queued" ? "Waiting for the poster on the Mac (within a minute while it's on)." : "Posting now…"}</div>;
   if (platform === "ig") {
     if (s === "scheduled" && p) return <div className="media-line">Goes live <b>{when(p.igAt)}</b> ({relTime(p.igAt, now)}). Add the music from the phone: Profile → ☰ → Scheduled content.</div>;
