@@ -35,8 +35,25 @@ for i = 2, #ARGV do
 end
 return 1`;
 
+// News drafts whose post is waiting for the Mac's poster (25 Nov 2026, Upstash bandwidth): a small set kept in the same
+// Lua write as the draft itself, so it is always current. The poster checks it every 30 s instead of reading every draft.
+const NEWS_CAS = `
+local cur = redis.call('HGET', KEYS[2], ARGV[1])
+if (cur or '0') ~= ARGV[2] then return -1 end
+redis.call('HSET', KEYS[1], ARGV[1], ARGV[3])
+local nr = redis.call('HINCRBY', KEYS[2], ARGV[1], 1)
+if ARGV[4] == '1' then redis.call('SADD', KEYS[3], ARGV[1]) else redis.call('SREM', KEYS[3], ARGV[1]) end
+return nr`;
+
+/** Sets the marker for one draft to what a full read saw, only if the draft hasn't changed since (same rev). */
+const SYNC_QUEUED = `
+local cur = redis.call('HGET', KEYS[1], ARGV[1])
+if (cur or '0') ~= ARGV[2] then return 0 end
+if ARGV[3] == '1' then redis.call('SADD', KEYS[2], ARGV[1]) else redis.call('SREM', KEYS[2], ARGV[1]) end
+return 1`;
+
 type Coll = "posts" | "inspo" | "plans" | "kv" | "news" | "newsq";
-const K = { due: "due", inflight: "inflight" };
+const K = { due: "due", inflight: "inflight", newsQueued: "news:queued" };
 
 export class ConflictError extends Error {}
 export class NotFoundError extends Error {}
@@ -81,6 +98,12 @@ function postIndexArgs(p: Post) {
 async function cas(coll: Coll, id: string, expectedRev: number, doc: { rev?: number }, extra: string[] = []) {
   const { rev: _rev, ...body } = doc;
   void _rev;
+  if (coll === "news") {
+    const queued = (body as Partial<NewsDraft>).post?.state === "queued" ? "1" : "0";
+    const r = await redis().eval(NEWS_CAS, [coll, coll + ":rev", K.newsQueued], [id, String(expectedRev), JSON.stringify(body), queued]);
+    if (Number(r) === -1) throw new ConflictError(`${coll}/${id} changed`);
+    return Number(r);
+  }
   const r = await redis().eval(CAS, [coll, coll + ":rev", K.due, K.inflight], [id, String(expectedRev), JSON.stringify(body), ...extra]);
   if (Number(r) === -1) throw new ConflictError(`${coll}/${id} changed`);
   return Number(r);
@@ -239,6 +262,25 @@ export const mutateNews = (id: string, fn: (d: NewsDraft) => NewsDraft | void) =
   });
 export async function deleteNews(id: string) {
   await redis().eval(DEL, ["news", "news:rev", K.due, K.inflight], [id]);
+  await redis().srem(K.newsQueued, id);
+}
+
+/** The ids of drafts waiting for the poster: a few bytes, instead of every draft. */
+export const queuedNewsIds = async () => ((await redis().smembers(K.newsQueued)) as string[]).map(String);
+
+/** After a full read: brings the marker in line with what was read (a draft queued by older code, a marker left by a
+ *  deleted draft). Drafts changed since the read are left alone; their own write already set the marker. */
+export async function syncQueuedNews(drafts: NewsDraft[]) {
+  const marked = new Set(await queuedNewsIds());
+  const want = new Map(drafts.map((d) => [d.id, d] as const));
+  const fix: [string, number, boolean][] = [];
+  for (const d of drafts) {
+    const q = d.post?.state === "queued";
+    if (q !== marked.has(d.id)) fix.push([d.id, d.rev, q]);
+  }
+  for (const id of marked) if (!want.has(id)) fix.push([id, 0, false]);
+  for (const [id, rev, q] of fix) await redis().eval(SYNC_QUEUED, ["news:rev", K.newsQueued], [id, String(rev), q ? "1" : "0"]);
+  return fix.length;
 }
 
 export const listSuggestions = () => readAll<NewsSuggestion>("newsq");

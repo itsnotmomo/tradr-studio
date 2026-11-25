@@ -43,8 +43,11 @@ const REVIEW_ORDER: Record<PlatformState, number> = { failed: 0, ready: 1, revie
 
 export function useNews() {
   return useSWR<Data>(KEY, fetcher, {
-    // Faster while the poster on the Mac is working on something.
-    refreshInterval: (d?: Data) => (d?.drafts.some((x) => x.post && (x.post.state === "queued" || x.post.state === "running")) ? 5_000 : 30_000),
+    // Every 2 minutes while open (Mohamed, 25 Nov 2026: Upstash bandwidth), every 5 s while the poster on the Mac is
+    // working on something; on opening and on coming back to the tab; never while the tab is hidden.
+    refreshInterval: (d?: Data) => (d?.drafts.some((x) => x.post && (x.post.state === "queued" || x.post.state === "running")) ? 5_000 : 120_000),
+    refreshWhenHidden: false,
+    revalidateOnFocus: true,
   });
 }
 

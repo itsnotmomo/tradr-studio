@@ -22,7 +22,7 @@ import os from "node:os";
 import path from "node:path";
 import { chromium, type BrowserContext, type Locator, type Page, type Response } from "playwright-core";
 import { noteSara } from "./office-note";
-import { getNews, getNewsDesk, listNews, mutateNews } from "../../src/lib/server/store";
+import { getNews, getNewsDesk, listNews, mutateNews, queuedNewsIds, syncQueuedNews } from "../../src/lib/server/store";
 import { sendNtfy } from "../../src/lib/server/notify";
 import { endSlideOf, isReel, type NewsDraft } from "../../src/lib/news";
 
@@ -502,9 +502,17 @@ async function waitForProfile() {
   throw new Error("the poster's Chrome profile stayed busy for 10 minutes");
 }
 
+/** Reads every draft (about 650 KB) and returns the queued ones, oldest first. Also repairs the "news:queued" marker. */
 async function queued() {
-  return (await listNews()).filter((d) => d.post?.state === "queued").sort((a, b) => a.post!.requestedAt - b.post!.requestedAt);
+  const all = await listNews();
+  const fixed = await syncQueuedNews(all);
+  if (fixed) log(`poster: queue marker repaired for ${fixed} draft${fixed === 1 ? "" : "s"}`);
+  return all.filter((d) => d.post?.state === "queued").sort((a, b) => a.post!.requestedAt - b.post!.requestedAt);
 }
+
+/** Upstash bandwidth (25 Nov 2026): every 30 s the poster reads only the small "news:queued" marker. It reads every
+ *  draft at start-up, when the marker says something is queued, and as a safety net every 30 minutes. */
+const FULL_READ_EVERY = 30 * 60e3;
 
 async function main() {
   const [cmd, arg] = process.argv.slice(2);
@@ -593,9 +601,12 @@ async function main() {
   }
   if (cmd === "run") {
     log("poster: watching the queue");
+    let lastFull = 0;
     for (;;) {
       try {
-        const q = await queued();
+        const full = Date.now() - lastFull >= FULL_READ_EVERY || (await queuedNewsIds()).length > 0;
+        const q = full ? await queued() : [];
+        if (full) lastFull = Date.now();
         if (q.length) {
           const ctx = await browser();
           try { for (const d of q) await work(ctx, d.id); } finally { await ctx.close(); }
